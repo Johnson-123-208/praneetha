@@ -119,18 +119,23 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
         text: msg.text
       }));
 
-      // Call Groq with proper parameters
+      // Call Groq with proper parameters and strict length limit
       const response = await chatWithGroq(
-        message,  // User's current message
+        `${message}\n\nIMPORTANT: Respond in MAXIMUM 2 short sentences. Be concise and direct.`,  // Force short responses
         formattedHistory,  // Conversation history
         selectedCompany  // Company context
       );
 
-      addMessage('agent', response);
-      speak(response);
+      // Truncate response if still too long (safety measure)
+      const truncatedResponse = response.length > 200
+        ? response.substring(0, 200).trim() + '...'
+        : response;
+
+      addMessage('agent', truncatedResponse);
+      speak(truncatedResponse);
     } catch (error) {
       console.error('Error getting AI response:', error);
-      const errorMsg = "I apologize, I'm having trouble processing that. Could you please try again?";
+      const errorMsg = "I apologize, I'm having trouble. Please try again.";
       addMessage('agent', errorMsg);
       speak(errorMsg);
     }
@@ -369,18 +374,54 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
               <div className="absolute bottom-8 flex space-x-4">
                 <motion.button
                   onClick={toggleMute}
-                  className={`p-4 rounded-full ${isMuted ? 'bg-red-500' : 'bg-secondary-bg'} hover:opacity-90 transition-opacity`}
+                  className={`p-4 rounded-full ${isMuted ? 'bg-red-500' : 'bg-white shadow-premium'} hover:opacity-90 transition-all text-text-dark`}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
+                  title={isMuted ? 'Unmute' : 'Mute'}
                 >
                   {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
                 </motion.button>
 
+                {/* Stop Speaking Button - Only show when agent is speaking */}
+                {isSpeaking && (
+                  <motion.button
+                    onClick={() => {
+                      // Stop speech immediately
+                      window.speechSynthesis.cancel();
+                      setIsSpeaking(false);
+                      // Resume listening
+                      if (!isMuted && recognitionRef.current) {
+                        setTimeout(() => {
+                          try {
+                            recognitionRef.current.start();
+                            setIsListening(true);
+                          } catch (e) {
+                            console.log('Recognition restart error:', e);
+                          }
+                        }, 300);
+                      }
+                    }}
+                    className="p-4 rounded-full bg-orange-500 hover:bg-orange-600 transition-colors text-white shadow-premium"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    title="Stop Speaking"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="6" y="4" width="4" height="16"></rect>
+                      <rect x="14" y="4" width="4" height="16"></rect>
+                    </svg>
+                  </motion.button>
+                )}
+
                 <motion.button
                   onClick={endCall}
-                  className="p-4 rounded-full bg-red-500 hover:bg-red-600 transition-colors"
+                  className="p-4 rounded-full bg-red-500 hover:bg-red-600 transition-colors text-white shadow-premium"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
+                  title="End Call"
                 >
                   <PhoneOff size={24} />
                 </motion.button>
