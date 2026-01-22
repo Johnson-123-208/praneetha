@@ -1,43 +1,88 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
+import { X, Mic, MicOff, Phone, PhoneOff, Globe, User, MessageSquare } from 'lucide-react';
 import { chatWithGroq } from '../utils/groq';
+import { detectLanguage } from '../utils/languageDetection';
+import { crmIntegration } from '../utils/crmIntegration';
+import { ttsService } from '../utils/ttsService';
+import { HospitalPrompt, RestaurantPrompt, ECommercePrompt, DefaultPrompt } from '../prompts/agentPrompts';
 
-const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) => {
+const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const [callState, setCallState] = useState('idle'); // idle, ringing, connected, ended
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [messages, setMessages] = useState([]);
   const [isMuted, setIsMuted] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Advanced conversation state
+  const [convoPhase, setConvoPhase] = useState('intro'); // intro, name_collected, chatting
+  const [userName, setUserName] = useState(user?.user_metadata?.full_name || '');
+  const [sessionId] = useState(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [selectedLanguage, setSelectedLanguage] = useState({ code: 'en-US', name: 'English' });
 
   const recognitionRef = useRef(null);
   const synthesisRef = useRef(null);
   const ringingAudioRef = useRef(null);
+  const chatEndRef = useRef(null);
+
+  const languageLookup = {
+    'en-US': 'English',
+    'hi-IN': 'Hindi',
+    'te-IN': 'Telugu',
+    'ta-IN': 'Tamil',
+    'kn-IN': 'Kannada',
+    'mr-IN': 'Marathi',
+    'ml-IN': 'Malayalam'
+  };
+
+  // Refs for state to avoid stale closures in event listeners
+  const stateRef = useRef({
+    callState,
+    isListening,
+    isSpeaking,
+    isMuted,
+    isOpen,
+    convoPhase,
+    userName
+  });
+
+  // Sync refs with state
+  useEffect(() => {
+    stateRef.current = {
+      callState,
+      isListening,
+      isSpeaking,
+      isMuted,
+      isOpen,
+      convoPhase,
+      userName
+    };
+  }, [callState, isListening, isSpeaking, isMuted, isOpen, convoPhase, userName]);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, transcript]);
 
   // Determine agent gender and avatar based on company
-  // Apollo Hospitals = Female, Tech Mahindra = Male
   const agentGender = selectedCompany?.industry === 'Healthcare' ||
     selectedCompany?.name?.toLowerCase().includes('apollo') ||
     selectedCompany?.name?.toLowerCase().includes('hospital')
     ? 'female' : 'male';
   const agentAvatar = agentGender === 'female' ? '/Female.png' : '/Male.png';
-  const agentVoiceName = agentGender === 'female'
-    ? 'Google UK English Female' // Or 'Microsoft Zira - English (United States)'
-    : 'Google UK English Male';   // Or 'Microsoft David - English (United States)'
 
-  // Initialize speech recognition
-  useEffect(() => {
-    if (!isOpen) return;
-
+  // Speech Recognition Initialization
+  const initRecognition = () => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = selectedLanguage?.code || 'en-US';
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = selectedLanguage.code;
 
-      recognitionRef.current.onresult = (event) => {
+      recognition.onresult = (event) => {
         let interimTranscript = '';
         let finalTranscript = '';
 
@@ -56,27 +101,36 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
         }
       };
 
-      recognitionRef.current.onerror = (event) => {
+      recognition.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
-        if (event.error === 'no-speech') {
-          // Restart if it times out
-          try {
-            recognitionRef.current.stop();
-          } catch (e) { }
+        if (event.error === 'not-allowed') {
+          alert('Microphone access is required for the AI call.');
         }
       };
 
-      recognitionRef.current.onend = () => {
-        // Auto-restart if we're still in connected state and not speaking
-        if (callState === 'connected' && !isSpeaking && !isMuted) {
+      recognition.onend = () => {
+        // Automatically restart if not speaking and not muted
+        const { callState: curCallState, isSpeaking: curIsSpeaking, isMuted: curIsMuted, isOpen: curIsOpen } = stateRef.current;
+        if (curCallState === 'connected' && !curIsSpeaking && !curIsMuted && curIsOpen) {
           try {
-            recognitionRef.current.start();
+            recognition.start();
+            setIsListening(true);
           } catch (e) {
-            console.log('Could not restart recognition automatically');
+            console.log('Recognition restart failed or already running');
           }
+        } else {
+          setIsListening(false);
         }
       };
+
+      recognitionRef.current = recognition;
     }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    initRecognition();
 
     // Play ringing sound
     setCallState('ringing');
@@ -84,18 +138,26 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
     ringingAudioRef.current.loop = true;
     ringingAudioRef.current.play().catch(e => console.log('Audio play failed:', e));
 
-    // Simulate connecting after 3 seconds
     const timer = setTimeout(() => {
-      setCallState('connected');
       if (ringingAudioRef.current) {
         ringingAudioRef.current.pause();
       }
 
-      // Initial greeting - Politely ask for the user's name
-      const greeting = `Hello! I'm your AI assistant from ${selectedCompany?.name}. May I know who I am speaking with today?`;
-      addMessage('agent', greeting);
-      speak(greeting);
-    }, 3000);
+      setCallState('connected');
+
+      // CALLIX INTRODUCTION LOGIC
+      let introMsg = "";
+      if (userName && userName !== 'Guest') {
+        setConvoPhase('chatting');
+        introMsg = `Hi! I'm Callix, your AI assistant for ${selectedCompany?.name}. Great to see you again, ${userName}! How can I assist you today?`;
+      } else {
+        setConvoPhase('onboarding');
+        introMsg = `Hello! I'm Callix, your AI assistant from ${selectedCompany?.name}. To get started, may I know your name and your preferred language?`;
+      }
+
+      addMessage('agent', introMsg);
+      speak(introMsg);
+    }, 1500);
 
     return () => {
       clearTimeout(timer);
@@ -107,55 +169,193 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
       }
       window.speechSynthesis.cancel();
     };
-  }, [isOpen, selectedCompany]);
+  }, [isOpen]);
 
-  // Restart recognition when language changes
-  useEffect(() => {
-    if (recognitionRef.current && callState === 'connected') {
-      recognitionRef.current.lang = selectedLanguage?.code || 'en-US';
-    }
-  }, [selectedLanguage]);
+  const getServiceInfo = (langCode = 'en-US') => {
+    const name = selectedCompany?.name || 'Aarogya';
+    const sMap = {
+      'en-US': {
+        hospital: "I can help with doctor availability, booking appointments (Consultations, Follow-ups, Checkups), or department info.",
+        restaurant: "I can help with menu prices, veg/non-veg options, and table bookings.",
+        ecommerce: "I can track orders, check stock, or manage refunds and support.",
+        default: "I'm here to assist with your queries today."
+      },
+      'te-IN': {
+        hospital: "నేను డాక్టర్ల లభ్యత, అపాయింట్‌మెంట్ బుకింగ్ (సంప్రదింపులు, అనుసరణలు) మరియు విభాగ సమాచారంలో సహాయపడగలను.",
+        restaurant: "నేను మెనూ ధరలు మరియు టేబుల్ బుకింగ్‌లలో సహాయపడతాను.",
+        ecommerce: "నేను ఆర్డర్‌లను ట్రాక్ చేయగలను మరియు ఫిర్యాదులను పరిష్కరించగలను.",
+        default: "నేను ఈరోజు మీ ప్రశ్నలకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను."
+      },
+      'hi-IN': {
+        hospital: "मैं डॉक्टरों की उपलब्धता, अपॉइंटमेंट बुकिंग (परामर्श, अनुवर्ती) और विभाग की जानकारी में मदद कर सकता हूँ।",
+        restaurant: "मैं मेनू कीमतों और टेबल बुकिंग में आपकी सहायता कर सकता हूँ।",
+        ecommerce: "मैं ऑर्डर ट्रैक कर सकता हूँ और रिफंड में मदद कर सकता हूँ।",
+        default: "मैं आज आपके सवालों के लिए यहाँ हूँ।"
+      }
+    };
+
+    const strings = sMap[langCode] || sMap['en-US'];
+    const compKey = name.toLowerCase().includes('hospital') || name.toLowerCase().includes('aarogya') ? 'hospital' :
+      name.toLowerCase().includes('restaurant') || name.toLowerCase().includes('garden') ? 'restaurant' :
+        name.toLowerCase().includes('kart') || name.toLowerCase().includes('commerce') ? 'ecommerce' : 'default';
+
+    return strings[compKey];
+  };
 
   const handleUserMessage = async (message) => {
-    if (!message.trim()) return;
+    if (!message.trim() || stateRef.current.isSpeaking || isProcessing) return;
 
-    addMessage('user', message);
-    setIsListening(false);
-    setTranscript('');
-
-    // Get AI response
+    setIsProcessing(true);
     try {
-      // Format conversation history for Groq API
-      const formattedHistory = messages.map(msg => ({
-        role: msg.sender === 'user' ? 'user' : 'assistant',
-        text: msg.text
-      }));
+      addMessage('user', message);
+      setIsListening(false);
+      setTranscript('');
 
-      // Call Groq with proper parameters and strict persona
-      const systemPrompt = `You are a polite AI assistant for ${selectedCompany?.name}. 
-      Your goal is to help the user. 
-      IMPORTANT:
-      1. DO NOT mention technical details like searching database, using tools, or internal notes.
-      2. Respond in MAXIMUM 2 short, conversational sentences.
-      3. Be polite and professional.
-      4. If you don't know the user's name yet, try to address them naturally once they provide it.`;
+      // Prevent Loop: If message is too similar to last agent message, ignore (echo protection)
+      const lastAgentMsg = messages.filter(m => m.sender === 'agent').pop();
+      if (lastAgentMsg) {
+        const similarity = (s1, s2) => {
+          const longer = s1.length > s2.length ? s1 : s2;
+          const shorter = s1.length > s2.length ? s2 : s1;
+          if (longer.length === 0) return 1.0;
+          return (longer.length - editDistance(longer, shorter)) / parseFloat(longer.length);
+        };
 
-      const response = await chatWithGroq(
-        `${message}\n\n${systemPrompt}`,
-        formattedHistory,
-        selectedCompany
-      );
+        const editDistance = (s1, s2) => {
+          s1 = s1.toLowerCase(); s2 = s2.toLowerCase();
+          let costs = new Array();
+          for (let i = 0; i <= s1.length; i++) {
+            let lastValue = i;
+            for (let j = 0; j <= s2.length; j++) {
+              if (i === 0) costs[j] = j;
+              else {
+                if (j > 0) {
+                  let newValue = costs[j - 1];
+                  if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                  costs[j - 1] = lastValue;
+                  lastValue = newValue;
+                }
+              }
+            }
+            if (i > 0) costs[s2.length] = lastValue;
+          }
+          return costs[s2.length];
+        };
 
-      // Clean response from any system notes or technical prefixes
-      const cleanedResponse = response.replace(/\(Note:.*?\)|System:.*?:|Internal:.*?:/gi, '').trim();
+        if (similarity(message, lastAgentMsg.text) > 0.6) { // Lowered threshold slightly to catch more echoes
+          console.log("Echo detected, ignoring message.");
+          setIsProcessing(false);
+          return;
+        }
+      }
 
-      const truncatedResponse = cleanedResponse.length > 250
-        ? cleanedResponse.substring(0, 250).trim() + '...'
-        : cleanedResponse;
+      // Phase 1: Name Extraction
+      // Phase 1: Onboarding (Name & Language)
+      if (convoPhase === 'onboarding') {
+        const lowerMsg = message.toLowerCase();
+        let newLang = { code: 'en-US', name: 'English' };
+        if (lowerMsg.includes('hindi') || lowerMsg.includes('हिंदी')) newLang = { code: 'hi-IN', name: 'Hindi' };
+        else if (lowerMsg.includes('telugu') || lowerMsg.includes('తెలుగు')) newLang = { code: 'te-IN', name: 'Telugu' };
+        else if (lowerMsg.includes('tamil') || lowerMsg.includes('தமிழ்')) newLang = { code: 'ta-IN', name: 'Tamil' };
+        else if (lowerMsg.includes('kannada') || lowerMsg.includes('ಕನ್ನಡ')) newLang = { code: 'kn-IN', name: 'Kannada' };
+        else if (lowerMsg.includes('marathi') || lowerMsg.includes('मराठी')) newLang = { code: 'mr-IN', name: 'Marathi' };
 
-      addMessage('agent', truncatedResponse);
+        setSelectedLanguage(newLang);
 
-      // Force microphone OFF before speaking
+        // Improved Name Extraction
+        let extractedName = 'Guest';
+        const cleanMsg = message.replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "").trim();
+        const nameMatch = cleanMsg.match(/(?:name is|i am|i'm|call me|this is) ([a-zA-Z]+)/i);
+
+        if (nameMatch) {
+          extractedName = nameMatch[1];
+        } else {
+          const words = cleanMsg.split(' ').filter(w => !['telugu', 'hindi', 'english', 'tamil', 'language', 'continue', 'want', 'with', 'and', 'my', 'name', 'is', 'hi', 'hello', 'prefer'].includes(w.toLowerCase()));
+          if (words.length > 0) extractedName = words[0];
+        }
+
+        setConvoPhase('chatting');
+
+        const response = newLang.code === 'en-US'
+          ? `Nice to meet you, ${extractedName}! ${getServiceInfo('en-US')}`
+          : newLang.code === 'te-IN'
+            ? `${extractedName}, మిమ్మల్ని కలవడం సంతోషం! ${getServiceInfo('te-IN')}`
+            : newLang.code === 'hi-IN'
+              ? `${extractedName}, आपसे मिलकर खुशी हुई! ${getServiceInfo('hi-IN')}`
+              : `Nice to meet you ${extractedName}! I will now proceed in ${newLang.name}. ${getServiceInfo('en-US')}`;
+
+        addMessage('agent', response);
+        await speak(response, newLang.code);
+        setIsProcessing(false);
+        return;
+      }
+
+      // Phase 2: Main Flow
+      try {
+        // Select specialized prompt based on industry
+        let specializedPrompt = DefaultPrompt;
+        const industry = selectedCompany?.industry?.toLowerCase() || '';
+        const compName = selectedCompany?.name?.toLowerCase() || '';
+
+        if (industry.includes('health') || compName.includes('hospital') || compName.includes('aarogya')) {
+          specializedPrompt = HospitalPrompt;
+        } else if (industry.includes('restaur') || compName.includes('garden') || compName.includes('food')) {
+          specializedPrompt = RestaurantPrompt;
+        } else if (industry.includes('commerce') || compName.includes('kart') || compName.includes('store')) {
+          specializedPrompt = ECommercePrompt;
+        }
+
+        const systemPrompt = `You are Callix, the high-performance AI voice assistant for ${selectedCompany?.name}.
+      
+      ${specializedPrompt}
+      
+      USER PROFILE:
+      - Name: ${userName || 'Unknown'}
+      - Preferred Language: ${selectedLanguage.name} (Responde ONLY in this language!)
+      
+      CONVERSATION RULES:
+      - CONTEXT IS EVERYTHING: Look at the History below.
+      - Snappy responses: Max 20 words for smooth voice interaction.
+      - Directness: Answer concisely. If you don't know something about the company, say you will check with the team.
+      
+      CURRENT CONTEXT (HISTORY):
+      ${historyContext}`;
+
+        const aiResponse = await chatWithGroq(
+          `User Message: ${message}`,
+          messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text })),
+          selectedCompany,
+          systemPrompt
+        );
+
+        // Clean up response
+        const cleanedResponse = aiResponse.replace(/\(Note:.*?\)|System:.*?:|Internal:.*?:/gi, '').trim();
+
+        addMessage('agent', cleanedResponse);
+        await speak(cleanedResponse, selectedLanguage.code);
+      } catch (error) {
+        console.error('Groq Error:', error);
+        const err = "I'm sorry, I missed that. Could you repeat it?";
+        addMessage('agent', err);
+        await speak(err);
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    const addMessage = (sender, text) => {
+      setMessages(prev => [...prev, { sender, text, timestamp: new Date() }]);
+    };
+
+    const speak = async (text, languageCode) => {
+      // Determine language name for backend (English, Hindi, Telugu, etc.)
+      const targetLangCode = languageCode || selectedLanguage.code;
+      const targetLang = languageLookup[targetLangCode] || 'English';
+
+      // IMPORTANT: Set speaking state BEFORE starting
+      setIsSpeaking(true);
+
+      // Safety: stop record before speak
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -163,397 +363,202 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
         } catch (e) { }
       }
 
-      speak(truncatedResponse);
-    } catch (error) {
-      console.error('Error getting AI response:', error);
-      const errorMsg = "I apologize, I'm having trouble. Please try again.";
-      addMessage('agent', errorMsg);
-      speak(errorMsg);
-    }
-  };
-
-  const addMessage = (sender, text) => {
-    setMessages(prev => [...prev, { sender, text, timestamp: new Date() }]);
-  };
-
-  const speak = (text) => {
-    if ('speechSynthesis' in window) {
-      // Stop listening while agent speaks to prevent feedback
-      if (recognitionRef.current && isListening) {
-        try {
-          recognitionRef.current.stop();
-          setIsListening(false);
-        } catch (e) {
-          console.log('Recognition already stopped');
-        }
+      // Try High-Quality Self-Hosted Edge-TTS First
+      try {
+        console.log(`Attempting TTS for ${targetLang}...`);
+        await ttsService.speak(text, targetLang, agentGender);
+        onSpeechEnd();
+        return;
+      } catch (error) {
+        console.warn('Neural TTS Backend issue. Falling back to browser voice...', error);
       }
 
-      // Cancel any ongoing speech
+      // Fallback: Web Speech API (Basic)
       window.speechSynthesis.cancel();
-
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = selectedLanguage?.code || 'en-US';
+      utterance.lang = languageCode || selectedLanguage.code;
       utterance.rate = 1.0;
-      utterance.pitch = agentGender === 'female' ? 1.1 : 0.9; // Slightly higher pitch for female
+      utterance.pitch = agentGender === 'female' ? 1.05 : 0.95;
 
-      // Try to find the appropriate voice based on company/gender
+      // Voice Selection with Gender AND Language Matching
       const voices = window.speechSynthesis.getVoices();
+      const langPrefix = utterance.lang.split('-')[0];
 
-      // Select voice based on agent gender (company-specific)
-      let selectedVoice;
-      if (agentGender === 'female') {
-        // Prefer female voices for healthcare/Apollo
-        selectedVoice = voices.find(v =>
-          v.name.includes('Female') ||
-          v.name.includes('female') ||
-          v.name.includes('Zira') ||
-          v.name.includes('Samantha')
-        );
-      } else {
-        // Prefer male voices for tech companies
-        selectedVoice = voices.find(v =>
-          v.name.includes('Male') ||
-          v.name.includes('male') ||
-          v.name.includes('David') ||
-          v.name.includes('Daniel')
-        );
-      }
+      // Wider search for regional voices
+      let selectedVoice = voices.find(v =>
+        v.lang.startsWith(langPrefix) &&
+        (agentGender === 'female'
+          ? /female|woman|samantha|zira|victoria|google us english|moira|hi-IN-Female|te-IN-Female/i.test(v.name) || v.name.includes("తెలుగు") || v.name.includes("हिन्दी")
+          : /male|man|david|daniel|google uk english male|alex|hi-IN-Male|te-IN-Male/i.test(v.name))
+      );
 
-      // Fallback to any English voice if specific gender not found
       if (!selectedVoice) {
-        selectedVoice = voices.find(v => v.lang.startsWith('en'));
+        selectedVoice = voices.find(v => v.lang.startsWith(langPrefix));
       }
 
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        console.log(`Using voice: ${selectedVoice.name} for ${agentGender} agent`);
+      if (!selectedVoice && voices.length > 0) {
+        selectedVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
       }
 
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-        // Ensure mic is off when speaking starts
-        if (recognitionRef.current) {
+      if (selectedVoice) utterance.voice = selectedVoice;
+
+      utterance.onend = onSpeechEnd;
+      window.speechSynthesis.speak(utterance);
+    };
+
+    const onSpeechEnd = () => {
+      setIsSpeaking(false);
+      // RELIABLE RESTART
+      setTimeout(() => {
+        const { callState: curCallState, isMuted: curIsMuted, isOpen: curIsOpen } = stateRef.current;
+        if (curCallState === 'connected' && !curIsMuted && curIsOpen) {
           try {
-            recognitionRef.current.stop();
-            setIsListening(false);
-          } catch (e) { }
-        }
-      };
-
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        // Resume listening after a short delay
-        setTimeout(() => {
-          if (callState === 'connected' && !isMuted && isOpen) {
-            try {
-              // Create a new recognition session if the old one is dead
-              if (recognitionRef.current) {
-                recognitionRef.current.start();
-                setIsListening(true);
-              }
-            } catch (e) {
-              console.log('Restarting recognition...');
-              // If already started, this will catch. If not, we try to re-init.
+            if (recognitionRef.current) {
+              recognitionRef.current.start();
               setIsListening(true);
             }
+          } catch (e) {
+            console.log('Restarting recognition from speech end...');
           }
-        }, 500);
-      };
+        }
+      }, 400);
+    };
 
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-    if (!isMuted) {
-      // Muting
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
+    const toggleMute = () => {
+      setIsMuted(!isMuted);
+      if (!isMuted) {
+        if (recognitionRef.current) recognitionRef.current.stop();
         setIsListening(false);
+      } else {
+        if (recognitionRef.current && callState === 'connected') {
+          try { recognitionRef.current.start(); setIsListening(true); } catch (e) { }
+        }
       }
-    } else {
-      // Unmuting
-      if (recognitionRef.current && callState === 'connected') {
-        recognitionRef.current.start();
-        setIsListening(true);
-      }
-    }
-  };
+    };
 
-  const endCall = () => {
-    setCallState('ended');
-    setIsListening(false);
-    setIsSpeaking(false);
-
-    // Stop speech recognition immediately
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-        recognitionRef.current.abort();
-      } catch (e) {
-        console.log('Recognition stop error:', e);
-      }
-    }
-
-    // Stop ringing audio
-    if (ringingAudioRef.current) {
-      ringingAudioRef.current.pause();
-      ringingAudioRef.current.currentTime = 0;
-    }
-
-    // Stop all speech synthesis immediately
-    if (window.speechSynthesis) {
+    const endCall = () => {
+      setCallState('ended');
+      setIsListening(false);
+      setIsSpeaking(false);
+      if (recognitionRef.current) recognitionRef.current.abort();
+      if (ringingAudioRef.current) ringingAudioRef.current.pause();
       window.speechSynthesis.cancel();
-      // Force stop by calling multiple times (browser quirk)
-      setTimeout(() => window.speechSynthesis.cancel(), 0);
-      setTimeout(() => window.speechSynthesis.cancel(), 100);
-    }
 
-    // Close after showing "Call Ended" screen
-    setTimeout(() => {
-      onClose();
-      // Final cleanup
-      window.speechSynthesis.cancel();
-    }, 1500);
-  };
+      // RESET ALL STATES FOR NEXT CALL
+      setTimeout(() => {
+        setMessages([]);
+        setUserName(user?.user_metadata?.full_name || '');
+        setConvoPhase('intro');
+        setTranscript('');
+        setSelectedLanguage({ code: 'en-US', name: 'English' });
+        onClose();
+      }, 1500);
+    };
 
-  if (!isOpen) return null;
+    if (!isOpen) return null;
 
-  return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 bg-white"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
-        {/* Ringing Screen */}
-        {callState === 'ringing' && (
-          <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center bg-white"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-          >
-            <div className="relative">
-              {/* Pulsing rings */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-64 h-64 rounded-full bg-gradient-to-r from-purple-primary/20 to-pink-primary/20 animate-pulse-ring"></div>
+    return (
+      <AnimatePresence>
+        <motion.div className="fixed inset-0 z-50 bg-white" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+
+          {/* Connection Phase */}
+          {callState === 'ringing' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="relative mb-12">
+                <div className="absolute inset-0 flex items-center justify-center"><div className="w-64 h-64 rounded-full bg-blue-100/50 animate-pulse"></div></div>
+                <div className="relative z-10 w-32 h-32 rounded-full overflow-hidden border-4 border-[#000080] shadow-xl">
+                  <img src={agentAvatar} className="w-full h-full object-cover" />
+                </div>
               </div>
-              <div className="absolute inset-0 flex items-center justify-center" style={{ animationDelay: '0.5s' }}>
-                <div className="w-48 h-48 rounded-full bg-gradient-to-r from-blue-primary/20 to-green-primary/20 animate-pulse-ring"></div>
-              </div>
-
-              {/* Agent avatar */}
-              <motion.div
-                className="relative z-10 w-32 h-32 rounded-full overflow-hidden border-4 border-purple-primary shadow-premium-lg"
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                <img src={agentAvatar} alt="Agent" className="w-full h-full object-cover" />
-              </motion.div>
+              <h2 className="text-4xl font-black text-slate-800">Callix Connecting...</h2>
+              <p className="text-slate-500 mt-2 font-bold uppercase tracking-widest">{selectedCompany?.name}</p>
+              <button onClick={endCall} className="mt-12 p-6 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all"><PhoneOff size={32} /></button>
             </div>
+          )}
 
-            <motion.div
-              className="mt-8 text-center"
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              <h2 className="text-4xl font-bold text-text-dark mb-2">Connecting...</h2>
-              <p className="text-text-gray text-xl">{selectedCompany?.name}</p>
-              <div className="flex items-center justify-center mt-6 space-x-2">
-                <div className="w-3 h-3 bg-purple-primary rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                <div className="w-3 h-3 bg-pink-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-3 h-3 bg-blue-primary rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-              </div>
-            </motion.div>
-
-            <motion.button
-              onClick={endCall}
-              className="mt-12 px-8 py-4 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-full flex items-center space-x-2 transition-all shadow-premium font-semibold"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <PhoneOff size={24} />
-              <span>Cancel</span>
-            </motion.button>
-          </motion.div>
-        )}
-
-        {/* Connected Screen - Split View */}
-        {callState === 'connected' && (
-          <motion.div
-            className="h-full flex bg-white"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            {/* Left Side - Agent */}
-            <div className="w-1/2 bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center p-6 relative border-r border-gray-200">
-              <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0">
-                {/* Agent Avatar with Animation */}
+          {/* Live Call Interface */}
+          {callState === 'connected' && (
+            <div className="h-full flex flex-col md:flex-row bg-white">
+              {/* Left: Visual Agent */}
+              <div className="md:w-1/2 flex flex-col items-center justify-center p-8 bg-slate-50 border-r border-slate-200 relative">
                 <motion.div
-                  className={`relative w-48 h-48 md:w-64 md:h-64 lg:w-80 lg:h-80 rounded-full overflow-hidden border-8 ${isSpeaking ? 'border-green-500 shadow-glow-success' : isListening ? 'border-blue-500 shadow-glow-blue' : 'border-gray-200'
-                    } transition-all duration-500 flex-shrink-0`}
+                  animate={{ scale: isSpeaking ? [1, 1.02, 1] : 1 }}
+                  transition={{ duration: 0.5, repeat: isSpeaking ? Infinity : 0 }}
+                  className={`w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-[12px] transition-all duration-500 shadow-2xl ${isSpeaking ? 'border-green-400' : isListening ? 'border-[#000080]' : 'border-slate-200'}`}
                 >
-                  <img src={agentAvatar} alt="AI Agent" className="w-full h-full object-cover" />
+                  <img src={agentAvatar} className="w-full h-full object-cover" />
                 </motion.div>
 
-                {/* Agent Status */}
-                <div className="mt-6 text-center">
-                  <h3 className="text-2xl font-black text-text-dark mb-1 tracking-tight">AI Assistant</h3>
-                  <p className="text-purple-600 text-lg font-bold uppercase tracking-widest">{selectedCompany?.name}</p>
-                  <div className="mt-4 flex items-center justify-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${isSpeaking ? 'bg-green-500' : isListening ? 'bg-blue-500' : 'bg-gray-400'} animate-pulse`}></div>
-                    <span className="text-sm text-text-gray font-bold tracking-wide">
-                      {isSpeaking ? 'AGENT SPEAKING' : isListening ? 'LISTENING' : 'READY'}
-                    </span>
+                <div className="mt-10 text-center">
+                  <h3 className="text-3xl font-black text-slate-900">Callix</h3>
+                  <p className="text-[#000080] font-black uppercase tracking-[0.3em] text-sm mt-1">{selectedCompany?.name}</p>
+
+                  <div className="mt-8 flex items-center space-x-6">
+                    <button onClick={toggleMute} className={`p-5 rounded-full shadow-lg transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}><Mic size={28} /></button>
+                    <button onClick={endCall} className="p-5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 transition-all transform hover:scale-110"><PhoneOff size={28} /></button>
+                  </div>
+                </div>
+
+                {/* Real-time Indicator Bottom */}
+                <div className="absolute bottom-10 left-0 right-0 flex justify-center">
+                  <div className={`px-6 py-2 rounded-full text-xs font-black tracking-widest uppercase flex items-center space-x-2 ${isSpeaking ? 'bg-green-100 text-green-700' : isListening ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                    <div className={`w-2 h-2 rounded-full animate-pulse ${isSpeaking ? 'bg-green-500' : isListening ? 'bg-blue-500' : 'bg-slate-400'}`}></div>
+                    <span>{isSpeaking ? 'Agent Speaking' : isListening ? 'Listening' : 'Ready'}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Controls - Fixed relative to bottom of left side */}
-              <div className="mt-auto pb-6 w-full flex justify-center z-20">
-                <div className="flex space-x-6 bg-white/90 backdrop-blur-xl p-4 rounded-3xl shadow-premium-lg border border-white/50">
-                  <motion.button
-                    onClick={toggleMute}
-                    className={`p-4 rounded-full ${isMuted ? 'bg-red-500 text-white shadow-lg' : 'bg-white shadow-premium text-text-dark'} hover:scale-110 transition-all`}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    title={isMuted ? 'Unmute' : 'Mute'}
-                  >
-                    {isMuted ? <MicOff size={28} /> : <Mic size={28} />}
-                  </motion.button>
+              {/* Right: Message Stream */}
+              <div className="md:w-1/2 flex flex-col h-full bg-white">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-black text-slate-900">Conversation Stream</h4>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Active Session</p>
+                  </div>
+                  <MessageSquare className="text-slate-200" size={24} />
+                </div>
 
-                  {/* Stop Speaking Button - Only show when agent is speaking */}
-                  {isSpeaking && (
-                    <motion.button
-                      onClick={() => {
-                        window.speechSynthesis.cancel();
-                        setIsSpeaking(false);
-                        if (!isMuted && recognitionRef.current) {
-                          setTimeout(() => {
-                            try {
-                              recognitionRef.current.start();
-                              setIsListening(true);
-                            } catch (e) { }
-                          }, 300);
-                        }
-                      }}
-                      className="p-4 rounded-full bg-orange-500 hover:bg-orange-600 transition-colors text-white shadow-lg"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      title="Stop Speaking"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="6" y="4" width="4" height="16"></rect>
-                        <rect x="14" y="4" width="4" height="16"></rect>
-                      </svg>
-                    </motion.button>
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/50">
+                  {messages.map((m, i) => (
+                    <motion.div initial={{ opacity: 0, x: m.sender === 'user' ? 20 : -20 }} animate={{ opacity: 1, x: 0 }} key={i} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm border ${m.sender === 'user' ? 'bg-[#000080] text-white border-[#000080]' : 'bg-white text-slate-800 border-slate-200'}`}>
+                        <p className="text-sm font-medium leading-relaxed">{m.text}</p>
+                        <p className={`text-[10px] mt-2 font-bold uppercase opacity-50 ${m.sender === 'user' ? 'text-white' : 'text-slate-400'}`}>{m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+
+                  {transcript && (
+                    <div className="flex justify-end">
+                      <div className="bg-slate-200/50 p-4 rounded-2xl text-slate-500 text-sm font-bold italic animate-pulse">
+                        {transcript}...
+                      </div>
+                    </div>
                   )}
+                  <div ref={chatEndRef} />
+                </div>
 
-                  <motion.button
-                    onClick={endCall}
-                    className="p-4 rounded-full bg-red-600 hover:bg-red-700 transition-colors text-white shadow-lg"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    title="End Call"
-                  >
-                    <PhoneOff size={28} />
-                  </motion.button>
+                <div className="p-6 bg-white border-t border-slate-100">
+                  <div className="flex items-center space-x-3 text-slate-400">
+                    <div className={`w-2 h-2 rounded-full ${isListening ? 'bg-blue-500 animate-ping' : 'bg-slate-300'}`}></div>
+                    <span className="text-xs font-black uppercase tracking-widest">{isListening ? 'Voice capture active' : 'Waiting for system'}</span>
+                  </div>
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Right Side - Chat Flow */}
-            <div className="w-1/2 bg-white flex flex-col">
-              {/* Header */}
-              <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-white">
-                <div>
-                  <h2 className="text-2xl font-bold text-text-dark">Conversation</h2>
-                  <p className="text-sm text-text-gray">{selectedLanguage?.name || 'English'}</p>
-                </div>
-                <button
-                  onClick={endCall}
-                  className="text-text-gray hover:text-text-dark transition-colors"
-                >
-                  <X size={24} />
-                </button>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
-                {messages.map((msg, index) => (
-                  <motion.div
-                    key={index}
-                    className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <div
-                      className={`max-w-[80%] p-4 rounded-2xl shadow-premium ${msg.sender === 'user'
-                        ? 'bg-gradient-purple text-white'
-                        : 'bg-white text-text-dark border border-gray-200'
-                        }`}
-                    >
-                      <p className="text-sm">{msg.text}</p>
-                      <span className={`text-xs mt-1 block ${msg.sender === 'user' ? 'text-white/80' : 'text-text-light'}`}>
-                        {msg.timestamp.toLocaleTimeString()}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
-
-                {/* Transcript preview */}
-                {transcript && (
-                  <motion.div
-                    className="flex justify-end"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    <div className="max-w-[80%] p-4 rounded-2xl bg-blue-100 text-text-dark border border-blue-300">
-                      <p className="text-sm italic">{transcript}</p>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Input indicator */}
-              <div className="p-6 border-t border-gray-200 bg-white">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
-                  <span className="text-sm text-text-gray font-medium">
-                    {isListening ? 'Listening to your voice...' : isMuted ? 'Microphone muted' : 'Waiting...'}
-                  </span>
-                </div>
-              </div>
+          {/* End Screen */}
+          {callState === 'ended' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white">
+              <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center mb-6"><PhoneOff size={48} className="text-red-500" /></div>
+              <h2 className="text-3xl font-black text-slate-900">Call Ended</h2>
+              <p className="text-slate-500 font-bold mt-2">Thank you for speaking with Callix.</p>
             </div>
-          </motion.div>
-        )}
+          )}
+        </motion.div>
+      </AnimatePresence>
+    );
+  };
 
-        {/* Call Ended Screen */}
-        {callState === 'ended' && (
-          <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center bg-white"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-          >
-            <div className="text-center">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
-                <PhoneOff size={48} className="text-red-500" />
-              </div>
-              <h2 className="text-3xl font-bold text-text-dark mb-2">Call Ended</h2>
-              <p className="text-text-gray">Thank you for using our service</p>
-            </div>
-          </motion.div>
-        )}
-      </motion.div>
-    </AnimatePresence>
-  );
-};
-
-export default VoiceOverlay;
+  export default VoiceOverlay;

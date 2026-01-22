@@ -5,21 +5,36 @@ import HeroSection from './components/HeroSection';
 import VoiceOverlay from './components/VoiceOverlay';
 import CompanyOnboarding from './components/CompanyOnboarding';
 import AccountPortfolio from './components/AccountPortfolio';
-import OperationsLog from './components/OperationsLog';
+import ProblemsAndSolutions from './components/ProblemsAndSolutions';
 import PricingSection from './components/PricingSection';
-import supabaseDB, { isSupabaseInitialized } from './utils/supabaseClient';
+import AuthModal from './components/AuthModal';
+import UserDashboard from './components/UserDashboard';
+import supabaseDB, { isSupabaseInitialized, supabase } from './utils/supabaseClient';
 import { initializeGroq } from './utils/groq';
 
 function App() {
   const [isVoiceOverlayOpen, setIsVoiceOverlayOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
-  const [selectedLanguage, setSelectedLanguage] = useState({ code: 'en-US', name: 'English', voice: 'Google US English' });
+  const [user, setUser] = useState(null);
   const [apiKey, setApiKey] = useState('');
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check for existing user session
+    const checkUser = async () => {
+      if (supabase) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUser(user);
+        }
+      }
+    };
+    checkUser();
+
     // Load API key from environment or localStorage
     const envKey = import.meta.env.VITE_GROQ_API_KEY;
     const storedKey = localStorage.getItem('groq_api_key');
@@ -61,18 +76,66 @@ function App() {
             industry: 'Healthcare',
             logo: '🏥',
             contextSummary: h.tagline || '',
-            nlpContext: `${h.name}. ${h.tagline || ''}. Total beds: ${h.total_beds}. ICU beds: ${h.icu_beds}. Contact: ${h.phone}, ${h.email}`,
+            nlpContext: `Hospital: ${h.name}. Tagline: ${h.tagline}. Emergency: ${h.emergency_24x7 ? 'Yes' : 'No'}. Beds: ${h.total_beds}. Contact: ${h.phone}.`,
             apiLinked: true
           })),
-          ...techCompanies.map(c => ({
-            id: c.id,
-            name: c.name,
-            industry: 'Technology',
-            logo: '💻',
-            contextSummary: c.tagline || '',
-            nlpContext: `${c.name}. ${c.tagline || ''}. Founded: ${c.founded_year}. CEO: ${c.ceo_name}. Employees: ${c.total_employees}. Contact: ${c.careers_email}`,
+          ...techCompanies
+            .filter(c => !['Tech Mahindra', 'Tech Mahindra Limited'].includes(c.name))
+            .map(c => ({
+              id: c.id,
+              name: c.name,
+              industry: 'Technology',
+              logo: '💻',
+              contextSummary: c.tagline || '',
+              nlpContext: `Company: ${c.name}. Tagline: ${c.tagline}. CEO: ${c.ceo_name}. Employees: ${c.total_employees}. Headquarters: ${c.headquarters_address}.`,
+              apiLinked: true
+            })),
+          // New Specialized agents from the provided databases
+          {
+            id: 'aarogya-hospital',
+            name: 'Aarogya Multispeciality',
+            industry: 'Healthcare',
+            logo: '🏥',
+            contextSummary: 'Trained on: Medical Staff Registry, Staff Availability Grid, and Consultation Slots.',
+            nlpContext: 'Trained on Aarogya Database: Access to care_center_profile (namne, timings), medical_staff_registry (specialists), staff_availability_grid (daily slots), and consultation_slots (real-time booking status).',
             apiLinked: true
-          }))
+          },
+          {
+            id: 'spice-garden-restaurant',
+            name: 'Spice Garden',
+            industry: 'Food & Beverage',
+            logo: '🍕',
+            contextSummary: 'Trained on: Food Catalog, Chef Special Registry, and Seating Slot Grid.',
+            nlpContext: 'Trained on Restaurant Database: Access to dinehouse_profile (cuisine), food_catalog_registry (full menu, pricing, veg flags), chef_special_registry (chef recommendations), and seating_slot_grid (table availability).',
+            apiLinked: true
+          },
+          {
+            id: 'quickkart-ecommerce',
+            name: 'QuickKart store',
+            industry: 'E-Commerce',
+            logo: '🛒',
+            contextSummary: 'Trained on: Product Inventory, Order Intake, Shipping Tracking, and Support Tickets.',
+            nlpContext: 'Trained on E-Commerce + Tracking Databases: Access to product_inventory_map (stock/price), order_intake_registry (status tracking), shipment_status_log (real-time logs), support_ticket_registry (issue tracking), and refund_request_log.',
+            apiLinked: true
+          },
+          {
+            id: 'tech-mahindra-software',
+            name: 'Tech Mahindra',
+            industry: 'Software IT',
+            logo: '🚀',
+            contextSummary: 'Trained on: Business Units, Job Openings, Leadership Team, and Office Locations.',
+            nlpContext: 'Trained on Tech Mahindra Database: Access to business_units (key technologies, head_name), job_openings (skills required, salary range, location), office_locations (city hubs), and leadership_team (executive designations).',
+            apiLinked: true
+          },
+          {
+            id: 'voxsphere-biz-solutions',
+            name: 'VoxSphere Solutions',
+            industry: 'AI & Business',
+            logo: '🌐',
+            contextSummary: 'Trained on: Service Catalog, Pricing Plan Matrix, and Demo Slot Calendar.',
+            nlpContext: 'Trained on Business Solutions Database: Access to biz_profile_core (timings, contact), biz_service_catalog (sector-specific AI tools), pricing_plan_matrix (Starter/Pro/Enterprise plans), and demo_slot_calendar (slot_status tracking).',
+            apiLinked: true
+          }
         ];
 
         setCompanies(allCompanies);
@@ -105,7 +168,28 @@ function App() {
   };
 
   const handleSignUp = () => {
-    setIsOnboardingOpen(true);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = (authenticatedUser) => {
+    setUser(authenticatedUser);
+    setShowDashboard(false);
+  };
+
+  const handleLogout = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setUser(null);
+    setShowDashboard(false);
+  };
+
+  const handleViewDashboard = () => {
+    if (user) {
+      setShowDashboard(true);
+    } else {
+      setIsAuthModalOpen(true);
+    }
   };
 
   const handleOnboardingSuccess = (company) => {
@@ -122,25 +206,39 @@ function App() {
       <BackgroundEffects />
 
       {/* Header */}
-      <Header onSignUpClick={handleSignUp} />
+      <Header
+        onSignUpClick={handleSignUp}
+        user={user}
+        onLogout={handleLogout}
+        onViewDashboard={handleViewDashboard}
+        onNavigateHome={() => setShowDashboard(false)}
+      />
 
       {/* Main Content */}
       <main className="relative z-10">
-        {/* Hero Section */}
-        <HeroSection onCallAgent={handleCallAgent} />
+        {showDashboard && user ? (
+          <UserDashboard user={user} onClose={() => setShowDashboard(false)} />
+        ) : (
+          <>
+            {/* Hero Section */}
+            <HeroSection onCallAgent={handleCallAgent} />
 
-        {/* Account Portfolio */}
-        <AccountPortfolio
-          onDeployAgent={handleDeployAgent}
-          companies={companies}
-          loading={loading}
-        />
+            {/* Problems and Solutions */}
+            <ProblemsAndSolutions />
 
-        {/* Pricing Section */}
-        <PricingSection />
+            {/* Account Portfolio - Only show when logged in */}
+            {user && (
+              <AccountPortfolio
+                onDeployAgent={handleDeployAgent}
+                companies={companies}
+                loading={loading}
+              />
+            )}
 
-        {/* Operations Log */}
-        <OperationsLog />
+            {/* Pricing Section */}
+            <PricingSection />
+          </>
+        )}
       </main>
 
       {/* Voice Overlay */}
@@ -151,7 +249,15 @@ function App() {
           setSelectedCompany(null);
         }}
         selectedCompany={selectedCompany}
-        selectedLanguage={selectedLanguage}
+        user={user}
+      />
+
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+        mode="signin"
       />
 
       {/* Company Onboarding Modal */}
@@ -162,13 +268,13 @@ function App() {
       />
 
       {/* Footer */}
-      <footer className="relative z-10 py-12 px-4 border-t border-gray-100 bg-white">
+      <footer className="relative z-10 py-12 px-4 border-t border-white/10 bg-[#000]">
         <div className="max-w-7xl mx-auto text-center">
-          <p className="text-text-gray text-sm font-medium">
-            © {new Date().getFullYear()} AI Calling Agent. All rights reserved.
+          <p className="text-white/60 text-sm font-medium">
+            © {new Date().getFullYear()} Callix. All rights reserved.
           </p>
-          <p className="text-text-light text-xs mt-2">
-            Powered by Groq API & Advanced Voice Intelligence
+          <p className="text-white/40 text-[10px] mt-2 tracking-wider">
+            Powered by Praneetha and Team.
           </p>
         </div>
       </footer>

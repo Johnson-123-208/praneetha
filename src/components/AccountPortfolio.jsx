@@ -8,113 +8,98 @@ const AccountPortfolio = ({ onDeployAgent, companies = [], loading = false }) =>
     }
   };
 
-  // Colorful gradient classes for cards
-  const cardGradients = [
-    'bg-gradient-purple',
-    'bg-gradient-pink',
-    'bg-gradient-blue',
-    'bg-gradient-orange',
-    'bg-gradient-green',
-    'bg-gradient-peach',
-  ];
+
 
   return (
-    <section id="portfolio" className="py-24 px-4 relative z-10 bg-white">
-      <div className="max-w-7xl mx-auto">
+    <section id="portfolio" className="py-12 px-4 relative z-10 bg-sky-200">
+      <div className="max-w-5xl mx-auto">
         <motion.div
-          className="text-center mb-20"
+          className="text-center mb-10"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-6xl md:text-7xl font-black mb-6 text-gradient-purple">
+          <h2 className="text-4xl md:text-5xl font-black mb-3 text-slate-800">
             Account Portfolio
           </h2>
-          <p className="text-text-gray text-xl max-w-3xl mx-auto leading-relaxed">
+          <p className="text-slate-600 text-lg max-w-2xl mx-auto">
             Manage your connected companies and deploy AI agents instantly
           </p>
         </motion.div>
 
         {loading ? (
           <motion.div
-            className="text-center py-20 bg-white rounded-3xl shadow-premium"
+            className="text-center py-12 bg-white rounded-2xl shadow-lg border border-sky-100"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <Loader size={72} className="mx-auto mb-6 text-purple-primary animate-spin" />
-            <p className="text-text-gray text-xl font-semibold">Loading companies...</p>
+            <Loader size={48} className="mx-auto mb-4 text-sky-500 animate-spin" />
+            <p className="text-slate-600 font-semibold">Loading companies...</p>
           </motion.div>
         ) : companies.length === 0 ? (
           <motion.div
-            className="text-center py-20 bg-white rounded-3xl shadow-premium"
+            className="text-center py-12 bg-white rounded-2xl shadow-lg border border-sky-100"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <Building2 size={72} className="mx-auto mb-6 text-text-light" />
-            <p className="text-text-dark text-2xl font-bold mb-3">No companies connected yet</p>
-            <p className="text-text-gray text-lg">
+            <Building2 size={48} className="mx-auto mb-4 text-sky-300" />
+            <p className="text-slate-800 text-xl font-bold mb-2">No companies connected yet</p>
+            <p className="text-slate-500">
               Connect your first company database to get started
             </p>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {companies.map((company, index) => (
               <motion.div
                 key={company.id}
-                className={`${cardGradients[index % cardGradients.length]} rounded-3xl p-8 text-white card-hover shadow-premium-lg relative overflow-hidden`}
-                initial={{ opacity: 0, y: 40 }}
+                className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-slate-100 group"
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: index * 0.15 }}
+                transition={{ duration: 0.4, delay: index * 0.1 }}
               >
-                {/* Decorative circles */}
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-
-                {/* Content */}
-                <div className="relative z-10">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex items-center space-x-4">
-                      <div className="text-6xl transform hover:scale-110 transition-transform duration-300">
-                        {company.logo || '🏢'}
-                      </div>
-                      <div>
-                        <h3 className="text-2xl font-bold mb-1">
-                          {company.name}
-                        </h3>
-                        <p className="text-white/80 text-sm font-medium">
-                          {company.industry}
-                        </p>
-                      </div>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="text-4xl group-hover:scale-110 transition-transform duration-300 bg-sky-50 p-3 rounded-xl">
+                      {company.logo || '🏢'}
                     </div>
-                    {company.apiLinked && (
-                      <div className="flex items-center space-x-1.5 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-bold">
-                        <CheckCircle size={14} />
-                        <span>Live</span>
-                      </div>
-                    )}
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-800 leading-tight">
+                        {company.name}
+                      </h3>
+                      <p className="text-slate-500 text-sm font-medium">
+                        {company.industry}
+                      </p>
+                    </div>
                   </div>
-
-                  {/* Description */}
-                  {company.contextSummary && (
-                    <p className="text-white/90 text-sm mb-8 line-clamp-3 leading-relaxed">
-                      {company.contextSummary}
-                    </p>
+                  {company.apiLinked && (
+                    <div className="flex items-center space-x-1 bg-green-50 text-green-600 px-2.5 py-1 rounded-lg text-xs font-bold">
+                      <CheckCircle size={12} />
+                      <span>Live</span>
+                    </div>
                   )}
-
-                  {/* Deploy Button */}
-                  <motion.button
-                    onClick={() => handleDeploy(company)}
-                    className="w-full px-6 py-4 rounded-2xl bg-white text-purple-primary font-bold text-lg flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transition-all duration-300"
-                    whileHover={{ scale: 1.03, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <Rocket size={22} />
-                    <span>Deploy AI Agent</span>
-                  </motion.button>
                 </div>
+
+                <div className="mb-6 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Training Context</p>
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                    {company.contextSummary || 'Standard AI processing engine'}
+                  </p>
+                </div>
+
+
+
+                <motion.button
+                  onClick={() => handleDeploy(company)}
+                  className="w-full px-4 py-3 rounded-xl bg-slate-900 text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-lg group-hover:bg-sky-600 transition-colors duration-300"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Rocket size={16} />
+                  <span>Deploy AI Agent</span>
+                </motion.button>
               </motion.div>
             ))}
           </div>

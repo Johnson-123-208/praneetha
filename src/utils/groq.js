@@ -20,7 +20,7 @@ export const initializeGroq = (key) => {
 };
 
 // For text-based interactions with Groq
-export const chatWithGroq = async (prompt, history = [], companyContext = null) => {
+export const chatWithGroq = async (prompt, history = [], companyContext = null, customSystemMessage = null) => {
   // Use local AI if Groq API is not available
   if (!apiKey) {
     console.log('Using local AI mode (no API key required)');
@@ -29,51 +29,17 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null) 
 
   try {
     // Build context with company information if available
-    let systemMessage = `You are an AI calling agent named Fenrir (male voice) or Zephyr (female voice). 
-You are professional, helpful, and efficient. You can answer general questions and perform database operations.
-
-IMPORTANT LANGUAGE PROTOCOL:
-1. Always start conversations in English
-2. Detect when users switch to: Hindi, Telugu, Tamil, Kannada, Malayalam, or Marathi
-3. When a language switch is detected, immediately switch your responses to that language
-4. Maintain your professional persona in all languages
-
-CAPABILITIES:
-1. Answer general questions on any topic (knowledge, information, advice)
-2. Query company/hospital databases for information
-3. Check job vacancies and positions
-4. Book appointments with doctors, CEOs, executives, etc.
-5. Collect feedback from users
-6. Check available appointment slots
-
-${companyContext ? `CURRENT ENTITY CONTEXT: ${companyContext.name || 'Unknown'}
-Industry: ${companyContext.industry || 'Unknown'}
-Context: ${companyContext.contextSummary || companyContext.nlpContext || 'No specific context provided.'}` : ''}
-
-DATABASE OPERATIONS AVAILABLE:
-- check_vacancies: Check job vacancies for positions
-- book_appointment: Book appointments (doctors, CEOs, executives)
-- collect_feedback: Collect user feedback and ratings
-- get_available_slots: Check available appointment time slots
-- query_entity_database: Query any entity's database information
-- get_company_directory: Get list of all companies
-- get_company_insights: Get company details
-- book_order: Create orders for companies
-- trace_order: Check order status
-
-When users ask about:
-- Job vacancies → Use check_vacancies
-- Booking appointments → Use book_appointment or get_available_slots
-- Feedback → Use collect_feedback
-- General questions → Answer directly using your knowledge
-- Database queries → Use appropriate query function`;
+    let systemMessage = customSystemMessage || `You are an AI calling agent.
+    ${companyContext ? `CURRENT ENTITY CONTEXT: ${companyContext.name}
+    Industry: ${companyContext.industry}
+    Context: ${companyContext.nlpContext}` : ''}`;
 
     // Convert history to Groq format
     const messages = [
       { role: 'system', content: systemMessage },
       ...history.map(msg => ({
         role: msg.role === 'user' ? 'user' : 'assistant',
-        content: msg.text
+        content: msg.text || msg.content || ''
       })),
       { role: 'user', content: prompt }
     ];
@@ -86,15 +52,16 @@ When users ask about:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile', // Using Groq's powerful model
+        model: 'llama-3.3-70b-versatile',
         messages: messages,
         temperature: 0.7,
-        max_tokens: 150, // Limit to ~2-3 sentences
+        max_tokens: 300,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`Groq API error: ${response.status} ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Groq API error: ${response.status} - ${errorData.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
@@ -104,11 +71,10 @@ When users ask about:
     const functionMatch = detectFunctionCall(assistantMessage, companyContext);
     if (functionMatch) {
       const result = await executeFunctionCall(functionMatch);
-      // Get a follow-up response with the function result
       const followUpMessages = [
         ...messages,
         { role: 'assistant', content: assistantMessage },
-        { role: 'system', content: `Function ${functionMatch.name} returned: ${JSON.stringify(result)}. Please provide a natural language response to the user based on this data.` }
+        { role: 'system', content: `Function ${functionMatch.name} returned: ${JSON.stringify(result)}. Provide a response.` }
       ];
 
       const followUpResponse = await fetch(GROQ_API_URL, {
