@@ -8,6 +8,7 @@ import AccountPortfolio from './components/AccountPortfolio';
 import OperationsLog from './components/OperationsLog';
 import PricingSection from './components/PricingSection';
 import supabaseDB, { isSupabaseInitialized } from './utils/supabaseClient';
+import { initializeGroq } from './utils/groq';
 
 function App() {
   const [isVoiceOverlayOpen, setIsVoiceOverlayOpen] = useState(false);
@@ -26,6 +27,15 @@ function App() {
 
     if (key) {
       setApiKey(key);
+      // Initialize Groq with the API key
+      const initialized = initializeGroq(key);
+      if (initialized) {
+        console.log('✅ Groq AI initialized successfully');
+      } else {
+        console.warn('⚠️ Failed to initialize Groq AI');
+      }
+    } else {
+      console.warn('⚠️ No Groq API key found - AI responses will use fallback mode');
     }
 
     // Load companies from Supabase

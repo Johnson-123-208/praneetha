@@ -10,10 +10,10 @@ export default {
         // Pure white background
         'bg-white': '#ffffff',
 
-        // Text Colors - High Contrast
-        'text-dark': '#1a202c',
-        'text-gray': '#4a5568',
-        'text-light': '#718096',
+        // Text Colors - HIGH CONTRAST for visibility
+        'text-dark': '#1a202c',      // Very dark - main text
+        'text-gray': '#2d3748',      // Dark gray - secondary text
+        'text-light': '#4a5568',     // Medium gray - tertiary text
 
         // Colorful Accents
         'purple-primary': '#667eea',
@@ -36,7 +36,7 @@ export default {
         'gradient-blue': 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
         'gradient-orange': 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
         'gradient-green': 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)',
-        'gradient-peach': 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+        'gradient-peach': 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
       },
       boxShadow: {
         'premium': '0 10px 40px rgba(0, 0, 0, 0.1)',

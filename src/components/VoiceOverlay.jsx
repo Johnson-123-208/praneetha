@@ -113,16 +113,18 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
 
     // Get AI response
     try {
-      const context = selectedCompany?.nlpContext || selectedCompany?.contextSummary || '';
-      const prompt = `You are a helpful AI assistant for ${selectedCompany?.name}. 
-      
-Company Context: ${context}
+      // Format conversation history for Groq API
+      const formattedHistory = messages.map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        text: msg.text
+      }));
 
-User: ${message}
-
-Provide a helpful, concise response (2-3 sentences max).`;
-
-      const response = await chatWithGroq(prompt, messages);
+      // Call Groq with proper parameters
+      const response = await chatWithGroq(
+        message,  // User's current message
+        formattedHistory,  // Conversation history
+        selectedCompany  // Company context
+      );
 
       addMessage('agent', response);
       speak(response);
