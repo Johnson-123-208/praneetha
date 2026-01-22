@@ -194,9 +194,10 @@ export const extractAppointmentDetails = (question) => {
   for (const pattern of datePatterns) {
     const match = question.match(pattern);
     if (match) {
-      if (match[0].toLowerCase() === 'today') {
+      const matchLower = match[0].toLowerCase();
+      if (matchLower === 'today' || matchLower === 'tonight' || (matchLower.includes('today') && matchLower.includes('evening'))) {
         date = new Date().toISOString().split('T')[0];
-      } else if (match[0].toLowerCase() === 'tomorrow') {
+      } else if (matchLower === 'tomorrow') {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         date = tomorrow.toISOString().split('T')[0];
@@ -240,7 +241,15 @@ export const extractAppointmentDetails = (question) => {
     personName = nameMatch[1];
   }
 
-  return { date, time, type, personName };
+  // Extract people count (for table bookings)
+  let peopleCount = null;
+  const countPattern = /(\d+)\s*(?:people|members|guests|persons|covers)/i;
+  const countMatch = question.match(countPattern);
+  if (countMatch) {
+    peopleCount = parseInt(countMatch[1]);
+  }
+
+  return { date, time, type, personName, peopleCount };
 };
 
 // Extract feedback details

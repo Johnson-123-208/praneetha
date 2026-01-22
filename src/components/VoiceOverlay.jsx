@@ -248,7 +248,15 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   };
 
   const handleUserMessage = async (message) => {
-    if (!message.trim() || stateRef.current.isSpeaking || isProcessing) return;
+    // ALWAYS use stateRef for logic inside async handlers to avoid stale closures
+    const {
+      convoPhase: curPhase,
+      userName: curName,
+      selectedLanguage: curLang,
+      isSpeaking: curIsSpeaking
+    } = stateRef.current;
+
+    if (!message.trim() || curIsSpeaking || isProcessing) return;
 
     setIsProcessing(true);
     try {
@@ -295,7 +303,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       }
 
       // Phase 1: Onboarding - Only extract name (language already selected)
-      if (convoPhase === 'onboarding') {
+      if (curPhase === 'onboarding') {
         let extractedName = 'Guest';
         const cleanMsg = message.replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "").trim();
         const nameMatch = cleanMsg.match(/(?:name is|i am|i'm|call me|this is|my name is) ([a-zA-Z]+)/i);
@@ -304,27 +312,32 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
           extractedName = nameMatch[1];
         } else {
           // Try to extract first word that's not a common word
-          const words = cleanMsg.split(' ').filter(w => !['hi', 'hello', 'hey', 'my', 'name', 'is', 'the', 'a', 'an'].includes(w.toLowerCase()));
+          const words = cleanMsg.split(' ').filter(w => !['hi', 'hello', 'hey', 'my', 'name', 'is', 'the', 'a', 'an', 'yeah'].includes(w.toLowerCase()));
           if (words.length > 0) extractedName = words[0];
         }
 
+        // Update name and transition phase
         setUserName(extractedName);
         setConvoPhase('chatting');
 
+        // Update Ref immediately so following logic sees it
+        stateRef.current.userName = extractedName;
+        stateRef.current.convoPhase = 'chatting';
+
         // Greet in selected language with FULL service info
         let response = '';
-        const serviceInfo = getServiceInfo(selectedLanguage.code);
+        const serviceInfo = getServiceInfo(curLang.code);
 
-        if (selectedLanguage.code === 'te-IN') {
+        if (curLang.code === 'te-IN') {
           response = `నమస్కారం ${extractedName}! మిమ్మల్ని కలవడం సంతోషం. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
-        } else if (selectedLanguage.code === 'hi-IN') {
+        } else if (curLang.code === 'hi-IN') {
           response = `नमस्ते ${extractedName}! आपसे मिलकर खुशी हुई। ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
         } else {
           response = `Nice to meet you, ${extractedName}! ${serviceInfo} How can I assist you today?`;
         }
 
         addMessage('agent', response);
-        await speak(response, selectedLanguage.code);
+        await speak(response, curLang.code);
         setIsProcessing(false);
         return;
       }
@@ -362,9 +375,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       if (languageChangeDetected && newLang) {
         console.log(`🔄 Language change requested: ${newLang.name}`);
         setSelectedLanguage(newLang);
-
-        // CRITICAL: Update stateRef immediately
-        stateRef.current.selectedLanguage = newLang;
+        stateRef.current.selectedLanguage = newLang; // Sync Ref
 
         const response = newLang.code === 'en-IN'
           ? `Sure! I'll continue in English.`
@@ -399,32 +410,33 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
 
       // Strong language enforcement
       let languageInstruction = '';
-      if (selectedLanguage.code === 'te-IN') {
+      if (curLang.code === 'te-IN') {
         languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Telugu language. Use Telugu script (తెలుగు). Do NOT use English words. Example: "నమస్కారం, నేను మీకు ఎలా సహాయం చేయగలను?"';
-      } else if (selectedLanguage.code === 'hi-IN') {
+      } else if (curLang.code === 'hi-IN') {
         languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Hindi language. Use Devanagari script (हिंदी). Do NOT use English words. Example: "नमस्ते, मैं आपकी कैसे मदद कर सकता हूं?"';
-      } else if (selectedLanguage.code === 'ta-IN') {
+      } else if (curLang.code === 'ta-IN') {
         languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Tamil language. Use Tamil script (தமிழ்). Do NOT use English words.';
-      } else if (selectedLanguage.code === 'kn-IN') {
+      } else if (curLang.code === 'kn-IN') {
         languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Kannada language. Use Kannada script (ಕನ್ನಡ). Do NOT use English words.';
-      } else if (selectedLanguage.code === 'mr-IN') {
+      } else if (curLang.code === 'mr-IN') {
         languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Marathi language. Use Devanagari script (मराठी). Do NOT use English words.';
-      } else if (selectedLanguage.code === 'ml-IN') {
+      } else if (curLang.code === 'ml-IN') {
         languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Malayalam language. Use Malayalam script (മലയാളം). Do NOT use English words.';
       }
 
-      const systemPrompt = `You are Callix for ${selectedCompany?.name}.\n${specializedPrompt}\nUser: ${userName}\nLanguage: ${selectedLanguage.name}${languageInstruction}\n\nHistory:\n${historyContext}`;
+      const latestName = stateRef.current.userName || 'Guest';
+      const systemPrompt = `You are Callix for ${selectedCompany?.name}.\n${specializedPrompt}\nUser: ${latestName}\nLanguage: ${curLang.name}${languageInstruction}\n\nHistory:\n${historyContext}`;
 
       const aiResponse = await chatWithGroq(
         `User Message: ${message}`,
         messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text })),
-        { ...selectedCompany, userName, userEmail },
+        { ...selectedCompany, userName: latestName, userEmail },
         systemPrompt
       );
 
       const cleanedResponse = aiResponse.replace(/\(Translation:.*?\)|Translation:.*?:|\(Note:.*?\)|System:.*?:|Internal:.*?:/gi, '').replace(/\(.*\)/g, '').trim();
       addMessage('agent', cleanedResponse);
-      await speak(cleanedResponse, selectedLanguage.code);
+      await speak(cleanedResponse, curLang.code);
 
     } catch (error) {
       console.error('Message Handling Error:', error);

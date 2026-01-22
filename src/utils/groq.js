@@ -104,11 +104,11 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 
 // Detect if a function call is needed based on the response
 const detectFunctionCall = (message, companyContext) => {
-  const lowerMessage = message.toLowerCase();
   const upperMessage = message.toUpperCase();
 
-  // Pattern-based detection for explicit triggers
-  if (upperMessage.includes('BOOK_APPOINTMENT') || (lowerMessage.includes('book') && lowerMessage.includes('appointment'))) {
+  // ONLY trigger on explicit Uppercase Command Keywords to avoid false positives
+
+  if (upperMessage.includes('BOOK_APPOINTMENT')) {
     const details = extractAppointmentDetails(message);
     return {
       name: 'book_appointment',
@@ -118,14 +118,14 @@ const detectFunctionCall = (message, companyContext) => {
         personName: details.personName || 'Arjun',
         date: details.date || new Date().toISOString().split('T')[0],
         time: details.time || '10:00',
-        userEmail: companyContext?.userEmail, // Pass from context
+        userEmail: companyContext?.userEmail,
         userName: companyContext?.userName,
         userInfo: { name: companyContext?.userName || 'Customer' }
       }
     };
   }
 
-  if (upperMessage.includes('BOOK_ORDER') || (lowerMessage.includes('place') && lowerMessage.includes('order'))) {
+  if (upperMessage.includes('BOOK_ORDER')) {
     return {
       name: 'book_order',
       args: {
@@ -137,7 +137,7 @@ const detectFunctionCall = (message, companyContext) => {
     };
   }
 
-  if (upperMessage.includes('COLLECT_FEEDBACK') || (lowerMessage.includes('feedback') && lowerMessage.includes('rating'))) {
+  if (upperMessage.includes('COLLECT_FEEDBACK') || upperMessage.includes('COLLECT_RATING')) {
     const details = extractFeedbackDetails(message);
     return {
       name: 'collect_feedback',
@@ -151,25 +151,26 @@ const detectFunctionCall = (message, companyContext) => {
     };
   }
 
-  if (upperMessage.includes('BOOK_TABLE') || (lowerMessage.includes('reserve') && lowerMessage.includes('table'))) {
+  if (upperMessage.includes('BOOK_TABLE')) {
+    const details = extractAppointmentDetails(message);
     return {
       name: 'book_appointment',
       args: {
         entityId: companyContext?.id,
         type: 'table',
-        date: new Date().toISOString().split('T')[0],
-        time: '19:00',
-        userEmail: companyContext?.userEmail
+        date: details.date || new Date().toISOString().split('T')[0],
+        time: details.time || '19:00',
+        personName: companyContext?.userName || 'Customer',
+        userEmail: companyContext?.userEmail,
+        userInfo: {
+          peopleCount: details.peopleCount || 2,
+          notes: message
+        }
       }
     };
   }
 
-  // Check for general knowledge queries
-  if (lowerMessage.includes('available') && (lowerMessage.includes('doctor') || lowerMessage.includes('slot'))) {
-    return { name: 'get_available_slots', args: { entityId: companyContext?.id } };
-  }
-
-  if (lowerMessage.includes('order status') || lowerMessage.includes('trace order') || upperMessage.includes('TRACE_ORDER')) {
+  if (upperMessage.includes('TRACE_ORDER')) {
     return { name: 'trace_order', args: { userEmail: companyContext?.userEmail } };
   }
 
