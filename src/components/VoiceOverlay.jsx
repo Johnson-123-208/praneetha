@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mic, MicOff, Phone, PhoneOff, Globe, User, MessageSquare } from 'lucide-react';
+import { X, Mic, MicOff, Phone, PhoneOff, Globe, User, MessageSquare, VolumeX } from 'lucide-react';
 import { chatWithGroq } from '../utils/groq';
 import { detectLanguage } from '../utils/languageDetection';
 import { crmIntegration } from '../utils/crmIntegration';
@@ -17,8 +17,9 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Advanced conversation state
-  const [convoPhase, setConvoPhase] = useState('intro'); // intro, name_collected, chatting
+  const [convoPhase, setConvoPhase] = useState(user?.user_metadata?.full_name ? 'chatting' : 'intro');
   const [userName, setUserName] = useState(user?.user_metadata?.full_name || '');
+  const [userEmail, setUserEmail] = useState(user?.email || '');
   const [sessionId] = useState(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [selectedLanguage, setSelectedLanguage] = useState({ code: 'en-IN', name: 'English' });
 
@@ -47,6 +48,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     isOpen,
     convoPhase,
     userName,
+    userEmail,
     selectedLanguage
   });
 
@@ -60,9 +62,10 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       isOpen,
       convoPhase,
       userName,
+      userEmail,
       selectedLanguage
     };
-  }, [callState, isListening, isSpeaking, isMuted, isOpen, convoPhase, userName, selectedLanguage]);
+  }, [callState, isListening, isSpeaking, isMuted, isOpen, convoPhase, userName, userEmail, selectedLanguage]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -70,10 +73,12 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   }, [messages, transcript]);
 
   // Determine agent gender and avatar based on company
-  const agentGender = selectedCompany?.industry === 'Healthcare' ||
-    selectedCompany?.name?.toLowerCase().includes('apollo') ||
-    selectedCompany?.name?.toLowerCase().includes('hospital')
-    ? 'female' : 'male';
+  const agentGender = selectedCompany?.gender || (
+    (selectedCompany?.industry === 'Healthcare' ||
+      selectedCompany?.name?.toLowerCase().includes('hospital') ||
+      selectedCompany?.name?.toLowerCase().includes('voxsphere'))
+      ? 'female' : 'male'
+  );
   const agentAvatar = agentGender === 'female' ? '/Female.png' : '/Male.png';
 
   // Speech Recognition Initialization
@@ -189,62 +194,55 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   }, [selectedLanguage.code]);
 
   const getServiceInfo = (langCode = 'en-IN') => {
-    const name = selectedCompany?.name || 'Aarogya';
+    const name = selectedCompany?.name?.toLowerCase() || '';
     const sMap = {
       'en-US': {
-        hospital: "I can help with doctor availability, booking appointments (Consultations, Follow-ups, Checkups), or department info.",
-        restaurant: "I can help with menu prices, veg/non-veg options, and table bookings.",
-        ecommerce: "I can track orders, check stock, or manage refunds and support.",
-        default: "I'm here to assist with your queries today."
+        hospital: "I can assist you with doctor availability, booking consultations or follow-up appointments, and providing department contact information.",
+        restaurant: "I can help you with menu prices, checking veg or non-veg options, and booking a table for your visit.",
+        ecommerce: "I can track your orders, check product stock, manage refunds, and handle support tickets.",
+        tech_mahindra: "I can provide information about our business units, share the latest job openings, and tell you about our leadership team.",
+        voxsphere: "I can explain our AI service catalog, provide pricing plan details, and schedule a demo slot for you.",
+        agile_it: "I can help with cloud infrastructure queries, digital transformation services, and managed IT support.",
+        default: "I'm here to assist you with all your queries today."
       },
       'en-IN': {
-        hospital: "I can help with doctor availability, booking appointments (Consultations, Follow-ups, Checkups), or department info.",
-        restaurant: "I can help with menu prices, veg/non-veg options, and table bookings.",
-        ecommerce: "I can track orders, check stock, or manage refunds and support.",
-        default: "I'm here to assist with your queries today."
+        hospital: "I can assist you with doctor availability, booking consultations or follow-up appointments, and providing department contact information.",
+        restaurant: "I can help you with menu prices, checking veg or non-veg options, and booking a table for your visit.",
+        ecommerce: "I can track your orders, check product stock, manage refunds, and handle support tickets.",
+        tech_mahindra: "I can provide information about our business units, share the latest job openings, and tell you about our leadership team.",
+        voxsphere: "I can explain our AI service catalog, provide pricing plan details, and schedule a demo slot for you.",
+        agile_it: "I can help with cloud infrastructure queries, digital transformation services, and managed IT support.",
+        default: "I'm here to assist you with all your queries today."
       },
       'te-IN': {
-        hospital: "నేను డాక్టర్ల లభ్యత, అపాయింట్‌మెంట్ బుకింగ్ (సంప్రదింపులు, అనుసరణలు) మరియు విభాగ సమాచారంలో సహాయపడగలను.",
-        restaurant: "నేను మెనూ ధరలు మరియు టేబుల్ బుకింగ్‌లలో సహాయపడతాను.",
-        ecommerce: "నేను ఆర్డర్‌లను ట్రాక్ చేయగలను మరియు ఫిర్యాదులను పరిష్కరించగలను.",
-        default: "నేను ఈరోజు మీ ప్రశ్నలకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను."
+        hospital: "నేను డాక్టర్ల లభ్యత, కన్సల్టేషన్ లేదా ఫాలో-అప్ అపాయింట్‌మెంట్‌లను బుక్ చేయడం మరియు విభాగాల సమాచారాన్ని అందించడంలో మీకు సహాయపడగలను.",
+        restaurant: "నేను మీకు మెనూ ధరలు, వెజ్ లేదా నాన్-వెజ్ ఆప్షన్‌లను తనిఖీ చేయడం మరియు టేబుల్ బుక్ చేయడంలో సహాయపడతాను.",
+        ecommerce: "నేను మీ ఆర్డర్‌లను ట్రాక్ చేయగలను, స్టాక్ తనిఖీ చేయగలను, రీఫండ్‌లను నిర్వహించగలను మరియు సపోర్ట్ టిక్కెట్‌లను చూడగలను.",
+        tech_mahindra: "నేను మా బిజినెస్ యూనిట్లు, తాజా ఉద్యోగ అవకాశాలు మరియు మా నాయకత్వ బృందం గురించి సమాచారాన్ని అందించగలను.",
+        voxsphere: "నేను మా AI సేవల కేటలాగ్, ధరల ప్లాన్ వివరాలను వివరించగలను మరియు మీ కోసం డెమో స్లాట్‌ను షెడ్యూల్ చేయగలను.",
+        agile_it: "నేను క్లౌడ్ ఇన్‌ఫ్రాస్ట్రక్చర్ ప్రశ్నలు, డిజిటల్ ట్రాన్స్‌ఫర్మేషన్ సేవలు మరియు మేనేజ్డ్ ఐటి సపోర్ట్‌లో సహాయపడగలను.",
+        default: "నేను ఈరోజు మీ అన్ని ప్రశ్నలకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను."
       },
       'hi-IN': {
-        hospital: "मैं डॉक्टरों की उपलब्धता, अपॉइंटमेंट बुकिंग (परामर्श, अनुवर्ती) और विभाग की जानकारी में मदद कर सकता हूँ।",
-        restaurant: "मैं मेनू कीमतों और टेबल बुकिंग में आपकी सहायता कर सकता हूँ।",
-        ecommerce: "मैं ऑर्डर ट्रैक कर सकता हूँ और रिफंड में मदद कर सकता हूँ।",
-        default: "मैं आज आपके सवालों के लिए यहाँ हूँ।"
-      },
-      'ta-IN': {
-        hospital: "நான் மருத்துவர் கிடைக்கும் தன்மை, சந்திப்பு முன்பதிவு மற்றும் துறை தகவல்களில் உதவ முடியும்.",
-        restaurant: "நான் மெனு விலைகள் மற்றும் மேசை முன்பதிவுகளில் உதவ முடியும்.",
-        ecommerce: "நான் ஆர்டர்களை கண்காணிக்கவும், பங்கு சரிபார்க்கவும் உதவ முடியும்.",
-        default: "இன்று உங்கள் கேள்விகளுக்கு உதவ நான் இங்கே இருக்கிறேன்."
-      },
-      'kn-IN': {
-        hospital: "ನಾನು ವೈದ್ಯರ ಲಭ್ಯತೆ, ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಬುಕಿಂಗ್ ಮತ್ತು ವಿಭಾಗ ಮಾಹಿತಿಯಲ್ಲಿ ಸಹಾಯ ಮಾಡಬಲ್ಲೆ.",
-        restaurant: "ನಾನು ಮೆನು ಬೆಲೆಗಳು ಮತ್ತು ಟೇಬಲ್ ಬುಕಿಂಗ್‌ಗಳಲ್ಲಿ ಸಹಾಯ ಮಾಡಬಲ್ಲೆ.",
-        ecommerce: "ನಾನು ಆರ್ಡರ್‌ಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಬಲ್ಲೆ ಮತ್ತು ಬೆಂಬಲದಲ್ಲಿ ಸಹಾಯ ಮಾಡಬಲ್ಲೆ.",
-        default: "ಇಂದು ನಿಮ್ಮ ಪ್ರಶ್ನೆಗಳಿಗೆ ಸಹಾಯ ಮಾಡಲು ನಾನು ಇಲ್ಲಿದ್ದೇನೆ."
-      },
-      'mr-IN': {
-        hospital: "मी डॉक्टरांची उपलब्धता, अपॉइंटमेंट बुकिंग आणि विभाग माहितीमध्ये मदत करू शकतो.",
-        restaurant: "मी मेनू किंमती आणि टेबल बुकिंगमध्ये मदत करू शकतो.",
-        ecommerce: "मी ऑर्डर ट्रॅक करू शकतो आणि समर्थनामध्ये मदत करू शकतो.",
-        default: "आज तुमच्या प्रश्नांसाठी मदत करण्यासाठी मी येथे आहे."
-      },
-      'ml-IN': {
-        hospital: "ഞാൻ ഡോക്ടർ ലഭ്യത, അപ്പോയിന്റ്മെന്റ് ബുക്കിംഗ്, വകുപ്പ് വിവരങ്ങളിൽ സഹായിക്കാം.",
-        restaurant: "ഞാൻ മെനു വിലകളിലും ടേബിൾ ബുക്കിംഗുകളിലും സഹായിക്കാം.",
-        ecommerce: "ഞാൻ ഓർഡറുകൾ ട്രാക്ക് ചെയ്യാനും പിന്തുണയിൽ സഹായിക്കാനും കഴിയും.",
-        default: "ഇന്ന് നിങ്ങളുടെ ചോദ്യങ്ങൾക്ക് സഹായിക്കാൻ ഞാൻ ഇവിടെയുണ്ട്."
+        hospital: "मैं डॉक्टरों की उपलब्धता, परामर्श या फॉलो-अप अपॉइंटमेंट बुक करने और विभाग की संपर्क जानकारी प्रदान करने में आपकी सहायता कर सकता हूँ।",
+        restaurant: "मैं मेनू की कीमतों, वेज या नॉन-वेज विकल्पों की जाँच करने और आपकी यात्रा के लिए टेबल बुक करने में आपकी मदद कर सकता हूँ।",
+        ecommerce: "मैं आपके ऑर्डर ट्रैक कर सकता हूँ, स्टॉक की जाँच कर सकता हूँ, रिफंड प्रबंधित कर सकता हूँ और सपोर्ट टिकट संभाल सकता हूँ।",
+        tech_mahindra: "मैं हमारी व्यावसायिक इकाइयों के बारे में जानकारी दे सकता हूँ, नवीनतम नौकरियों के अवसर साझा कर सकता हूँ और हमारी नेतृत्व टीम के बारे में बता सकता हूँ।",
+        voxsphere: "मैं हमारे AI सेवा कैटलॉग को समझा सकता हूँ, मूल्य निर्धारण योजना का विवरण दे सकता हूँ और आपके लिए एक डेमो स्लॉट शेड्यूल कर सकता हूँ।",
+        agile_it: "मैं क्लाउड इंफ्रास्ट्रक्चर प्रश्नों, डिजिटल परिवर्तन सेवाओं और प्रबंधित आईटी सहायता में मदद कर सकता हूँ।",
+        default: "मैं आज आपके सभी सवालों के समाधान के लिए यहाँ हूँ।"
       }
     };
 
     const strings = sMap[langCode] || sMap['en-IN'];
-    const compKey = name.toLowerCase().includes('hospital') || name.toLowerCase().includes('aarogya') ? 'hospital' :
-      name.toLowerCase().includes('restaurant') || name.toLowerCase().includes('garden') ? 'restaurant' :
-        name.toLowerCase().includes('kart') || name.toLowerCase().includes('commerce') ? 'ecommerce' : 'default';
+    let compKey = 'default';
+
+    if (name.includes('hospital') || name.includes('aarogya')) compKey = 'hospital';
+    else if (name.includes('restaurant') || name.includes('garden')) compKey = 'restaurant';
+    else if (name.includes('kart') || name.includes('commerce')) compKey = 'ecommerce';
+    else if (name.includes('mahindra')) compKey = 'tech_mahindra';
+    else if (name.includes('voxsphere')) compKey = 'voxsphere';
+    else if (name.includes('agile')) compKey = 'agile_it';
 
     return strings[compKey];
   };
@@ -313,22 +311,16 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         setUserName(extractedName);
         setConvoPhase('chatting');
 
-        // Greet in selected language with service info
+        // Greet in selected language with FULL service info
         let response = '';
+        const serviceInfo = getServiceInfo(selectedLanguage.code);
+
         if (selectedLanguage.code === 'te-IN') {
-          response = `${extractedName}, మిమ్మల్ని కలవడం సంతోషం! ${getServiceInfo('te-IN')}`;
+          response = `నమస్కారం ${extractedName}! మిమ్మల్ని కలవడం సంతోషం. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
         } else if (selectedLanguage.code === 'hi-IN') {
-          response = `${extractedName}, आपसे मिलकर खुशी हुई! ${getServiceInfo('hi-IN')}`;
-        } else if (selectedLanguage.code === 'ta-IN') {
-          response = `${extractedName}, உங்களைச் சந்தித்ததில் மகிழ்ச்சி! ${getServiceInfo('ta-IN')}`;
-        } else if (selectedLanguage.code === 'kn-IN') {
-          response = `${extractedName}, ನಿಮ್ಮನ್ನು ಭೇಟಿಯಾಗಲು ಸಂತೋಷವಾಗಿದೆ! ${getServiceInfo('kn-IN')}`;
-        } else if (selectedLanguage.code === 'mr-IN') {
-          response = `${extractedName}, तुम्हाला भेटून आनंद झाला! ${getServiceInfo('mr-IN')}`;
-        } else if (selectedLanguage.code === 'ml-IN') {
-          response = `${extractedName}, നിങ്ങളെ കാണാൻ സന്തോഷം! ${getServiceInfo('ml-IN')}`;
+          response = `नमस्ते ${extractedName}! आपसे मिलकर खुशी हुई। ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
         } else {
-          response = `Nice to meet you, ${extractedName}! ${getServiceInfo('en-IN')}`;
+          response = `Nice to meet you, ${extractedName}! ${serviceInfo} How can I assist you today?`;
         }
 
         addMessage('agent', response);
@@ -426,7 +418,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       const aiResponse = await chatWithGroq(
         `User Message: ${message}`,
         messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text })),
-        selectedCompany,
+        { ...selectedCompany, userName, userEmail },
         systemPrompt
       );
 
@@ -526,6 +518,26 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     }, 400);
   };
 
+  const stopAudio = () => {
+    ttsService.stop();
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    // Restart listening if not muted
+    setTimeout(() => {
+      const { callState: curCallState, isMuted: curIsMuted, isOpen: curIsOpen } = stateRef.current;
+      if (curCallState === 'connected' && !curIsMuted && curIsOpen) {
+        try {
+          if (recognitionRef.current) {
+            recognitionRef.current.start();
+            setIsListening(true);
+          }
+        } catch (e) {
+          console.log('Restarting recognition from audio stop...');
+        }
+      }
+    }, 400);
+  };
+
   const toggleMute = () => {
     setIsMuted(!isMuted);
     if (!isMuted) {
@@ -548,15 +560,17 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
 
     // CALLIX INTRODUCTION LOGIC - Language already selected
     let introMsg = "";
+    const serviceInfo = getServiceInfo(selectedLanguage.code);
+
     if (userName && userName !== 'Guest') {
       setConvoPhase('chatting');
-      // Greet in selected language
+      // Greet in selected language with name AND services
       if (selectedLanguage.code === 'te-IN') {
-        introMsg = `నమస్కారం! నేను ${selectedCompany?.name} కోసం మీ AI అసిస్టెంట్ కాలిక్స్. మళ్లీ మిమ్మల్ని కలవడం సంతోషంగా ఉంది, ${userName}! నేను మీకు ఎలా సహాయం చేయగలను?`;
+        introMsg = `నమస్కారం! నేను ${selectedCompany?.name} కోసం మీ AI అసిస్టెంట్ కాలిక్స్. మళ్లీ మిమ్మల్ని కలవడం సంతోషంగా ఉంది, ${userName}! ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
       } else if (selectedLanguage.code === 'hi-IN') {
-        introMsg = `नमस्ते! मैं ${selectedCompany?.name} के लिए आपका AI सहायक कैलिक्स हूं। आपको फिर से देखकर खुशी हुई, ${userName}! मैं आपकी कैसे मदद कर सकता हूं?`;
+        introMsg = `नमस्ते! मैं ${selectedCompany?.name} के लिए आपका AI सहायक कैलिक्स हूं। आपको फिर से देखकर खुशी हुई, ${userName}! ${serviceInfo} मैं आपकी कैसे मदद कर सकता हूं?`;
       } else {
-        introMsg = `Hi! I'm Callix, your AI assistant for ${selectedCompany?.name}. Great to see you again, ${userName}! How can I assist you today?`;
+        introMsg = `Hi! I'm Callix, your AI assistant for ${selectedCompany?.name}. Great to see you again, ${userName}! ${serviceInfo} How can I assist you today?`;
       }
     } else {
       setConvoPhase('onboarding');
@@ -578,9 +592,11 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     setCallState('ended');
     setIsListening(false);
     setIsSpeaking(false);
+    setMessages([]); // Clear history for next call
     if (recognitionRef.current) recognitionRef.current.abort();
     if (ringingAudioRef.current) ringingAudioRef.current.pause();
     window.speechSynthesis.cancel();
+    ttsService.stop();
 
     // RESET ALL STATES FOR NEXT CALL
     setTimeout(() => {
@@ -638,40 +654,54 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
 
               <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-6 w-full max-w-4xl mx-4">
                 <h3 className="text-xl font-black text-white mb-2 text-center">Select Your Language</h3>
-                <p className="text-blue-200 text-sm text-center mb-3">Choose your preferred language</p>
+                <p className="text-blue-200 text-sm text-center mb-5">Choose your preferred language</p>
 
-                {/* STT Notice */}
-                <div className="bg-blue-500/20 border border-blue-400/30 rounded-xl p-3 mb-5">
-                  <p className="text-blue-100 text-xs text-center leading-relaxed">
-                    <span className="font-semibold">ℹ️ Note:</span> We're actively working on improving Speech-to-Text accuracy for Indian languages.
-                    The AI will understand and respond in your selected language.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap justify-center gap-3 mb-5">
+                <div className="flex justify-center flex-nowrap gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
                   {[
-                    { code: 'en-IN', name: 'English' },
-                    { code: 'hi-IN', name: 'Hindi' },
-                    { code: 'te-IN', name: 'Telugu' },
-                    { code: 'ta-IN', name: 'Tamil' },
-                    { code: 'kn-IN', name: 'Kannada' },
-                    { code: 'mr-IN', name: 'Marathi' },
-                    { code: 'ml-IN', name: 'Malayalam' },
+                    { code: 'en-IN', name: 'English', locked: false },
+                    { code: 'hi-IN', name: 'Hindi', locked: true },
+                    { code: 'te-IN', name: 'Telugu', locked: true },
+                    { code: 'ta-IN', name: 'Tamil', locked: true },
+                    { code: 'kn-IN', name: 'Kannada', locked: true },
+                    { code: 'mr-IN', name: 'Marathi', locked: true },
+                    { code: 'ml-IN', name: 'Malayalam', locked: true },
                   ].map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => {
-                        setSelectedLanguage({ code: lang.code, name: lang.name });
-                        stateRef.current.selectedLanguage = { code: lang.code, name: lang.name };
-                        console.log(`🌐 Language selected: ${lang.name} (${lang.code})`);
-                      }}
-                      className={`px-7 py-2.5 rounded-full border-2 transition-all duration-300 hover:scale-110 font-semibold text-sm ${selectedLanguage.code === lang.code
-                        ? 'border-blue-400 bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/50'
-                        : 'border-white/30 bg-white/10 backdrop-blur-sm text-white hover:border-blue-300 hover:bg-white/20'
-                        }`}
-                    >
-                      {lang.name}
-                    </button>
+                    <div key={lang.code} className="relative group">
+                      <button
+                        onClick={() => {
+                          if (!lang.locked) {
+                            setSelectedLanguage({ code: lang.code, name: lang.name });
+                            stateRef.current.selectedLanguage = { code: lang.code, name: lang.name };
+                            console.log(`🌐 Language selected: ${lang.name} (${lang.code})`);
+                          }
+                        }}
+                        disabled={lang.locked}
+                        className={`px-4 py-2 rounded-full border-2 transition-all duration-300 font-semibold text-sm flex items-center gap-2 ${lang.locked
+                          ? 'border-white/20 bg-white/5 text-white/40 cursor-not-allowed'
+                          : selectedLanguage.code === lang.code
+                            ? 'border-blue-400 bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/50 hover:scale-110'
+                            : 'border-white/30 bg-white/10 backdrop-blur-sm text-white hover:border-blue-300 hover:bg-white/20 hover:scale-110'
+                          }`}
+                      >
+                        {lang.name}
+                        {lang.locked && (
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+
+                      {/* Tooltip */}
+                      {lang.locked && (
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-slate-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                          <div className="font-semibold mb-1">Coming Soon!</div>
+                          <div className="text-slate-300">We're working on {lang.name} support</div>
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                            <div className="border-4 border-transparent border-t-slate-900"></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
 
@@ -716,21 +746,24 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
                 <img src={agentAvatar} className="w-full h-full object-cover" />
               </motion.div>
 
-              <div className="mt-10 text-center">
+              <div className="mt-8 text-center flex flex-col items-center">
                 <h3 className="text-3xl font-black text-slate-900">Callix</h3>
                 <p className="text-[#000080] font-black uppercase tracking-[0.3em] text-sm mt-1">{selectedCompany?.name}</p>
 
-                <div className="mt-8 flex items-center space-x-6">
-                  <button onClick={toggleMute} className={`p-5 rounded-full shadow-lg transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}><Mic size={28} /></button>
-                  <button onClick={endCall} className="p-5 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 transition-all transform hover:scale-110"><PhoneOff size={28} /></button>
-                </div>
-              </div>
-
-              {/* Real-time Indicator Bottom */}
-              <div className="absolute bottom-10 left-0 right-0 flex justify-center">
-                <div className={`px-6 py-2 rounded-full text-xs font-black tracking-widest uppercase flex items-center space-x-2 ${isSpeaking ? 'bg-green-100 text-green-700' : isListening ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
-                  <div className={`w-2 h-2 rounded-full animate-pulse ${isSpeaking ? 'bg-green-500' : isListening ? 'bg-blue-500' : 'bg-slate-400'}`}></div>
+                {/* Real-time Indicator */}
+                <div className={`mt-6 px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase flex items-center space-x-2 border transition-all duration-300 ${isSpeaking ? 'bg-green-100 text-green-700 border-green-200' : isListening ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSpeaking ? 'bg-green-500' : isListening ? 'bg-blue-500' : 'bg-slate-400'}`}></div>
                   <span>{isSpeaking ? 'Agent Speaking' : isListening ? 'Listening' : 'Ready'}</span>
+                </div>
+
+                <div className="mt-8 flex items-center space-x-4">
+                  <button onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"} className={`p-4 rounded-full shadow-lg transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}><Mic size={24} /></button>
+                  {isSpeaking && (
+                    <button onClick={stopAudio} title="Stop Audio" className="p-4 bg-orange-500 text-white rounded-full shadow-lg hover:bg-orange-600 transition-all transform hover:scale-110 animate-bounce">
+                      <VolumeX size={24} />
+                    </button>
+                  )}
+                  <button onClick={endCall} title="End Call" className="p-4 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 transition-all transform hover:scale-110"><PhoneOff size={24} /></button>
                 </div>
               </div>
             </div>

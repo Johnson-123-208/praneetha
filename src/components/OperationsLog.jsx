@@ -5,18 +5,27 @@ import { database } from '../utils/database.js';
 
 const OperationsLog = () => {
   const [orders, setOrders] = useState([]);
+  const [companies, setCompanies] = useState({});
 
   useEffect(() => {
-    loadOrders();
+    loadData();
 
-    // Refresh every 1 second for real-time updates
-    const interval = setInterval(loadOrders, 1000);
+    // Refresh every 5 seconds for real-time updates (longer interval for cloud DB)
+    const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const loadOrders = () => {
-    const orderList = database.getOrders();
+  const loadData = async () => {
+    const orderList = await database.getOrders();
     setOrders(orderList);
+
+    // Fetch and cache company names
+    const companyList = await database.getCompanies();
+    const companyMap = {};
+    companyList.forEach(c => {
+      companyMap[c.id] = c.name;
+    });
+    setCompanies(companyMap);
   };
 
   const formatTimestamp = (timestamp) => {
@@ -31,9 +40,7 @@ const OperationsLog = () => {
   };
 
   const getCompanyName = (companyId) => {
-    if (!companyId) return 'Unknown';
-    const company = database.getCompany(companyId);
-    return company ? company.name : 'Unknown';
+    return companies[companyId] || 'Unknown';
   };
 
   return (

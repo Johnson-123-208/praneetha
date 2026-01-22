@@ -24,7 +24,7 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
   // Use local AI if Groq API is not available
   if (!apiKey) {
     console.log('Using local AI mode (no API key required)');
-    return processWithLocalAI(prompt, history, companyContext);
+    return await processWithLocalAI(prompt, history, companyContext);
   }
 
   try {
@@ -105,25 +105,72 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 // Detect if a function call is needed based on the response
 const detectFunctionCall = (message, companyContext) => {
   const lowerMessage = message.toLowerCase();
+  const upperMessage = message.toUpperCase();
 
-  // Check for various function call patterns
-  if (lowerMessage.includes('vacancy') || lowerMessage.includes('job opening')) {
-    return { name: 'check_vacancies', args: { companyId: companyContext?.id } };
+  // Pattern-based detection for explicit triggers
+  if (upperMessage.includes('BOOK_APPOINTMENT') || (lowerMessage.includes('book') && lowerMessage.includes('appointment'))) {
+    const details = extractAppointmentDetails(message);
+    return {
+      name: 'book_appointment',
+      args: {
+        entityId: companyContext?.id,
+        type: 'doctor',
+        personName: details.personName || 'Arjun',
+        date: details.date || new Date().toISOString().split('T')[0],
+        time: details.time || '10:00',
+        userEmail: companyContext?.userEmail, // Pass from context
+        userName: companyContext?.userName,
+        userInfo: { name: companyContext?.userName || 'Customer' }
+      }
+    };
   }
-  if (lowerMessage.includes('book') && lowerMessage.includes('appointment')) {
-    return { name: 'book_appointment', args: { entityId: companyContext?.id } };
+
+  if (upperMessage.includes('BOOK_ORDER') || (lowerMessage.includes('place') && lowerMessage.includes('order'))) {
+    return {
+      name: 'book_order',
+      args: {
+        companyId: companyContext?.id,
+        item: 'Product',
+        quantity: 1,
+        userEmail: companyContext?.userEmail
+      }
+    };
   }
-  if (lowerMessage.includes('feedback')) {
-    return { name: 'collect_feedback', args: { entityId: companyContext?.id } };
+
+  if (upperMessage.includes('COLLECT_FEEDBACK') || (lowerMessage.includes('feedback') && lowerMessage.includes('rating'))) {
+    const details = extractFeedbackDetails(message);
+    return {
+      name: 'collect_feedback',
+      args: {
+        entityId: companyContext?.id,
+        rating: details.rating || 5,
+        comment: details.comment || message,
+        category: 'performance',
+        userEmail: companyContext?.userEmail
+      }
+    };
   }
-  if (lowerMessage.includes('available slot')) {
+
+  if (upperMessage.includes('BOOK_TABLE') || (lowerMessage.includes('reserve') && lowerMessage.includes('table'))) {
+    return {
+      name: 'book_appointment',
+      args: {
+        entityId: companyContext?.id,
+        type: 'table',
+        date: new Date().toISOString().split('T')[0],
+        time: '19:00',
+        userEmail: companyContext?.userEmail
+      }
+    };
+  }
+
+  // Check for general knowledge queries
+  if (lowerMessage.includes('available') && (lowerMessage.includes('doctor') || lowerMessage.includes('slot'))) {
     return { name: 'get_available_slots', args: { entityId: companyContext?.id } };
   }
-  if (lowerMessage.includes('company directory') || lowerMessage.includes('list of companies')) {
-    return { name: 'get_company_directory', args: {} };
-  }
-  if (lowerMessage.includes('order status') || lowerMessage.includes('trace order')) {
-    return { name: 'trace_order', args: {} };
+
+  if (lowerMessage.includes('order status') || lowerMessage.includes('trace order') || upperMessage.includes('TRACE_ORDER')) {
+    return { name: 'trace_order', args: { userEmail: companyContext?.userEmail } };
   }
 
   return null;
@@ -135,23 +182,23 @@ const executeFunctionCall = async (functionMatch) => {
 
   switch (name) {
     case 'get_company_directory':
-      return tools.get_company_directory();
+      return await tools.get_company_directory();
     case 'get_company_insights':
-      return tools.get_company_insights(args.companyId);
+      return await tools.get_company_insights(args.companyId);
     case 'book_order':
-      return tools.book_order(args);
+      return await tools.book_order(args);
     case 'trace_order':
-      return tools.trace_order(args.orderId);
+      return await tools.trace_order(args.orderId ?? args);
     case 'check_vacancies':
-      return tools.check_vacancies(args);
+      return await tools.check_vacancies(args);
     case 'book_appointment':
-      return tools.book_appointment(args);
+      return await tools.book_appointment(args);
     case 'collect_feedback':
-      return tools.collect_feedback(args);
+      return await tools.collect_feedback(args);
     case 'get_available_slots':
-      return tools.get_available_slots(args);
+      return await tools.get_available_slots(args);
     case 'query_entity_database':
-      return tools.query_entity_database(args);
+      return await tools.query_entity_database(args);
     default:
       return { error: `Unknown function: ${name}` };
   }

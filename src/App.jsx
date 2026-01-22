@@ -70,15 +70,17 @@ function App() {
 
         // Combine and format
         const allCompanies = [
-          ...hospitals.map(h => ({
-            id: h.id,
-            name: h.name,
-            industry: 'Healthcare',
-            logo: '🏥',
-            contextSummary: h.tagline || '',
-            nlpContext: `Hospital: ${h.name}. Tagline: ${h.tagline}. Emergency: ${h.emergency_24x7 ? 'Yes' : 'No'}. Beds: ${h.total_beds}. Contact: ${h.phone}.`,
-            apiLinked: true
-          })),
+          ...hospitals
+            .filter(h => !h.name?.toLowerCase().includes('apollo'))
+            .map(h => ({
+              id: h.id,
+              name: h.name,
+              industry: 'Healthcare',
+              logo: '🏥',
+              contextSummary: h.tagline || '',
+              nlpContext: `Hospital: ${h.name}. Tagline: ${h.tagline}. Emergency: ${h.emergency_24x7 ? 'Yes' : 'No'}. Beds: ${h.total_beds}. Contact: ${h.phone}.`,
+              apiLinked: true
+            })),
           ...techCompanies
             .filter(c => !['Tech Mahindra', 'Tech Mahindra Limited'].includes(c.name))
             .map(c => ({
@@ -90,23 +92,16 @@ function App() {
               nlpContext: `Company: ${c.name}. Tagline: ${c.tagline}. CEO: ${c.ceo_name}. Employees: ${c.total_employees}. Headquarters: ${c.headquarters_address}.`,
               apiLinked: true
             })),
-          // New Specialized agents from the provided databases
+          // 6 Specialized Agents (3 Female, 3 Male)
           {
             id: 'aarogya-hospital',
             name: 'Aarogya Multispeciality',
             industry: 'Healthcare',
             logo: '🏥',
+            gender: 'female',
+            agentId: 'female_1',
             contextSummary: 'Trained on: Medical Staff Registry, Staff Availability Grid, and Consultation Slots.',
             nlpContext: 'Trained on Aarogya Database: Access to care_center_profile (namne, timings), medical_staff_registry (specialists), staff_availability_grid (daily slots), and consultation_slots (real-time booking status).',
-            apiLinked: true
-          },
-          {
-            id: 'spice-garden-restaurant',
-            name: 'Spice Garden',
-            industry: 'Food & Beverage',
-            logo: '🍕',
-            contextSummary: 'Trained on: Food Catalog, Chef Special Registry, and Seating Slot Grid.',
-            nlpContext: 'Trained on Restaurant Database: Access to dinehouse_profile (cuisine), food_catalog_registry (full menu, pricing, veg flags), chef_special_registry (chef recommendations), and seating_slot_grid (table availability).',
             apiLinked: true
           },
           {
@@ -114,17 +109,10 @@ function App() {
             name: 'QuickKart store',
             industry: 'E-Commerce',
             logo: '🛒',
+            gender: 'female',
+            agentId: 'female_2',
             contextSummary: 'Trained on: Product Inventory, Order Intake, Shipping Tracking, and Support Tickets.',
             nlpContext: 'Trained on E-Commerce + Tracking Databases: Access to product_inventory_map (stock/price), order_intake_registry (status tracking), shipment_status_log (real-time logs), support_ticket_registry (issue tracking), and refund_request_log.',
-            apiLinked: true
-          },
-          {
-            id: 'tech-mahindra-software',
-            name: 'Tech Mahindra',
-            industry: 'Software IT',
-            logo: '🚀',
-            contextSummary: 'Trained on: Business Units, Job Openings, Leadership Team, and Office Locations.',
-            nlpContext: 'Trained on Tech Mahindra Database: Access to business_units (key technologies, head_name), job_openings (skills required, salary range, location), office_locations (city hubs), and leadership_team (executive designations).',
             apiLinked: true
           },
           {
@@ -132,10 +120,45 @@ function App() {
             name: 'VoxSphere Solutions',
             industry: 'AI & Business',
             logo: '🌐',
+            gender: 'female',
+            agentId: 'female_3',
             contextSummary: 'Trained on: Service Catalog, Pricing Plan Matrix, and Demo Slot Calendar.',
             nlpContext: 'Trained on Business Solutions Database: Access to biz_profile_core (timings, contact), biz_service_catalog (sector-specific AI tools), pricing_plan_matrix (Starter/Pro/Enterprise plans), and demo_slot_calendar (slot_status tracking).',
             apiLinked: true
+          },
+          {
+            id: 'spice-garden-restaurant',
+            name: 'Spice Garden',
+            industry: 'Food & Beverage',
+            logo: '🍕',
+            gender: 'male',
+            agentId: 'male_1',
+            contextSummary: 'Trained on: Food Catalog, Chef Special Registry, and Seating Slot Grid.',
+            nlpContext: 'Trained on Restaurant Database: Access to dinehouse_profile (cuisine), food_catalog_registry (full menu, pricing, veg flags), chef_special_registry (chef recommendations), and seating_slot_grid (table availability).',
+            apiLinked: true
           }
+          // {
+          //   id: 'tech-mahindra-software',
+          //   name: 'Tech Mahindra',
+          //   industry: 'Software IT',
+          //   logo: '🚀',
+          //   gender: 'male',
+          //   agentId: 'male_2',
+          //   contextSummary: 'Trained on: Business Units, Job Openings, Leadership Team, and Office Locations.',
+          //   nlpContext: 'Trained on Tech Mahindra Database: Access to business_units (key technologies, head_name), job_openings (skills required, salary range, location), office_locations (city hubs), and leadership_team (executive designations).',
+          //   apiLinked: true
+          // }
+          // {
+          //   id: 'agile-it-global',
+          //   name: 'Agile IT Global',
+          //   industry: 'Technology',
+          //   logo: '💻',
+          //   gender: 'male',
+          //   agentId: 'male_3',
+          //   contextSummary: 'Trained on: Cloud Infrastructure, Digital Transformation, and Managed Services.',
+          //   nlpContext: 'Trained on Global IT Database: Access to infrastructure_map (cloud nodes), service_catalog (managed services), tech_stack_registry (modern frameworks), and support_incident_log.',
+          //   apiLinked: true
+          // }
         ];
 
         setCompanies(allCompanies);
@@ -159,6 +182,11 @@ function App() {
   };
 
   const handleCallAgent = () => {
+    // Default to VoxSphere (Female) if calling from Hero/Header
+    const voxSphere = companies.find(c => c.id === 'voxsphere-biz-solutions');
+    if (voxSphere) {
+      setSelectedCompany(voxSphere);
+    }
     setIsVoiceOverlayOpen(true);
   };
 

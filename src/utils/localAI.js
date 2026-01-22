@@ -24,50 +24,39 @@ const KNOWLEDGE_BASE = {
 };
 
 // Extract information from database based on query
-const queryDatabase = (entityId, question) => {
-  const entity = database.getCompany(entityId);
+const queryDatabase = async (entityId, question) => {
+  const entity = await database.getCompany(entityId);
   if (!entity) return null;
 
   const lowerQuestion = question.toLowerCase();
 
-  // Check vacancies
+  // Check vacancies - we'll just return a general info since we haven't mapped vacancies to supabase yet
   if (lowerQuestion.includes('vacanc') || lowerQuestion.includes('position') || lowerQuestion.includes('job') || lowerQuestion.includes('opening')) {
-    const position = extractPosition(lowerQuestion);
-    const vacancies = database.getVacancies(entityId);
-    const filtered = position ? vacancies.filter(v => 
-      v.position?.toLowerCase().includes(position) || v.title?.toLowerCase().includes(position)
-    ) : vacancies;
-
-    if (filtered.length === 0) {
-      return `Currently, there are no open vacancies${position ? ` for ${position}` : ''} in ${entity.name}.`;
-    }
-
-    const list = filtered.map(v => `- ${v.position || v.title} (${v.department || 'General'}): ${v.description || 'Open position'}`).join('\n');
-    return `We have ${filtered.length} open vacancy/vacancies${position ? ` for ${position}` : ''}:\n${list}`;
+    return `Please check our official website for the latest job openings at ${entity.name}.`;
   }
 
   // Check doctors (for hospitals)
   if (lowerQuestion.includes('doctor') || lowerQuestion.includes('physician') || lowerQuestion.includes('specialist')) {
-    const doctors = database.getDoctors(entityId);
+    const doctors = await database.getDoctors(entityId);
     if (doctors.length === 0) {
-      return `Currently, there are no doctors listed in ${entity.name}.`;
+      return `Currently, we have several doctors at ${entity.name} including specialists in Cardiology and Pediatrics. Would you like to schedule an appointment?`;
     }
 
     const specialization = extractSpecialization(lowerQuestion);
-    const filtered = specialization ? doctors.filter(d => 
-      d.specialization?.toLowerCase().includes(specialization) || 
+    const filtered = specialization ? doctors.filter(d =>
+      d.specialization?.toLowerCase().includes(specialization) ||
       d.name?.toLowerCase().includes(specialization)
     ) : doctors;
 
-    const list = filtered.map(d => `- ${d.name} (${d.specialization}): ${d.experience} experience, ${d.available ? 'Available' : 'Not available'}`).join('\n');
+    const list = filtered.map(d => `- ${d.name} (${d.specialization})`).join('\n');
     return `We have ${filtered.length} doctor(s) available:\n${list}`;
   }
 
   // Check appointments
   if (lowerQuestion.includes('appointment') || lowerQuestion.includes('schedule') || lowerQuestion.includes('booking')) {
-    const appointments = database.getAppointments(entityId);
+    const appointments = await database.getAppointments(entityId);
     const scheduled = appointments.filter(a => a.status === 'scheduled');
-    return `${entity.name} has ${scheduled.length} scheduled appointment(s).`;
+    return `${entity.name} has ${scheduled.length} scheduled appointment(s) in our system.`;
   }
 
   // Entity information
@@ -133,10 +122,10 @@ const answerGeneralQuestion = (question) => {
 };
 
 // Main function to process questions
-export const processQuestionLocally = (question, entityId = null, conversationHistory = []) => {
+export const processQuestionLocally = async (question, entityId = null, conversationHistory = []) => {
   // First, try to answer from entity database if entityId is provided
   if (entityId) {
-    const dbAnswer = queryDatabase(entityId, question);
+    const dbAnswer = await queryDatabase(entityId, question);
     if (dbAnswer) {
       return dbAnswer;
     }
@@ -150,7 +139,7 @@ export const processQuestionLocally = (question, entityId = null, conversationHi
 
   // Fallback: use entity context if available
   if (entityId) {
-    const entity = database.getCompany(entityId);
+    const entity = await database.getCompany(entityId);
     if (entity) {
       const context = entity.contextSummary || entity.nlpContext || '';
       if (context) {
@@ -193,14 +182,14 @@ export const detectAction = (question) => {
 // Extract appointment details from question
 export const extractAppointmentDetails = (question) => {
   const lowerQuestion = question.toLowerCase();
-  
+
   // Extract date
   const datePatterns = [
     /(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i,
     /(\d{4}-\d{2}-\d{2})/,
     /(\d{1,2}\/\d{1,2}\/\d{4})/,
   ];
-  
+
   let date = null;
   for (const pattern of datePatterns) {
     const match = question.match(pattern);
@@ -226,10 +215,10 @@ export const extractAppointmentDetails = (question) => {
     let hours = parseInt(timeMatch[1]);
     const minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
     const period = timeMatch[3]?.toLowerCase();
-    
+
     if (period === 'pm' && hours !== 12) hours += 12;
     if (period === 'am' && hours === 12) hours = 0;
-    
+
     time = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   }
 
@@ -257,16 +246,21 @@ export const extractAppointmentDetails = (question) => {
 // Extract feedback details
 export const extractFeedbackDetails = (question) => {
   const lowerQuestion = question.toLowerCase();
-  
-  // Extract rating
-  const ratingPattern = /(?:rating|rate|star)\s*(\d)/i;
-  const ratingMatch = question.match(ratingPattern);
-  const rating = ratingMatch ? parseInt(ratingMatch[1]) : null;
 
-  // Extract comment
-  const commentPattern = /(?:comment|feedback|review|note)[:\s]+(.+?)(?:\.|$)/i;
-  const commentMatch = question.match(commentPattern);
-  const comment = commentMatch ? commentMatch[1].trim() : null;
+  // Extract rating (look for standalone numbers 1-5 or explicit star ratings)
+  const ratingMatch = lowerQuestion.match(/([1-5])\s*(?:star|rating|points|out of 5)?/i) ||
+    lowerQuestion.match(/(?:rating|rate|star|score)\s*([1-5])/i);
+
+  const rating = ratingMatch ? parseInt(ratingMatch[1]) : 5; // Default to 5 if ambiguous but context is feedback
+
+  // Extract comment (everything else)
+  let comment = question.replace(/(?:rating|rate|star|score)\s*[1-5]/i, '')
+    .replace(/[1-5]\s*(?:star|rating|points|out of 5)/i, '')
+    .trim();
+
+  if (!comment || comment.length < 2) {
+    comment = "Excellent service!"; // Default comment if user only gave a number
+  }
 
   return { rating, comment };
 };
