@@ -91,8 +91,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
         ringingAudioRef.current.pause();
       }
 
-      // Initial greeting
-      const greeting = `Hello! I'm your AI assistant from ${selectedCompany?.name}. How can I help you today?`;
+      // Initial greeting - Politely ask for the user's name
+      const greeting = `Hello! I'm your AI assistant from ${selectedCompany?.name}. May I know who I am speaking with today?`;
       addMessage('agent', greeting);
       speak(greeting);
     }, 3000);
@@ -131,17 +131,27 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
         text: msg.text
       }));
 
-      // Call Groq with proper parameters and strict length limit
+      // Call Groq with proper parameters and strict persona
+      const systemPrompt = `You are a polite AI assistant for ${selectedCompany?.name}. 
+      Your goal is to help the user. 
+      IMPORTANT:
+      1. DO NOT mention technical details like searching database, using tools, or internal notes.
+      2. Respond in MAXIMUM 2 short, conversational sentences.
+      3. Be polite and professional.
+      4. If you don't know the user's name yet, try to address them naturally once they provide it.`;
+
       const response = await chatWithGroq(
-        `${message}\n\nIMPORTANT: Respond in MAXIMUM 2 short sentences. Be extremely concise.`,
+        `${message}\n\n${systemPrompt}`,
         formattedHistory,
         selectedCompany
       );
 
-      // Truncate response if still too long
-      const truncatedResponse = response.length > 250
-        ? response.substring(0, 250).trim() + '...'
-        : response;
+      // Clean response from any system notes or technical prefixes
+      const cleanedResponse = response.replace(/\(Note:.*?\)|System:.*?:|Internal:.*?:/gi, '').trim();
+
+      const truncatedResponse = cleanedResponse.length > 250
+        ? cleanedResponse.substring(0, 250).trim() + '...'
+        : cleanedResponse;
 
       addMessage('agent', truncatedResponse);
 
@@ -232,17 +242,22 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
 
       utterance.onend = () => {
         setIsSpeaking(false);
-        // Resume listening after a short delay to avoid catching own voice
+        // Resume listening after a short delay
         setTimeout(() => {
           if (callState === 'connected' && !isMuted && isOpen) {
             try {
-              recognitionRef.current.start();
-              setIsListening(true);
+              // Create a new recognition session if the old one is dead
+              if (recognitionRef.current) {
+                recognitionRef.current.start();
+                setIsListening(true);
+              }
             } catch (e) {
-              console.log('Speech recognition restart failed');
+              console.log('Restarting recognition...');
+              // If already started, this will catch. If not, we try to re-init.
+              setIsListening(true);
             }
           }
-        }, 800);
+        }, 500);
       };
 
       window.speechSynthesis.speak(utterance);
@@ -369,37 +384,37 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
         {/* Connected Screen - Split View */}
         {callState === 'connected' && (
           <motion.div
-            className="h-full flex bg-white overflow-hidden"
+            className="h-full flex bg-white"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
             {/* Left Side - Agent */}
-            <div className="w-1/2 bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-between p-6 relative border-r border-gray-200">
-              <div className="flex-1 flex flex-col items-center justify-center w-full">
+            <div className="w-1/2 bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center p-6 relative border-r border-gray-200">
+              <div className="flex-1 flex flex-col items-center justify-center w-full min-h-0">
                 {/* Agent Avatar with Animation */}
                 <motion.div
-                  className={`relative w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-8 ${isSpeaking ? 'border-green-500 shadow-glow-success' : isListening ? 'border-blue-500 shadow-glow-blue' : 'border-gray-200'
-                    } transition-all duration-500 ${isSpeaking ? 'animate-talking' : ''}`}
+                  className={`relative w-48 h-48 md:w-64 md:h-64 lg:w-80 lg:h-80 rounded-full overflow-hidden border-8 ${isSpeaking ? 'border-green-500 shadow-glow-success' : isListening ? 'border-blue-500 shadow-glow-blue' : 'border-gray-200'
+                    } transition-all duration-500 flex-shrink-0`}
                 >
                   <img src={agentAvatar} alt="AI Agent" className="w-full h-full object-cover" />
                 </motion.div>
 
                 {/* Agent Status */}
-                <div className="mt-10 text-center">
-                  <h3 className="text-3xl font-black text-text-dark mb-2 tracking-tight">AI Assistant</h3>
-                  <p className="text-purple-600 text-xl font-bold uppercase tracking-widest text-sm">{selectedCompany?.name}</p>
-                  <div className="mt-6 flex items-center justify-center space-x-3">
-                    <div className={`w-3.5 h-3.5 rounded-full ${isSpeaking ? 'bg-green-500' : isListening ? 'bg-blue-500' : 'bg-gray-400'} animate-pulse`}></div>
-                    <span className="text-base text-text-gray font-bold tracking-wide">
-                      {isSpeaking ? 'AGENT SPEAKING' : isListening ? 'LISTENING TO YOU...' : 'READY'}
+                <div className="mt-6 text-center">
+                  <h3 className="text-2xl font-black text-text-dark mb-1 tracking-tight">AI Assistant</h3>
+                  <p className="text-purple-600 text-lg font-bold uppercase tracking-widest">{selectedCompany?.name}</p>
+                  <div className="mt-4 flex items-center justify-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${isSpeaking ? 'bg-green-500' : isListening ? 'bg-blue-500' : 'bg-gray-400'} animate-pulse`}></div>
+                    <span className="text-sm text-text-gray font-bold tracking-wide">
+                      {isSpeaking ? 'AGENT SPEAKING' : isListening ? 'LISTENING' : 'READY'}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Controls Container - Pinned at bottom */}
-              <div className="absolute bottom-10 left-0 right-0 flex justify-center z-20">
-                <div className="flex space-x-6 bg-white/80 backdrop-blur-xl p-5 rounded-[2rem] shadow-premium-lg border border-white/50">
+              {/* Controls - Fixed relative to bottom of left side */}
+              <div className="mt-auto pb-6 w-full flex justify-center z-20">
+                <div className="flex space-x-6 bg-white/90 backdrop-blur-xl p-4 rounded-3xl shadow-premium-lg border border-white/50">
                   <motion.button
                     onClick={toggleMute}
                     className={`p-4 rounded-full ${isMuted ? 'bg-red-500 text-white shadow-lg' : 'bg-white shadow-premium text-text-dark'} hover:scale-110 transition-all`}
