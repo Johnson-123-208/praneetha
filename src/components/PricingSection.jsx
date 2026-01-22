@@ -61,10 +61,10 @@ const PricingSection = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-5xl md:text-7xl font-black mb-6 bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+          <h2 className="text-5xl md:text-7xl font-black mb-6 bg-gradient-purple bg-clip-text text-transparent">
             Pricing Plans
           </h2>
-          <p className="text-gray-900 text-xl md:text-2xl font-bold max-w-2xl mx-auto">
+          <p className="text-text-dark text-xl md:text-2xl font-bold max-w-2xl mx-auto">
             Choose the perfect plan for your business needs
           </p>
         </motion.div>
@@ -74,8 +74,8 @@ const PricingSection = () => {
             <motion.div
               key={plan.name}
               className={`relative rounded-[2.5rem] p-10 flex flex-col h-full transform transition-all duration-500 ${plan.highlight
-                  ? 'bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 text-white shadow-2xl scale-105 z-10'
-                  : 'bg-white border-2 border-gray-100 shadow-xl text-gray-900'
+                  ? 'bg-gradient-purple text-white shadow-card-purple scale-105 z-10'
+                  : 'bg-white border-2 border-gray-100 shadow-xl text-text-dark'
                 }`}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -84,8 +84,8 @@ const PricingSection = () => {
             >
               {plan.highlight && (
                 <div className="absolute -top-5 left-1/2 transform -translate-x-1/2">
-                  <span className="px-6 py-2 rounded-full bg-white text-purple-700 text-sm font-black flex items-center space-x-2 shadow-xl whitespace-nowrap">
-                    <Zap size={16} className="fill-purple-600" />
+                  <span className="px-6 py-2 rounded-full bg-white text-purple-primary text-sm font-black flex items-center space-x-2 shadow-xl whitespace-nowrap">
+                    <Zap size={16} className="fill-purple-primary" />
                     <span>MOST POPULAR</span>
                   </span>
                 </div>
@@ -96,7 +96,7 @@ const PricingSection = () => {
                   {plan.name}
                 </h3>
                 <div className="flex items-baseline mb-4">
-                  <span className="text-6xl font-black tracking-tighter">
+                  <span className={`text-6xl font-black tracking-tighter ${plan.highlight ? 'text-white' : 'text-purple-primary'}`}>
                     {plan.price}
                   </span>
                   {plan.period && (
@@ -132,8 +132,8 @@ const PricingSection = () => {
 
               <motion.button
                 className={`w-full py-5 rounded-2xl font-black text-xl shadow-lg transition-all ${plan.highlight
-                    ? 'bg-white text-purple-700 hover:bg-gray-50'
-                    : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:opacity-90'
+                    ? 'bg-white text-purple-primary hover:bg-gray-50'
+                    : 'bg-gradient-purple text-white hover:opacity-90'
                   }`}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}

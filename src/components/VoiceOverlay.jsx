@@ -80,7 +80,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
 
     // Play ringing sound
     setCallState('ringing');
-    ringingAudioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+    ringingAudioRef.current = new Audio('/ringtone-027-376908.mp3');
     ringingAudioRef.current.loop = true;
     ringingAudioRef.current.play().catch(e => console.log('Audio play failed:', e));
 
@@ -374,7 +374,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
             animate={{ opacity: 1 }}
           >
             {/* Left Side - Agent */}
-            <div className="w-1/2 bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-between p-12 relative border-r border-gray-200">
+            <div className="w-1/2 bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-between p-6 relative border-r border-gray-200">
               <div className="flex-1 flex flex-col items-center justify-center w-full">
                 {/* Agent Avatar with Animation */}
                 <motion.div
@@ -397,17 +397,17 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
                 </div>
               </div>
 
-              {/* Controls Container - Fixed at bottom with extra padding */}
-              <div className="w-full flex justify-center pb-8">
-                <div className="flex space-x-6 bg-white/50 backdrop-blur-md p-4 rounded-3xl shadow-premium border border-white/50">
+              {/* Controls Container - Pinned at bottom */}
+              <div className="absolute bottom-10 left-0 right-0 flex justify-center z-20">
+                <div className="flex space-x-6 bg-white/80 backdrop-blur-xl p-5 rounded-[2rem] shadow-premium-lg border border-white/50">
                   <motion.button
                     onClick={toggleMute}
-                    className={`p-4 rounded-full ${isMuted ? 'bg-red-500 text-white' : 'bg-white shadow-premium text-text-dark'} hover:opacity-90 transition-all`}
+                    className={`p-4 rounded-full ${isMuted ? 'bg-red-500 text-white shadow-lg' : 'bg-white shadow-premium text-text-dark'} hover:scale-110 transition-all`}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     title={isMuted ? 'Unmute' : 'Mute'}
                   >
-                    {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
+                    {isMuted ? <MicOff size={28} /> : <Mic size={28} />}
                   </motion.button>
 
                   {/* Stop Speaking Button - Only show when agent is speaking */}
@@ -425,7 +425,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
                           }, 300);
                         }
                       }}
-                      className="p-4 rounded-full bg-orange-500 hover:bg-orange-600 transition-colors text-white shadow-premium"
+                      className="p-4 rounded-full bg-orange-500 hover:bg-orange-600 transition-colors text-white shadow-lg"
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       initial={{ scale: 0 }}
@@ -433,7 +433,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
                       exit={{ scale: 0 }}
                       title="Stop Speaking"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="6" y="4" width="4" height="16"></rect>
                         <rect x="14" y="4" width="4" height="16"></rect>
                       </svg>
@@ -442,12 +442,12 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
 
                   <motion.button
                     onClick={endCall}
-                    className="p-4 rounded-full bg-red-500 hover:bg-red-600 transition-colors text-white shadow-premium"
+                    className="p-4 rounded-full bg-red-600 hover:bg-red-700 transition-colors text-white shadow-lg"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
                     title="End Call"
                   >
-                    <PhoneOff size={24} />
+                    <PhoneOff size={28} />
                   </motion.button>
                 </div>
               </div>
@@ -481,8 +481,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
                   >
                     <div
                       className={`max-w-[80%] p-4 rounded-2xl shadow-premium ${msg.sender === 'user'
-                          ? 'bg-gradient-purple text-white'
-                          : 'bg-white text-text-dark border border-gray-200'
+                        ? 'bg-gradient-purple text-white'
+                        : 'bg-white text-text-dark border border-gray-200'
                         }`}
                     >
                       <p className="text-sm">{msg.text}</p>
