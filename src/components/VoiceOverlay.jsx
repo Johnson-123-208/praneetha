@@ -15,94 +15,106 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
   const synthesisRef = useRef(null);
   const ringingAudioRef = useRef(null);
 
-  // Determine agent gender based on language voice
-  const agentGender = selectedLanguage?.voice?.includes('Female') || selectedLanguage?.voice?.includes('female') ? 'female' : 'male';
+  // Determine agent gender and avatar based on company
+  // Apollo Hospitals = Female, Tech Mahindra = Male
+  const agentGender = selectedCompany?.industry === 'Healthcare' ||
+    selectedCompany?.name?.toLowerCase().includes('apollo') ||
+    selectedCompany?.name?.toLowerCase().includes('hospital')
+    ? 'female' : 'male';
   const agentAvatar = agentGender === 'female' ? '/Female.png' : '/Male.png';
+  const agentVoiceName = agentGender === 'female'
+    ? 'Google UK English Female' // Or 'Microsoft Zira - English (United States)'
+    : 'Google UK English Male';   // Or 'Microsoft David - English (United States)'
 
   // Initialize speech recognition
   useEffect(() => {
     if (!isOpen) return;
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = selectedLanguage?.code || 'en-US';
 
       recognitionRef.current.onresult = (event) => {
-        const current = event.resultIndex;
-        const transcriptText = event.results[current][0].transcript;
+        let interimTranscript = '';
+        let finalTranscript = '';
 
-        if (event.results[current].isFinal) {
-          setTranscript(transcriptText);
-          handleUserMessage(transcriptText);
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        if (finalTranscript) {
+          handleUserMessage(finalTranscript);
+        } else {
+          setTranscript(interimTranscript);
         }
       };
 
       recognitionRef.current.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
-          alert('Microphone permission denied. Please allow microphone access.');
+        if (event.error === 'no-speech') {
+          // Restart if it times out
+          try {
+            recognitionRef.current.stop();
+          } catch (e) { }
+        }
+      };
+
+      recognitionRef.current.onend = () => {
+        // Auto-restart if we're still in connected state and not speaking
+        if (callState === 'connected' && !isSpeaking && !isMuted) {
+          try {
+            recognitionRef.current.start();
+          } catch (e) {
+            console.log('Could not restart recognition automatically');
+          }
         }
       };
     }
 
+    // Play ringing sound
+    setCallState('ringing');
+    ringingAudioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+    ringingAudioRef.current.loop = true;
+    ringingAudioRef.current.play().catch(e => console.log('Audio play failed:', e));
+
+    // Simulate connecting after 3 seconds
+    const timer = setTimeout(() => {
+      setCallState('connected');
+      if (ringingAudioRef.current) {
+        ringingAudioRef.current.pause();
+      }
+
+      // Initial greeting
+      const greeting = `Hello! I'm your AI assistant from ${selectedCompany?.name}. How can I help you today?`;
+      addMessage('agent', greeting);
+      speak(greeting);
+    }, 3000);
+
     return () => {
+      clearTimeout(timer);
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
-    };
-  }, [isOpen, selectedLanguage]);
-
-  // Handle call initiation
-  useEffect(() => {
-    if (isOpen && callState === 'idle') {
-      initiateCall();
-    }
-  }, [isOpen]);
-
-  const initiateCall = async () => {
-    setCallState('ringing');
-
-    // Play ringing sound
-    ringingAudioRef.current = new Audio('/ringtone-027-376908.mp3');
-    ringingAudioRef.current.loop = false;
-    ringingAudioRef.current.play().catch(err => console.error('Audio play error:', err));
-
-    // Request microphone permission
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (error) {
-      console.error('Microphone permission error:', error);
-      alert('Microphone access is required for voice calls.');
-      onClose();
-      return;
-    }
-
-    // Connect after 4-5 seconds
-    setTimeout(() => {
       if (ringingAudioRef.current) {
         ringingAudioRef.current.pause();
-        ringingAudioRef.current = null;
       }
-      setCallState('connected');
-      startConversation();
-    }, 4500);
-  };
+      window.speechSynthesis.cancel();
+    };
+  }, [isOpen, selectedCompany]);
 
-  const startConversation = () => {
-    const greeting = `Hello! I'm your AI assistant from ${selectedCompany?.name || 'our company'}. How can I help you today?`;
-
-    addMessage('agent', greeting);
-    speak(greeting);
-
-    // Start listening
-    if (recognitionRef.current && !isMuted) {
-      recognitionRef.current.start();
-      setIsListening(true);
+  // Restart recognition when language changes
+  useEffect(() => {
+    if (recognitionRef.current && callState === 'connected') {
+      recognitionRef.current.lang = selectedLanguage?.code || 'en-US';
     }
-  };
+  }, [selectedLanguage]);
 
   const handleUserMessage = async (message) => {
     if (!message.trim()) return;
@@ -121,17 +133,26 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
 
       // Call Groq with proper parameters and strict length limit
       const response = await chatWithGroq(
-        `${message}\n\nIMPORTANT: Respond in MAXIMUM 2 short sentences. Be concise and direct.`,  // Force short responses
-        formattedHistory,  // Conversation history
-        selectedCompany  // Company context
+        `${message}\n\nIMPORTANT: Respond in MAXIMUM 2 short sentences. Be extremely concise.`,
+        formattedHistory,
+        selectedCompany
       );
 
-      // Truncate response if still too long (safety measure)
-      const truncatedResponse = response.length > 200
-        ? response.substring(0, 200).trim() + '...'
+      // Truncate response if still too long
+      const truncatedResponse = response.length > 250
+        ? response.substring(0, 250).trim() + '...'
         : response;
 
       addMessage('agent', truncatedResponse);
+
+      // Force microphone OFF before speaking
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+          setIsListening(false);
+        } catch (e) { }
+      }
+
       speak(truncatedResponse);
     } catch (error) {
       console.error('Error getting AI response:', error);
@@ -163,49 +184,65 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = selectedLanguage?.code || 'en-US';
       utterance.rate = 1.0;
-      utterance.pitch = 1.0;
+      utterance.pitch = agentGender === 'female' ? 1.1 : 0.9; // Slightly higher pitch for female
 
-      // Try to find the selected voice
+      // Try to find the appropriate voice based on company/gender
       const voices = window.speechSynthesis.getVoices();
-      const selectedVoice = voices.find(v => v.name === selectedLanguage?.voice);
+
+      // Select voice based on agent gender (company-specific)
+      let selectedVoice;
+      if (agentGender === 'female') {
+        // Prefer female voices for healthcare/Apollo
+        selectedVoice = voices.find(v =>
+          v.name.includes('Female') ||
+          v.name.includes('female') ||
+          v.name.includes('Zira') ||
+          v.name.includes('Samantha')
+        );
+      } else {
+        // Prefer male voices for tech companies
+        selectedVoice = voices.find(v =>
+          v.name.includes('Male') ||
+          v.name.includes('male') ||
+          v.name.includes('David') ||
+          v.name.includes('Daniel')
+        );
+      }
+
+      // Fallback to any English voice if specific gender not found
+      if (!selectedVoice) {
+        selectedVoice = voices.find(v => v.lang.startsWith('en'));
+      }
+
       if (selectedVoice) {
         utterance.voice = selectedVoice;
+        console.log(`Using voice: ${selectedVoice.name} for ${agentGender} agent`);
       }
 
       utterance.onstart = () => {
         setIsSpeaking(true);
-        setIsListening(false); // Ensure listening is off
+        // Ensure mic is off when speaking starts
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+            setIsListening(false);
+          } catch (e) { }
+        }
       };
 
       utterance.onend = () => {
         setIsSpeaking(false);
-        // Resume listening after speaking (with delay to avoid picking up tail end of speech)
-        if (callState === 'connected' && !isMuted && recognitionRef.current) {
-          setTimeout(() => {
+        // Resume listening after a short delay to avoid catching own voice
+        setTimeout(() => {
+          if (callState === 'connected' && !isMuted && isOpen) {
             try {
               recognitionRef.current.start();
               setIsListening(true);
             } catch (e) {
-              console.log('Recognition restart error:', e);
+              console.log('Speech recognition restart failed');
             }
-          }, 800); // Increased delay to prevent feedback
-        }
-      };
-
-      utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setIsSpeaking(false);
-        // Try to resume listening even on error
-        if (callState === 'connected' && !isMuted && recognitionRef.current) {
-          setTimeout(() => {
-            try {
-              recognitionRef.current.start();
-              setIsListening(true);
-            } catch (e) {
-              console.log('Recognition restart error:', e);
-            }
-          }, 500);
-        }
+          }
+        }, 800);
       };
 
       window.speechSynthesis.speak(utterance);
@@ -332,99 +369,87 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
         {/* Connected Screen - Split View */}
         {callState === 'connected' && (
           <motion.div
-            className="h-full flex bg-white"
+            className="h-full flex bg-white overflow-hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
             {/* Left Side - Agent */}
-            <div className="w-1/2 bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center p-8 relative border-r border-gray-200">
-              {/* Agent Avatar with Animation */}
-              <motion.div
-                className={`relative w-64 h-64 rounded-full overflow-hidden border-4 ${isSpeaking ? 'border-green-500' : isListening ? 'border-blue-500' : 'border-gray-300'
-                  } shadow-premium-lg ${isSpeaking ? 'animate-talking' : ''}`}
-                animate={isSpeaking ? { scale: [1, 1.05, 1] } : {}}
-                transition={{ duration: 0.8, repeat: isSpeaking ? Infinity : 0 }}
-              >
-                <img src={agentAvatar} alt="AI Agent" className="w-full h-full object-cover" />
+            <div className="w-1/2 bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-between p-12 relative border-r border-gray-200">
+              <div className="flex-1 flex flex-col items-center justify-center w-full">
+                {/* Agent Avatar with Animation */}
+                <motion.div
+                  className={`relative w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-8 ${isSpeaking ? 'border-green-500 shadow-glow-success' : isListening ? 'border-blue-500 shadow-glow-blue' : 'border-gray-200'
+                    } transition-all duration-500 ${isSpeaking ? 'animate-talking' : ''}`}
+                >
+                  <img src={agentAvatar} alt="AI Agent" className="w-full h-full object-cover" />
+                </motion.div>
 
-                {/* Speaking indicator */}
-                {isSpeaking && (
-                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-1">
-                    <div className="w-2 h-8 bg-accent-success rounded-full animate-pulse" style={{ animationDelay: '0s' }}></div>
-                    <div className="w-2 h-12 bg-accent-success rounded-full animate-pulse" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-6 bg-accent-success rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                    <div className="w-2 h-10 bg-accent-success rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></div>
+                {/* Agent Status */}
+                <div className="mt-10 text-center">
+                  <h3 className="text-3xl font-black text-text-dark mb-2 tracking-tight">AI Assistant</h3>
+                  <p className="text-purple-600 text-xl font-bold uppercase tracking-widest text-sm">{selectedCompany?.name}</p>
+                  <div className="mt-6 flex items-center justify-center space-x-3">
+                    <div className={`w-3.5 h-3.5 rounded-full ${isSpeaking ? 'bg-green-500' : isListening ? 'bg-blue-500' : 'bg-gray-400'} animate-pulse`}></div>
+                    <span className="text-base text-text-gray font-bold tracking-wide">
+                      {isSpeaking ? 'AGENT SPEAKING' : isListening ? 'LISTENING TO YOU...' : 'READY'}
+                    </span>
                   </div>
-                )}
-              </motion.div>
-
-              {/* Agent Status */}
-              <div className="mt-8 text-center">
-                <h3 className="text-2xl font-bold text-text-primary mb-2">AI Assistant</h3>
-                <p className="text-text-secondary">{selectedCompany?.name}</p>
-                <div className="mt-4 flex items-center justify-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${isSpeaking ? 'bg-accent-success' : isListening ? 'bg-accent-blue' : 'bg-text-secondary'} animate-pulse`}></div>
-                  <span className="text-sm text-text-secondary">
-                    {isSpeaking ? 'Speaking...' : isListening ? 'Listening...' : 'Ready'}
-                  </span>
                 </div>
               </div>
 
-              {/* Controls */}
-              <div className="absolute bottom-8 flex space-x-4">
-                <motion.button
-                  onClick={toggleMute}
-                  className={`p-4 rounded-full ${isMuted ? 'bg-red-500' : 'bg-white shadow-premium'} hover:opacity-90 transition-all text-text-dark`}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
-                </motion.button>
-
-                {/* Stop Speaking Button - Only show when agent is speaking */}
-                {isSpeaking && (
+              {/* Controls Container - Fixed at bottom with extra padding */}
+              <div className="w-full flex justify-center pb-8">
+                <div className="flex space-x-6 bg-white/50 backdrop-blur-md p-4 rounded-3xl shadow-premium border border-white/50">
                   <motion.button
-                    onClick={() => {
-                      // Stop speech immediately
-                      window.speechSynthesis.cancel();
-                      setIsSpeaking(false);
-                      // Resume listening
-                      if (!isMuted && recognitionRef.current) {
-                        setTimeout(() => {
-                          try {
-                            recognitionRef.current.start();
-                            setIsListening(true);
-                          } catch (e) {
-                            console.log('Recognition restart error:', e);
-                          }
-                        }, 300);
-                      }
-                    }}
-                    className="p-4 rounded-full bg-orange-500 hover:bg-orange-600 transition-colors text-white shadow-premium"
+                    onClick={toggleMute}
+                    className={`p-4 rounded-full ${isMuted ? 'bg-red-500 text-white' : 'bg-white shadow-premium text-text-dark'} hover:opacity-90 transition-all`}
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    title="Stop Speaking"
+                    title={isMuted ? 'Unmute' : 'Mute'}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="6" y="4" width="4" height="16"></rect>
-                      <rect x="14" y="4" width="4" height="16"></rect>
-                    </svg>
+                    {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
                   </motion.button>
-                )}
 
-                <motion.button
-                  onClick={endCall}
-                  className="p-4 rounded-full bg-red-500 hover:bg-red-600 transition-colors text-white shadow-premium"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  title="End Call"
-                >
-                  <PhoneOff size={24} />
-                </motion.button>
+                  {/* Stop Speaking Button - Only show when agent is speaking */}
+                  {isSpeaking && (
+                    <motion.button
+                      onClick={() => {
+                        window.speechSynthesis.cancel();
+                        setIsSpeaking(false);
+                        if (!isMuted && recognitionRef.current) {
+                          setTimeout(() => {
+                            try {
+                              recognitionRef.current.start();
+                              setIsListening(true);
+                            } catch (e) { }
+                          }, 300);
+                        }
+                      }}
+                      className="p-4 rounded-full bg-orange-500 hover:bg-orange-600 transition-colors text-white shadow-premium"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      title="Stop Speaking"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="6" y="4" width="4" height="16"></rect>
+                        <rect x="14" y="4" width="4" height="16"></rect>
+                      </svg>
+                    </motion.button>
+                  )}
+
+                  <motion.button
+                    onClick={endCall}
+                    className="p-4 rounded-full bg-red-500 hover:bg-red-600 transition-colors text-white shadow-premium"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    title="End Call"
+                  >
+                    <PhoneOff size={24} />
+                  </motion.button>
+                </div>
               </div>
             </div>
 
@@ -456,8 +481,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
                   >
                     <div
                       className={`max-w-[80%] p-4 rounded-2xl shadow-premium ${msg.sender === 'user'
-                        ? 'bg-gradient-purple text-white'
-                        : 'bg-white text-text-dark border border-gray-200'
+                          ? 'bg-gradient-purple text-white'
+                          : 'bg-white text-text-dark border border-gray-200'
                         }`}
                     >
                       <p className="text-sm">{msg.text}</p>

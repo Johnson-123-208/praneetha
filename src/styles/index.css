@@ -19,9 +19,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Force all text to be dark by default */
-* {
-  color: #1a202c;
+/* Base styles for visibility */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+li,
+div {
+  color: inherit;
 }
 
 /* Premium Glassmorphism - White */
