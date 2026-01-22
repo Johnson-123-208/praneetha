@@ -13,6 +13,8 @@ export const ttsService = {
      */
     async speak(text, language, gender = 'female') {
         try {
+            console.log(`🎤 TTS Request: Language="${language}", Gender="${gender}", Text="${text.substring(0, 50)}..."`);
+
             const response = await fetch(this.API_URL, {
                 method: 'POST',
                 headers: {
