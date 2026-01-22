@@ -7,12 +7,16 @@ import CompanyOnboarding from './components/CompanyOnboarding';
 import AccountPortfolio from './components/AccountPortfolio';
 import OperationsLog from './components/OperationsLog';
 import PricingSection from './components/PricingSection';
+import supabaseDB, { isSupabaseInitialized } from './utils/supabaseClient';
 
 function App() {
   const [isVoiceOverlayOpen, setIsVoiceOverlayOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
+  const [selectedLanguage, setSelectedLanguage] = useState({ code: 'en-US', name: 'English', voice: 'Google US English' });
   const [apiKey, setApiKey] = useState('');
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Load API key from environment or localStorage
@@ -23,7 +27,63 @@ function App() {
     if (key) {
       setApiKey(key);
     }
+
+    // Load companies from Supabase
+    loadCompanies();
   }, []);
+
+  const loadCompanies = async () => {
+    try {
+      setLoading(true);
+
+      if (isSupabaseInitialized()) {
+        // Try to fetch from Supabase
+        const [hospitals, techCompanies] = await Promise.all([
+          supabaseDB.getHospitals().catch(() => []),
+          supabaseDB.getCompanies().catch(() => [])
+        ]);
+
+        // Combine and format
+        const allCompanies = [
+          ...hospitals.map(h => ({
+            id: h.id,
+            name: h.name,
+            industry: 'Healthcare',
+            logo: '🏥',
+            contextSummary: h.tagline || '',
+            nlpContext: `${h.name}. ${h.tagline || ''}. Total beds: ${h.total_beds}. ICU beds: ${h.icu_beds}. Contact: ${h.phone}, ${h.email}`,
+            apiLinked: true
+          })),
+          ...techCompanies.map(c => ({
+            id: c.id,
+            name: c.name,
+            industry: 'Technology',
+            logo: '💻',
+            contextSummary: c.tagline || '',
+            nlpContext: `${c.name}. ${c.tagline || ''}. Founded: ${c.founded_year}. CEO: ${c.ceo_name}. Employees: ${c.total_employees}. Contact: ${c.careers_email}`,
+            apiLinked: true
+          }))
+        ];
+
+        setCompanies(allCompanies);
+      } else {
+        // Fallback to localStorage
+        const stored = localStorage.getItem('companies');
+        if (stored) {
+          setCompanies(JSON.parse(stored));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading companies:', error);
+      // Fallback to localStorage
+      const stored = localStorage.getItem('companies');
+      if (stored) {
+        setCompanies(JSON.parse(stored));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCallAgent = () => {
     setIsVoiceOverlayOpen(true);
@@ -40,12 +100,14 @@ function App() {
 
   const handleOnboardingSuccess = (company) => {
     console.log('Company onboarded:', company);
-    // Refresh portfolio
+    // Reload companies
+    loadCompanies();
+    // Scroll to portfolio
     window.location.hash = '#portfolio';
   };
 
   return (
-    <div className="min-h-screen bg-deep-navy relative overflow-x-hidden">
+    <div className="min-h-screen bg-white relative overflow-x-hidden">
       {/* Background Effects */}
       <BackgroundEffects />
 
@@ -58,7 +120,11 @@ function App() {
         <HeroSection onCallAgent={handleCallAgent} />
 
         {/* Account Portfolio */}
-        <AccountPortfolio onDeployAgent={handleDeployAgent} />
+        <AccountPortfolio
+          onDeployAgent={handleDeployAgent}
+          companies={companies}
+          loading={loading}
+        />
 
         {/* Pricing Section */}
         <PricingSection />
@@ -75,6 +141,7 @@ function App() {
           setSelectedCompany(null);
         }}
         selectedCompany={selectedCompany}
+        selectedLanguage={selectedLanguage}
       />
 
       {/* Company Onboarding Modal */}
@@ -85,12 +152,12 @@ function App() {
       />
 
       {/* Footer */}
-      <footer className="relative z-10 py-8 px-4 border-t border-white/10">
+      <footer className="relative z-10 py-12 px-4 border-t border-gray-100 bg-white">
         <div className="max-w-7xl mx-auto text-center">
-          <p className="text-white/60 text-sm">
+          <p className="text-text-gray text-sm font-medium">
             © {new Date().getFullYear()} AI Calling Agent. All rights reserved.
           </p>
-          <p className="text-white/40 text-xs mt-2">
+          <p className="text-text-light text-xs mt-2">
             Powered by Groq API & Advanced Voice Intelligence
           </p>
         </div>

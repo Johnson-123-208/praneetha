@@ -1,431 +1,474 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mic, MicOff, Volume2, VolumeX, User, Bot } from 'lucide-react';
-import { chatWithGroq, isGroqInitialized, initializeGroq } from '../utils/groq.js';
-import { detectLanguage, SUPPORTED_LANGUAGES, getLanguageCode } from '../utils/languageDetection.js';
-import { AudioProcessor } from '../utils/audio.js';
-import { database } from '../utils/database.js';
+import { X, Mic, MicOff, Phone, PhoneOff } from 'lucide-react';
+import { chatWithGroq } from '../utils/groq';
 
-const VoiceOverlay = ({ isOpen, onClose, selectedCompany = null }) => {
+const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) => {
+  const [callState, setCallState] = useState('idle'); // idle, ringing, connected, ended
   const [isListening, setIsListening] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [transcription, setTranscription] = useState([]);
-  const [currentLanguage, setCurrentLanguage] = useState(SUPPORTED_LANGUAGES.ENGLISH);
-  const [volumeLevel, setVolumeLevel] = useState(0);
-  const [conversationHistory, setConversationHistory] = useState([]);
-  const [error, setError] = useState(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [transcript, setTranscript] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [isMuted, setIsMuted] = useState(false);
 
-  const audioProcessorRef = useRef(null);
-  const mediaStreamRef = useRef(null);
   const recognitionRef = useRef(null);
-  const volumeIntervalRef = useRef(null);
+  const synthesisRef = useRef(null);
+  const ringingAudioRef = useRef(null);
 
+  // Determine agent gender based on language voice
+  const agentGender = selectedLanguage?.voice?.includes('Female') || selectedLanguage?.voice?.includes('female') ? 'female' : 'male';
+  const agentAvatar = agentGender === 'female' ? '/Female.png' : '/Male.png';
+
+  // Initialize speech recognition
   useEffect(() => {
-    if (isOpen) {
-      // Initialize Groq API if not already done
-      const apiKey = import.meta.env.VITE_GROQ_API_KEY || '';
-      if (apiKey && !isGroqInitialized()) {
-        initializeGroq(apiKey);
-      }
+    if (!isOpen) return;
 
-      // Initialize audio processor
-      audioProcessorRef.current = new AudioProcessor();
-      audioProcessorRef.current.initialize();
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = selectedLanguage?.code || 'en-US';
 
-      // Initialize Web Speech API for real-time transcription
-      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = true;
-        recognitionRef.current.interimResults = true;
-        recognitionRef.current.lang = 'en-US,hi-IN,te-IN,ta-IN,kn-IN,ml-IN,mr-IN';
+      recognitionRef.current.onresult = (event) => {
+        const current = event.resultIndex;
+        const transcriptText = event.results[current][0].transcript;
 
-        recognitionRef.current.onresult = (event) => {
-          let finalTranscript = '';
-          let interimTranscript = '';
-
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              finalTranscript += transcript + ' ';
-            } else {
-              interimTranscript += transcript;
-            }
-          }
-
-          if (finalTranscript) {
-            handleUserSpeech(finalTranscript.trim());
-          }
-        };
-
-        recognitionRef.current.onerror = (event) => {
-          console.error('Speech recognition error:', event.error);
-          setError(`Speech recognition error: ${event.error}`);
-        };
-      }
-
-      // Start with English greeting
-      const welcomeMessage = selectedCompany
-        ? `Hello! I'm your AI calling agent for ${selectedCompany.name}. How can I assist you today?`
-        : 'Hello! I\'m your AI calling agent. How can I assist you today?';
-
-      setTranscription([{
-        role: 'agent',
-        text: welcomeMessage,
-        timestamp: new Date().toISOString(),
-      }]);
-
-      // Speak welcome message (if TTS available)
-      speakText(welcomeMessage);
-    }
-
-    return () => {
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-      if (volumeIntervalRef.current) {
-        clearInterval(volumeIntervalRef.current);
-      }
-    };
-  }, [isOpen, selectedCompany]);
-
-  const handleUserSpeech = async (text) => {
-    if (!text || isProcessing) return;
-
-    // Detect language
-    const detectedLang = detectLanguage(text);
-    setCurrentLanguage(detectedLang);
-
-    // Add user message to transcription
-    const userMessage = {
-      role: 'user',
-      text,
-      timestamp: new Date().toISOString(),
-      language: detectedLang.name,
-    };
-
-    setTranscription(prev => [...prev, userMessage]);
-    setConversationHistory(prev => [...prev, { role: 'user', text }]);
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      // Get company context if available
-      const companyContext = selectedCompany
-        ? database.getCompany(selectedCompany.id)
-        : null;
-
-      // Call Groq API
-      const response = await chatWithGroq(text, conversationHistory, companyContext);
-
-      // Add agent response
-      const agentMessage = {
-        role: 'agent',
-        text: response,
-        timestamp: new Date().toISOString(),
-        language: currentLanguage.name,
-      };
-
-      setTranscription(prev => [...prev, agentMessage]);
-      setConversationHistory(prev => [...prev, { role: 'model', text: response }]);
-
-      // Speak response
-      await speakText(response);
-
-      // Check if order was booked (parse response for order ID)
-      const orderMatch = response.match(/order\s+([A-Z0-9]{6})/i);
-      if (orderMatch) {
-        console.log('Order detected:', orderMatch[1]);
-      }
-
-    } catch (err) {
-      console.error('Error processing speech:', err);
-      setError(err.message || 'Failed to process your request. Please try again.');
-
-      const errorMessage = {
-        role: 'agent',
-        text: 'I apologize, but I encountered an error. Please try again or check your API key.',
-        timestamp: new Date().toISOString(),
-      };
-      setTranscription(prev => [...prev, errorMessage]);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const speakText = async (text) => {
-    // Use Web Speech API for TTS
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-
-      // Set voice properties based on current language
-      const langCode = getLanguageCode(currentLanguage);
-      utterance.lang = `${langCode}-IN`;
-      utterance.rate = 1;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-
-      // Find appropriate voice
-      const voices = speechSynthesis.getVoices();
-      const voice = voices.find(v => v.lang.startsWith(langCode)) || voices[0];
-      if (voice) utterance.voice = voice;
-
-      utterance.onend = () => {
-        // Continue listening after speaking
-        if (isListening && recognitionRef.current) {
-          try {
-            recognitionRef.current.start();
-          } catch (e) {
-            console.log('Recognition already started');
-          }
+        if (event.results[current].isFinal) {
+          setTranscript(transcriptText);
+          handleUserMessage(transcriptText);
         }
       };
 
-      speechSynthesis.speak(utterance);
-
-      // Monitor volume during speech (simulate RMS)
-      simulateVolumeLevel();
-    }
-  };
-
-  const simulateVolumeLevel = () => {
-    if (volumeIntervalRef.current) {
-      clearInterval(volumeIntervalRef.current);
+      recognitionRef.current.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          alert('Microphone permission denied. Please allow microphone access.');
+        }
+      };
     }
 
-    let level = 0.3;
-    const interval = setInterval(() => {
-      level = Math.max(0.1, level + (Math.random() - 0.5) * 0.2);
-      setVolumeLevel(Math.min(1, Math.max(0, level)));
-    }, 100);
-
-    volumeIntervalRef.current = interval;
-
-    setTimeout(() => {
-      clearInterval(interval);
-      setVolumeLevel(0.1);
-    }, 2000);
-  };
-
-  const startListening = async () => {
-    try {
-      setIsListening(true);
-      setError(null);
-
-      // Start speech recognition
+    return () => {
       if (recognitionRef.current) {
-        recognitionRef.current.start();
+        recognitionRef.current.stop();
       }
+    };
+  }, [isOpen, selectedLanguage]);
 
-      // Start microphone for volume visualization
-      try {
-        const stream = await audioProcessorRef.current.getUserMedia();
-        mediaStreamRef.current = stream;
+  // Handle call initiation
+  useEffect(() => {
+    if (isOpen && callState === 'idle') {
+      initiateCall();
+    }
+  }, [isOpen]);
 
-        // Monitor audio volume
-        const audioContext = new AudioContext();
-        const source = audioContext.createMediaStreamSource(stream);
-        const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        source.connect(analyser);
+  const initiateCall = async () => {
+    setCallState('ringing');
 
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    // Play ringing sound
+    ringingAudioRef.current = new Audio('/ringtone-027-376908.mp3');
+    ringingAudioRef.current.loop = false;
+    ringingAudioRef.current.play().catch(err => console.error('Audio play error:', err));
 
-        const checkVolume = () => {
-          if (!isListening) return;
-          analyser.getByteFrequencyData(dataArray);
-          const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-          setVolumeLevel(Math.min(1, average / 255));
-          requestAnimationFrame(checkVolume);
-        };
+    // Request microphone permission
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (error) {
+      console.error('Microphone permission error:', error);
+      alert('Microphone access is required for voice calls.');
+      onClose();
+      return;
+    }
 
-        checkVolume();
-      } catch (micError) {
-        console.warn('Microphone access not available:', micError);
+    // Connect after 4-5 seconds
+    setTimeout(() => {
+      if (ringingAudioRef.current) {
+        ringingAudioRef.current.pause();
+        ringingAudioRef.current = null;
       }
+      setCallState('connected');
+      startConversation();
+    }, 4500);
+  };
 
-    } catch (err) {
-      console.error('Error starting listening:', err);
-      setError('Failed to access microphone. Please check permissions.');
-      setIsListening(false);
+  const startConversation = () => {
+    const greeting = `Hello! I'm your AI assistant from ${selectedCompany?.name || 'our company'}. How can I help you today?`;
+
+    addMessage('agent', greeting);
+    speak(greeting);
+
+    // Start listening
+    if (recognitionRef.current && !isMuted) {
+      recognitionRef.current.start();
+      setIsListening(true);
     }
   };
 
-  const stopListening = () => {
+  const handleUserMessage = async (message) => {
+    if (!message.trim()) return;
+
+    addMessage('user', message);
     setIsListening(false);
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
+    setTranscript('');
+
+    // Get AI response
+    try {
+      const context = selectedCompany?.nlpContext || selectedCompany?.contextSummary || '';
+      const prompt = `You are a helpful AI assistant for ${selectedCompany?.name}. 
+      
+Company Context: ${context}
+
+User: ${message}
+
+Provide a helpful, concise response (2-3 sentences max).`;
+
+      const response = await chatWithGroq(prompt, messages);
+
+      addMessage('agent', response);
+      speak(response);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      const errorMsg = "I apologize, I'm having trouble processing that. Could you please try again?";
+      addMessage('agent', errorMsg);
+      speak(errorMsg);
     }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
-    }
-    if (volumeIntervalRef.current) {
-      clearInterval(volumeIntervalRef.current);
-    }
-    setVolumeLevel(0.1);
   };
 
-  const toggleListening = () => {
-    if (isListening) {
-      stopListening();
-    } else {
-      startListening();
+  const addMessage = (sender, text) => {
+    setMessages(prev => [...prev, { sender, text, timestamp: new Date() }]);
+  };
+
+  const speak = (text) => {
+    if ('speechSynthesis' in window) {
+      // Stop listening while agent speaks to prevent feedback
+      if (recognitionRef.current && isListening) {
+        try {
+          recognitionRef.current.stop();
+          setIsListening(false);
+        } catch (e) {
+          console.log('Recognition already stopped');
+        }
+      }
+
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = selectedLanguage?.code || 'en-US';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      // Try to find the selected voice
+      const voices = window.speechSynthesis.getVoices();
+      const selectedVoice = voices.find(v => v.name === selectedLanguage?.voice);
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
+      }
+
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        setIsListening(false); // Ensure listening is off
+      };
+
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        // Resume listening after speaking (with delay to avoid picking up tail end of speech)
+        if (callState === 'connected' && !isMuted && recognitionRef.current) {
+          setTimeout(() => {
+            try {
+              recognitionRef.current.start();
+              setIsListening(true);
+            } catch (e) {
+              console.log('Recognition restart error:', e);
+            }
+          }, 800); // Increased delay to prevent feedback
+        }
+      };
+
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+        setIsSpeaking(false);
+        // Try to resume listening even on error
+        if (callState === 'connected' && !isMuted && recognitionRef.current) {
+          setTimeout(() => {
+            try {
+              recognitionRef.current.start();
+              setIsListening(true);
+            } catch (e) {
+              console.log('Recognition restart error:', e);
+            }
+          }, 500);
+        }
+      };
+
+      window.speechSynthesis.speak(utterance);
     }
   };
+
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+    if (!isMuted) {
+      // Muting
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        setIsListening(false);
+      }
+    } else {
+      // Unmuting
+      if (recognitionRef.current && callState === 'connected') {
+        recognitionRef.current.start();
+        setIsListening(true);
+      }
+    }
+  };
+
+  const endCall = () => {
+    setCallState('ended');
+    setIsListening(false);
+    setIsSpeaking(false);
+
+    // Stop speech recognition immediately
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+        recognitionRef.current.abort();
+      } catch (e) {
+        console.log('Recognition stop error:', e);
+      }
+    }
+
+    // Stop ringing audio
+    if (ringingAudioRef.current) {
+      ringingAudioRef.current.pause();
+      ringingAudioRef.current.currentTime = 0;
+    }
+
+    // Stop all speech synthesis immediately
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      // Force stop by calling multiple times (browser quirk)
+      setTimeout(() => window.speechSynthesis.cancel(), 0);
+      setTimeout(() => window.speechSynthesis.cancel(), 100);
+    }
+
+    // Close after showing "Call Ended" screen
+    setTimeout(() => {
+      onClose();
+      // Final cleanup
+      window.speechSynthesis.cancel();
+    }, 1500);
+  };
+
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-        >
+      <motion.div
+        className="fixed inset-0 z-50 bg-primary-dark"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
+        {/* Ringing Screen */}
+        {callState === 'ringing' && (
           <motion.div
-            className="glass-strong rounded-2xl p-6 md:p-8 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-            initial={{ scale: 0.9, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.9, y: 20 }}
-            onClick={(e) => e.stopPropagation()}
+            className="absolute inset-0 flex flex-col items-center justify-center"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-full bg-electric-cyan/20 flex items-center justify-center">
-                  <Bot className="text-electric-cyan" size={24} />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white">Voice Interaction</h2>
-                  {selectedCompany && (
-                    <p className="text-sm text-white/60">{selectedCompany.name}</p>
-                  )}
-                </div>
+            <div className="relative">
+              {/* Pulsing rings */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-64 h-64 rounded-full bg-accent-blue/20 animate-pulse-ring"></div>
               </div>
-              <button
-                onClick={onClose}
-                className="text-white/60 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            {/* Language Status */}
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center space-x-2 px-3 py-1 rounded-full glass border border-white/10">
-                <span className="text-2xl">{currentLanguage.flag}</span>
-                <span className="text-sm font-medium text-white/80">
-                  {currentLanguage.name}
-                </span>
+              <div className="absolute inset-0 flex items-center justify-center" style={{ animationDelay: '0.5s' }}>
+                <div className="w-48 h-48 rounded-full bg-accent-indigo/20 animate-pulse-ring"></div>
               </div>
-              {error && (
-                <div className="text-sm text-vibrant-magenta bg-vibrant-magenta/20 px-3 py-1 rounded-full">
-                  {error}
-                </div>
-              )}
-            </div>
 
-            {/* Visualizer */}
-            <div className="mb-6 flex items-center justify-center">
+              {/* Agent avatar */}
               <motion.div
-                className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-electric-cyan/30 flex items-center justify-center relative"
-                animate={{
-                  scale: 1 + volumeLevel * 0.3,
-                  boxShadow: [
-                    `0 0 ${20 + volumeLevel * 30}px rgba(112, 214, 255, ${0.3 + volumeLevel * 0.5})`,
-                  ],
-                }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                className="relative z-10 w-32 h-32 rounded-full overflow-hidden border-4 border-accent-blue shadow-2xl"
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 1.5, repeat: Infinity }}
               >
-                {isListening || isProcessing ? (
-                  <Volume2 className="text-electric-cyan" size={48} />
-                ) : (
-                  <VolumeX className="text-white/40" size={48} />
-                )}
+                <img src={agentAvatar} alt="Agent" className="w-full h-full object-cover" />
               </motion.div>
             </div>
 
-            {/* Transcription */}
-            <div className="flex-1 overflow-y-auto mb-6 space-y-4 glass rounded-lg p-4 min-h-[200px] max-h-[300px]">
-              {transcription.length === 0 ? (
-                <p className="text-white/40 text-center py-8">
-                  Start speaking to begin the conversation...
-                </p>
-              ) : (
-                transcription.map((item, index) => (
+            <motion.div
+              className="mt-8 text-center"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              <h2 className="text-3xl font-bold text-text-primary mb-2">Connecting...</h2>
+              <p className="text-text-secondary text-lg">{selectedCompany?.name}</p>
+              <div className="flex items-center justify-center mt-4 space-x-2">
+                <div className="w-2 h-2 bg-accent-blue rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                <div className="w-2 h-2 bg-accent-blue rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-2 h-2 bg-accent-blue rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+              </div>
+            </motion.div>
+
+            <motion.button
+              onClick={endCall}
+              className="mt-12 px-8 py-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center space-x-2 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <PhoneOff size={24} />
+              <span className="font-semibold">Cancel</span>
+            </motion.button>
+          </motion.div>
+        )}
+
+        {/* Connected Screen - Split View */}
+        {callState === 'connected' && (
+          <motion.div
+            className="h-full flex"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            {/* Left Side - Agent */}
+            <div className="w-1/2 bg-gradient-to-br from-primary-bg to-secondary-bg flex flex-col items-center justify-center p-8 relative">
+              {/* Agent Avatar with Animation */}
+              <motion.div
+                className={`relative w-64 h-64 rounded-full overflow-hidden border-4 ${isSpeaking ? 'border-accent-success' : isListening ? 'border-accent-blue' : 'border-text-secondary'
+                  } shadow-2xl ${isSpeaking ? 'animate-talking' : ''}`}
+                animate={isSpeaking ? { scale: [1, 1.05, 1] } : {}}
+                transition={{ duration: 0.8, repeat: isSpeaking ? Infinity : 0 }}
+              >
+                <img src={agentAvatar} alt="AI Agent" className="w-full h-full object-cover" />
+
+                {/* Speaking indicator */}
+                {isSpeaking && (
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-1">
+                    <div className="w-2 h-8 bg-accent-success rounded-full animate-pulse" style={{ animationDelay: '0s' }}></div>
+                    <div className="w-2 h-12 bg-accent-success rounded-full animate-pulse" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-6 bg-accent-success rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-2 h-10 bg-accent-success rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></div>
+                  </div>
+                )}
+              </motion.div>
+
+              {/* Agent Status */}
+              <div className="mt-8 text-center">
+                <h3 className="text-2xl font-bold text-text-primary mb-2">AI Assistant</h3>
+                <p className="text-text-secondary">{selectedCompany?.name}</p>
+                <div className="mt-4 flex items-center justify-center space-x-2">
+                  <div className={`w-3 h-3 rounded-full ${isSpeaking ? 'bg-accent-success' : isListening ? 'bg-accent-blue' : 'bg-text-secondary'} animate-pulse`}></div>
+                  <span className="text-sm text-text-secondary">
+                    {isSpeaking ? 'Speaking...' : isListening ? 'Listening...' : 'Ready'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div className="absolute bottom-8 flex space-x-4">
+                <motion.button
+                  onClick={toggleMute}
+                  className={`p-4 rounded-full ${isMuted ? 'bg-red-500' : 'bg-secondary-bg'} hover:opacity-90 transition-opacity`}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
+                </motion.button>
+
+                <motion.button
+                  onClick={endCall}
+                  className="p-4 rounded-full bg-red-500 hover:bg-red-600 transition-colors"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <PhoneOff size={24} />
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Right Side - Chat Flow */}
+            <div className="w-1/2 bg-primary-bg flex flex-col">
+              {/* Header */}
+              <div className="p-6 border-b border-secondary-bg flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-text-primary">Conversation</h2>
+                  <p className="text-sm text-text-secondary">{selectedLanguage?.name || 'English'}</p>
+                </div>
+                <button
+                  onClick={endCall}
+                  className="text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {messages.map((msg, index) => (
                   <motion.div
                     key={index}
-                    className={`flex items-start space-x-3 ${item.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                      }`}
+                    className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
                   >
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${item.role === 'user'
-                          ? 'bg-electric-cyan/20'
-                          : 'bg-vibrant-magenta/20'
+                      className={`max-w-[80%] p-4 rounded-2xl ${msg.sender === 'user'
+                        ? 'bg-accent-blue text-white'
+                        : 'bg-secondary-bg text-text-primary'
                         }`}
                     >
-                      {item.role === 'user' ? (
-                        <User className="text-electric-cyan" size={16} />
-                      ) : (
-                        <Bot className="text-vibrant-magenta" size={16} />
-                      )}
-                    </div>
-                    <div
-                      className={`flex-1 rounded-lg p-3 ${item.role === 'user'
-                          ? 'bg-electric-cyan/10 text-right'
-                          : 'bg-white/5 text-left'
-                        }`}
-                    >
-                      <p className="text-white/90 text-sm">{item.text}</p>
-                      <p className="text-white/40 text-xs mt-1">
-                        {new Date(item.timestamp).toLocaleTimeString()}
-                      </p>
+                      <p className="text-sm">{msg.text}</p>
+                      <span className="text-xs opacity-70 mt-1 block">
+                        {msg.timestamp.toLocaleTimeString()}
+                      </span>
                     </div>
                   </motion.div>
-                ))
-              )}
-            </div>
+                ))}
 
-            {/* Controls */}
-            <div className="flex items-center justify-center space-x-4">
-              <motion.button
-                onClick={toggleListening}
-                disabled={isProcessing}
-                className={`w-16 h-16 rounded-full flex items-center justify-center font-bold transition-all ${isListening
-                    ? 'bg-vibrant-magenta glow-magenta text-white'
-                    : 'glass border border-white/20 text-white/60 hover:border-electric-cyan'
-                  }`}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                animate={{
-                  scale: isListening ? [1, 1.1, 1] : 1,
-                }}
-                transition={{
-                  scale: {
-                    duration: 1.5,
-                    repeat: isListening ? Infinity : 0,
-                  },
-                }}
-              >
-                {isListening ? <Mic size={24} /> : <MicOff size={24} />}
-              </motion.button>
-            </div>
+                {/* Transcript preview */}
+                {transcript && (
+                  <motion.div
+                    className="flex justify-end"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    <div className="max-w-[80%] p-4 rounded-2xl bg-accent-blue/50 text-white border border-accent-blue">
+                      <p className="text-sm italic">{transcript}</p>
+                    </div>
+                  </motion.div>
+                )}
+              </div>
 
-            {isProcessing && (
-              <p className="text-center text-white/60 text-sm mt-4">
-                Processing your request...
-              </p>
-            )}
+              {/* Input indicator */}
+              <div className="p-6 border-t border-secondary-bg">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-accent-success animate-pulse' : 'bg-text-secondary'}`}></div>
+                  <span className="text-sm text-text-secondary">
+                    {isListening ? 'Listening to your voice...' : isMuted ? 'Microphone muted' : 'Waiting...'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </motion.div>
-        </motion.div>
-      )}
+        )}
+
+        {/* Call Ended Screen */}
+        {callState === 'ended' && (
+          <motion.div
+            className="absolute inset-0 flex flex-col items-center justify-center"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+          >
+            <div className="text-center">
+              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-500/20 flex items-center justify-center">
+                <PhoneOff size={48} className="text-red-500" />
+              </div>
+              <h2 className="text-3xl font-bold text-text-primary mb-2">Call Ended</h2>
+              <p className="text-text-secondary">Thank you for using our service</p>
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
     </AnimatePresence>
   );
 };
