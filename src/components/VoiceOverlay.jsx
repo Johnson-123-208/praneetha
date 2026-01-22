@@ -271,7 +271,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 bg-primary-dark"
+        className="fixed inset-0 z-50 bg-white"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -279,22 +279,22 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
         {/* Ringing Screen */}
         {callState === 'ringing' && (
           <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center"
+            className="absolute inset-0 flex flex-col items-center justify-center bg-white"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
           >
             <div className="relative">
               {/* Pulsing rings */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-64 h-64 rounded-full bg-accent-blue/20 animate-pulse-ring"></div>
+                <div className="w-64 h-64 rounded-full bg-gradient-to-r from-purple-primary/20 to-pink-primary/20 animate-pulse-ring"></div>
               </div>
               <div className="absolute inset-0 flex items-center justify-center" style={{ animationDelay: '0.5s' }}>
-                <div className="w-48 h-48 rounded-full bg-accent-indigo/20 animate-pulse-ring"></div>
+                <div className="w-48 h-48 rounded-full bg-gradient-to-r from-blue-primary/20 to-green-primary/20 animate-pulse-ring"></div>
               </div>
 
               {/* Agent avatar */}
               <motion.div
-                className="relative z-10 w-32 h-32 rounded-full overflow-hidden border-4 border-accent-blue shadow-2xl"
+                className="relative z-10 w-32 h-32 rounded-full overflow-hidden border-4 border-purple-primary shadow-premium-lg"
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 1.5, repeat: Infinity }}
               >
@@ -308,23 +308,23 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
             >
-              <h2 className="text-3xl font-bold text-text-primary mb-2">Connecting...</h2>
-              <p className="text-text-secondary text-lg">{selectedCompany?.name}</p>
-              <div className="flex items-center justify-center mt-4 space-x-2">
-                <div className="w-2 h-2 bg-accent-blue rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                <div className="w-2 h-2 bg-accent-blue rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-2 h-2 bg-accent-blue rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+              <h2 className="text-4xl font-bold text-text-dark mb-2">Connecting...</h2>
+              <p className="text-text-gray text-xl">{selectedCompany?.name}</p>
+              <div className="flex items-center justify-center mt-6 space-x-2">
+                <div className="w-3 h-3 bg-purple-primary rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                <div className="w-3 h-3 bg-pink-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-3 h-3 bg-blue-primary rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
               </div>
             </motion.div>
 
             <motion.button
               onClick={endCall}
-              className="mt-12 px-8 py-4 bg-red-500 hover:bg-red-600 rounded-full flex items-center space-x-2 transition-colors"
+              className="mt-12 px-8 py-4 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-full flex items-center space-x-2 transition-all shadow-premium font-semibold"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               <PhoneOff size={24} />
-              <span className="font-semibold">Cancel</span>
+              <span>Cancel</span>
             </motion.button>
           </motion.div>
         )}
@@ -332,16 +332,16 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
         {/* Connected Screen - Split View */}
         {callState === 'connected' && (
           <motion.div
-            className="h-full flex"
+            className="h-full flex bg-white"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
             {/* Left Side - Agent */}
-            <div className="w-1/2 bg-gradient-to-br from-primary-bg to-secondary-bg flex flex-col items-center justify-center p-8 relative">
+            <div className="w-1/2 bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center p-8 relative border-r border-gray-200">
               {/* Agent Avatar with Animation */}
               <motion.div
-                className={`relative w-64 h-64 rounded-full overflow-hidden border-4 ${isSpeaking ? 'border-accent-success' : isListening ? 'border-accent-blue' : 'border-text-secondary'
-                  } shadow-2xl ${isSpeaking ? 'animate-talking' : ''}`}
+                className={`relative w-64 h-64 rounded-full overflow-hidden border-4 ${isSpeaking ? 'border-green-500' : isListening ? 'border-blue-500' : 'border-gray-300'
+                  } shadow-premium-lg ${isSpeaking ? 'animate-talking' : ''}`}
                 animate={isSpeaking ? { scale: [1, 1.05, 1] } : {}}
                 transition={{ duration: 0.8, repeat: isSpeaking ? Infinity : 0 }}
               >
