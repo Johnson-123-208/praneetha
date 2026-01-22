@@ -429,23 +429,23 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
             </div>
 
             {/* Right Side - Chat Flow */}
-            <div className="w-1/2 bg-primary-bg flex flex-col">
+            <div className="w-1/2 bg-white flex flex-col">
               {/* Header */}
-              <div className="p-6 border-b border-secondary-bg flex items-center justify-between">
+              <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-white">
                 <div>
-                  <h2 className="text-2xl font-bold text-text-primary">Conversation</h2>
-                  <p className="text-sm text-text-secondary">{selectedLanguage?.name || 'English'}</p>
+                  <h2 className="text-2xl font-bold text-text-dark">Conversation</h2>
+                  <p className="text-sm text-text-gray">{selectedLanguage?.name || 'English'}</p>
                 </div>
                 <button
                   onClick={endCall}
-                  className="text-text-secondary hover:text-text-primary transition-colors"
+                  className="text-text-gray hover:text-text-dark transition-colors"
                 >
                   <X size={24} />
                 </button>
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
                 {messages.map((msg, index) => (
                   <motion.div
                     key={index}
@@ -455,13 +455,13 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
                     transition={{ delay: index * 0.1 }}
                   >
                     <div
-                      className={`max-w-[80%] p-4 rounded-2xl ${msg.sender === 'user'
-                        ? 'bg-accent-blue text-white'
-                        : 'bg-secondary-bg text-text-primary'
+                      className={`max-w-[80%] p-4 rounded-2xl shadow-premium ${msg.sender === 'user'
+                        ? 'bg-gradient-purple text-white'
+                        : 'bg-white text-text-dark border border-gray-200'
                         }`}
                     >
                       <p className="text-sm">{msg.text}</p>
-                      <span className="text-xs opacity-70 mt-1 block">
+                      <span className={`text-xs mt-1 block ${msg.sender === 'user' ? 'text-white/80' : 'text-text-light'}`}>
                         {msg.timestamp.toLocaleTimeString()}
                       </span>
                     </div>
@@ -475,7 +475,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                   >
-                    <div className="max-w-[80%] p-4 rounded-2xl bg-accent-blue/50 text-white border border-accent-blue">
+                    <div className="max-w-[80%] p-4 rounded-2xl bg-blue-100 text-text-dark border border-blue-300">
                       <p className="text-sm italic">{transcript}</p>
                     </div>
                   </motion.div>
@@ -483,10 +483,10 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
               </div>
 
               {/* Input indicator */}
-              <div className="p-6 border-t border-secondary-bg">
+              <div className="p-6 border-t border-gray-200 bg-white">
                 <div className="flex items-center space-x-3">
-                  <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-accent-success animate-pulse' : 'bg-text-secondary'}`}></div>
-                  <span className="text-sm text-text-secondary">
+                  <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                  <span className="text-sm text-text-gray font-medium">
                     {isListening ? 'Listening to your voice...' : isMuted ? 'Microphone muted' : 'Waiting...'}
                   </span>
                 </div>
@@ -498,16 +498,16 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, selectedLanguage }) =>
         {/* Call Ended Screen */}
         {callState === 'ended' && (
           <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center"
+            className="absolute inset-0 flex flex-col items-center justify-center bg-white"
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
           >
             <div className="text-center">
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-500/20 flex items-center justify-center">
+              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
                 <PhoneOff size={48} className="text-red-500" />
               </div>
-              <h2 className="text-3xl font-bold text-text-primary mb-2">Call Ended</h2>
-              <p className="text-text-secondary">Thank you for using our service</p>
+              <h2 className="text-3xl font-bold text-text-dark mb-2">Call Ended</h2>
+              <p className="text-text-gray">Thank you for using our service</p>
             </div>
           </motion.div>
         )}
