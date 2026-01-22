@@ -1,0 +1,454 @@
+{
+    "company_name": "Tech Mahindra Limited",
+    "tagline": "Scale at Speed™",
+    "year_founded": 1986,
+    "ceo_name": "Mohit Joshi",
+    "total_employees_global": 149000,
+    "annual_revenue": {
+        "inr": "₹551200000000",
+        "usd": "~$6.6 Billion (FY 2025 approximate)"
+    },
+    "stock_listing": {
+        "nse": "TECHM",
+        "bse": "532755"
+    },
+    "industry_sectors_served": [
+        "Telecommunications",
+        "Banking Financial Services & Insurance (BFSI)",
+        "Healthcare & Life Sciences",
+        "Manufacturing",
+        "Retail & Consumer",
+        "Energy & Utilities",
+        "Travel Transportation & Logistics",
+        "Media & Entertainment",
+        "Hi-Tech"
+    ],
+    "global_presence": {
+        "countries": 90,
+        "offices": "Over 100 offices worldwide"
+    },
+    "contact_information": {
+        "phone": "+91-20-66273000",
+        "email": "info@techmahindra.com",
+        "website": "https://www.techmahindra.com",
+        "careers_email": "careers@techmahindra.com"
+    },
+    "headquarters_address": "Plot No. 1, Phase - III, Rajiv Gandhi Infotech Park, Hinjawadi, Pune, Maharashtra 411057, India (Major delivery center in Hyderabad, Telangana)",
+    "business_units": [
+        {
+            "name": "Communications & Media",
+            "head": "Harshvendra Soin",
+            "services": "5G, Network Services, OSS/BSS Transformation",
+            "key_clients": "Major global telecom operators",
+            "technologies": "5G, Open RAN, Cloud Native",
+            "team_size": 25000
+        },
+        {
+            "name": "Banking Financial Services & Insurance",
+            "head": "Kunal Purohit",
+            "services": "Digital Banking, Core Modernization, Wealth Management",
+            "key_clients": "Leading banks in US, Europe, India",
+            "technologies": "API Banking, Blockchain, AI Fraud Detection",
+            "team_size": 30000
+        },
+        {
+            "name": "Manufacturing & Resources",
+            "head": "Rajiv Vyas",
+            "services": "Industry 4.0, Supply Chain Digitalization",
+            "key_clients": "Global automotive, energy firms",
+            "technologies": "IoT, Edge Computing, Digital Twin",
+            "team_size": 18000
+        },
+        {
+            "name": "Next Gen Services",
+            "head": "Kunal Purohit",
+            "services": "AI, GenAI, Data & Analytics",
+            "key_clients": "Cross-industry",
+            "technologies": "Gemini, AWS GenAI, Azure AI",
+            "team_size": 15000
+        },
+        {
+            "name": "Business Process Services",
+            "head": "Birendra Sen",
+            "services": "BPO, Intelligent Automation",
+            "key_clients": "Retail, BFSI",
+            "technologies": "RPA, Chatbots",
+            "team_size": 22000
+        },
+        {
+            "name": "Enterprise Services",
+            "head": "Atul Soneja",
+            "services": "SAP, Oracle, Salesforce Implementation",
+            "key_clients": "Fortune 500",
+            "technologies": "SAP S/4HANA, Salesforce CRM",
+            "team_size": 20000
+        },
+        {
+            "name": "Network Services",
+            "head": "Internal Leadership",
+            "services": "Managed Networks, SD-WAN",
+            "key_clients": "Telcos",
+            "technologies": "Cisco, Juniper, 5G Core",
+            "team_size": 12000
+        },
+        {
+            "name": "Experience Design & Customer Experience",
+            "head": "Richard Lobo",
+            "services": "UX/UI, CX Transformation",
+            "key_clients": "Retail, Media",
+            "technologies": "Figma, Adobe XD, AI Personalization",
+            "team_size": 8000
+        }
+    ],
+    "services_offered": [
+        "Cloud Services (AWS, Azure, GCP)",
+        "Digital Transformation",
+        "AI & Machine Learning",
+        "Generative AI Solutions",
+        "Data Analytics & Big Data",
+        "Cybersecurity",
+        "Application Development & Maintenance",
+        "DevOps & Automation",
+        "Blockchain Solutions",
+        "IoT & Edge Computing",
+        "5G & Network Transformation",
+        "SAP Implementation & Support",
+        "Oracle Cloud Services",
+        "Salesforce Consulting",
+        "Mobile App Development",
+        "Web & Full-Stack Development",
+        "Quality Assurance & Testing",
+        "Infrastructure Management",
+        "Managed Network Services",
+        "Consulting Services",
+        "RPA & Intelligent Automation",
+        "Customer Experience Design",
+        "Sustainability Tech Solutions",
+        "Metaverse & AR/VR",
+        "Open Banking & API Platforms"
+    ],
+    "current_job_openings": [
+        {
+            "title": "Senior Software Engineer - Java",
+            "department": "Enterprise Services",
+            "location": "Hyderabad",
+            "experience_years": 5,
+            "job_type": "Full-time",
+            "skills": [
+                "Java",
+                "Spring Boot",
+                "Microservices",
+                "SQL",
+                "AWS"
+            ],
+            "preferred_qualifications": "B.Tech/M.Tech in CS",
+            "description": "Develop scalable enterprise applications using Java stack, integrate with cloud services.",
+            "salary_range_inr": "12-22 Lakhs per annum",
+            "openings": 15,
+            "deadline": "2026-02-28",
+            "reporting_to": "Technical Lead",
+            "work_mode": "Hybrid"
+        },
+        {
+            "title": "AI/ML Engineer",
+            "department": "Next Gen Services",
+            "location": "Pune",
+            "experience_years": 4,
+            "job_type": "Full-time",
+            "skills": [
+                "Python",
+                "TensorFlow",
+                "PyTorch",
+                "NLP",
+                "Cloud ML"
+            ],
+            "preferred_qualifications": "Experience in GenAI",
+            "description": "Build and deploy AI models for client use cases in banking and telecom.",
+            "salary_range_inr": "15-28 Lakhs per annum",
+            "openings": 10,
+            "deadline": "2026-03-15",
+            "reporting_to": "AI Practice Head",
+            "work_mode": "Hybrid"
+        },
+        {
+            "title": "DevOps Engineer",
+            "department": "Infrastructure",
+            "location": "Hyderabad",
+            "experience_years": 6,
+            "job_type": "Full-time",
+            "skills": [
+                "Jenkins",
+                "Docker",
+                "Kubernetes",
+                "Terraform",
+                "AWS/Azure"
+            ],
+            "preferred_qualifications": "Certifications in DevOps",
+            "description": "Automate CI/CD pipelines and manage cloud infrastructure.",
+            "salary_range_inr": "14-25 Lakhs per annum",
+            "openings": 8,
+            "deadline": "2026-02-20",
+            "reporting_to": "DevOps Manager",
+            "work_mode": "Hybrid"
+        },
+        {
+            "title": "SAP Consultant - S/4HANA",
+            "department": "Enterprise Services",
+            "location": "Bangalore",
+            "experience_years": 7,
+            "job_type": "Full-time",
+            "skills": [
+                "SAP ABAP",
+                "Fiori",
+                "S/4HANA Migration",
+                "Finance Module",
+                "Integration"
+            ],
+            "preferred_qualifications": "SAP Certified",
+            "description": "Lead S/4HANA implementations for manufacturing clients.",
+            "salary_range_inr": "18-35 Lakhs per annum",
+            "openings": 5,
+            "deadline": "2026-03-10",
+            "reporting_to": "SAP Delivery Head",
+            "work_mode": "On-site"
+        }
+    ],
+    "technology_stack": {
+        "programming_languages": [
+            "Java",
+            "Python",
+            "JavaScript",
+            "C#",
+            ".NET",
+            "Go"
+        ],
+        "frameworks_libraries": [
+            "Spring Boot",
+            "React",
+            "Angular",
+            "Node.js",
+            "Django"
+        ],
+        "databases": [
+            "Oracle",
+            "SQL Server",
+            "PostgreSQL",
+            "MongoDB",
+            "Snowflake"
+        ],
+        "cloud_platforms": [
+            "AWS",
+            "Microsoft Azure",
+            "Google Cloud Platform"
+        ],
+        "devops_tools": [
+            "Jenkins",
+            "GitLab CI",
+            "Docker",
+            "Kubernetes",
+            "Terraform",
+            "Ansible"
+        ],
+        "ai_ml_tools": [
+            "TensorFlow",
+            "PyTorch",
+            "Scikit-learn",
+            "Gemini",
+            "Azure ML"
+        ],
+        "project_management_tools": [
+            "JIRA",
+            "Confluence",
+            "MS Project",
+            "ServiceNow"
+        ]
+    },
+    "leadership_team": [
+        {
+            "name": "Mohit Joshi",
+            "designation": "CEO and Managing Director",
+            "department": "Executive",
+            "years_with_company": 3,
+            "previous_experience": "Senior roles in global tech firms",
+            "education": "Engineering & MBA",
+            "email": "mohit.joshi@techmahindra.com",
+            "office_location": "Pune",
+            "appointment_booking": "Via executive assistant"
+        },
+        {
+            "name": "Atul Soneja",
+            "designation": "Chief Operating Officer",
+            "department": "Operations",
+            "years_with_company": 10,
+            "previous_experience": "Delivery leadership",
+            "education": "B.Tech, MBA",
+            "email": "atul.soneja@techmahindra.com",
+            "office_location": "Pune",
+            "appointment_booking": "Limited availability"
+        },
+        {
+            "name": "Rohit Anand",
+            "designation": "Chief Financial Officer",
+            "department": "Finance",
+            "years_with_company": 5,
+            "previous_experience": "CFO in IT sector",
+            "education": "CA, MBA",
+            "email": "rohit.anand@techmahindra.com",
+            "office_location": "Mumbai",
+            "appointment_booking": "Investor relations channel"
+        },
+        {
+            "name": "Richard Lobo",
+            "designation": "Chief People Officer",
+            "department": "HR",
+            "years_with_company": 8,
+            "previous_experience": "HR leadership",
+            "education": "MBA HR",
+            "email": "richard.lobo@techmahindra.com",
+            "office_location": "Pune",
+            "appointment_booking": "HR portal"
+        }
+    ],
+    "office_locations": [
+        {
+            "city": "Pune (HQ)",
+            "address": "Plot No. 1, Phase - III, Rajiv Gandhi Infotech Park, Hinjawadi, Pune, Maharashtra 411057",
+            "size_sqft": 500000,
+            "employees": 25000,
+            "departments": "All major",
+            "contact": "+91-20-66273000",
+            "landmark": "Rajiv Gandhi Infotech Park"
+        },
+        {
+            "city": "Hyderabad",
+            "address": "Infocity - Special Economic Zone, Tower - I, Plot No. 22 to 34, Hi-tech City, Madhapur, Hyderabad, Telangana 500081",
+            "size_sqft": 400000,
+            "employees": 18000,
+            "departments": "BFSI, Communications, Next Gen",
+            "contact": "+91-40-44333000",
+            "landmark": "Hi-Tech City"
+        }
+    ],
+    "client_portfolio": {
+        "verticals": [
+            "Telecom",
+            "BFSI",
+            "Healthcare",
+            "Manufacturing",
+            "Retail"
+        ],
+        "sample_clients": "Major global telecoms, Leading US/EU banks, Fortune 500 manufacturers",
+        "case_studies": [
+            "5G network transformation for European telco - 30% cost reduction",
+            "AI fraud detection for Indian bank - 40% improvement in detection"
+        ],
+        "success_metrics": "1100+ clients, high NPS, multi-year contracts"
+    },
+    "training_development": {
+        "programs": [
+            "TechM Way Learning",
+            "AI Academy",
+            "Leadership Development"
+        ],
+        "certification_support": "AWS, Azure, Google, PMP, SAP funded",
+        "platforms": "Internal LMS, Coursera, Pluralsight partnerships",
+        "mentorship": "Yes, structured programs",
+        "career_paths": "Individual Contributor, Management, Expert tracks"
+    },
+    "employee_benefits": {
+        "health_insurance": "Comprehensive family coverage",
+        "life_insurance": "Yes",
+        "provident_fund": "12% contribution",
+        "gratuity": "As per law",
+        "performance_bonuses": "Up to 20-30% of CTC",
+        "stock_options": "ESOPs for seniors",
+        "work_from_home": "Flexible hybrid policy",
+        "flexible_hours": "Yes",
+        "paid_time_off": "25-30 days annual leave",
+        "maternity_paternity_leave": "26 weeks maternity, 2 weeks paternity",
+        "gym_membership": "Reimbursement",
+        "transportation": "Shuttle services in major cities",
+        "meal_allowances": "Subsidized cafeteria",
+        "learning_budget": "Annual L&D allowance"
+    },
+    "recruitment_process": {
+        "steps": "Online application > Screening > Technical rounds > Managerial > HR",
+        "interview_rounds": "3-5 (Technical, Coding, HR, Leadership)",
+        "hiring_timeline": "4-8 weeks",
+        "documents": "Resume, ID proof, educational certificates, relieving letter",
+        "background_verification": "Third-party check",
+        "onboarding": "Virtual/in-person, buddy program"
+    },
+    "company_culture": {
+        "core_values": "Customer First, Innovate, Collaborate, Integrity",
+        "diversity_inclusion": "Women in Tech, Pride groups, Accessibility initiatives",
+        "employee_resource_groups": "Yes (WiT, LGBTQ+, etc.)",
+        "csr_activities": "Tech Mahindra Foundation - education, skill development",
+        "sustainability": "Net Zero goals, Green IT",
+        "awards": "DJSI Leader 2025, Pharma Excellence Awards 2025, BankTech Awards"
+    },
+    "appointment_booking": {
+        "hr_interviews_next_14_days": "Available Mon-Fri 10 AM - 5 PM (book via careers portal)",
+        "ceo_cxo_meetings": "Limited, via business development team",
+        "campus_recruitment": "Ongoing Jan-Mar 2026 for 2026 batch",
+        "walk_in_dates": "None scheduled; virtual drives preferred"
+    },
+    "faq": [
+        {
+            "q": "How to apply for jobs?",
+            "a": "Via careers.techmahindra.com or LinkedIn"
+        },
+        {
+            "q": "What is the selection process?",
+            "a": "Application screening, technical interviews, HR round"
+        },
+        {
+            "q": "Does the company sponsor work visas?",
+            "a": "Yes, for onsite opportunities based on project needs"
+        },
+        {
+            "q": "What is the notice period?",
+            "a": "60-90 days depending on band"
+        },
+        {
+            "q": "Are freshers hired?",
+            "a": "Yes, through campus and off-campus drives"
+        },
+        {
+            "q": "What is the average salary for different roles?",
+            "a": "Freshers: 4-6 LPA, Mid-level: 10-20 LPA, Senior: 25+ LPA"
+        },
+        {
+            "q": "What are the working hours?",
+            "a": "Flexible, typically 9 AM - 6 PM"
+        },
+        {
+            "q": "Is relocation provided?",
+            "a": "Yes for certain roles"
+        },
+        {
+            "q": "What is the appraisal cycle?",
+            "a": "Annual (April)"
+        },
+        {
+            "q": "How to contact HR?",
+            "a": "careers@techmahindra.com"
+        }
+    ],
+    "recent_news_updates": [
+        "Robust Q3 FY26 results with 14.1% profit growth and $1.1 Bn deal wins (Jan 2026)",
+        "Recognized in MINDS 2nd Cohort by World Economic Forum for AI equity (Jan 2026)",
+        "Won 3 categories at 2025 Pharmaceutical Technology Excellence Awards",
+        "Ranked #1 in S&P Global DJSI 2025 for IT services",
+        "Expansion in GenAI partnerships and AWS competencies"
+    ],
+    "contact_points": {
+        "hr_recruitment": "careers@techmahindra.com",
+        "it_support": " servicedesk@techmahindra.com",
+        "admin": "admin.india@techmahindra.com",
+        "finance": "finance@techmahindra.com",
+        "business_development": "bd@techmahindra.com",
+        "media_relations": "media@techmahindra.com",
+        "investor_relations": "investor.relations@techmahindra.com"
+    }
+}

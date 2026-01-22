@@ -1,0 +1,688 @@
+{
+    "hospital_name": "Apollo Hospitals, Hyderabad",
+    "tagline": "Pioneering Healthcare Excellence Since 1988",
+    "year_established": 1988,
+    "total_bed_capacity": 550,
+    "icu_bed_capacity": 99,
+    "emergency_services": "24/7 Available",
+    "accreditations": [
+        "JCI",
+        "NABH",
+        "NABL"
+    ],
+    "contact_information": {
+        "phone": "+91-40-2360 7777 / 5555 / 2000",
+        "emergency_phone": "1066",
+        "email": "apollohealthcityhyd@apollohospitals.com",
+        "website": "https://www.apollohospitals.com/hyderabad"
+    },
+    "address": "Road No. 72, Opp. Bharatiya Vidya Bhavan School, Film Nagar, Jubilee Hills, Hyderabad, Telangana 500033, India",
+    "operating_hours": {
+        "general_opd": "8:00 AM - 8:00 PM (Mon-Sat)",
+        "emergency": "24/7",
+        "pharmacy": "24/7",
+        "cafeteria": "7:00 AM - 10:00 PM"
+    },
+    "departments": [
+        {
+            "name": "Cardiology",
+            "head": "Dr. A Sreenivas Kumar",
+            "beds": 60,
+            "facilities": "Cardiac Cath Lab, Echo, TMT",
+            "special_equipment": "Flat-panel Digital Cath Lab, ECMO",
+            "operating_hours": "8:00 AM - 8:00 PM"
+        },
+        {
+            "name": "Cardiothoracic & Vascular Surgery",
+            "head": "Dr. Vijay Dikshit",
+            "beds": 40,
+            "facilities": "OTs for Bypass, Valve Surgery",
+            "special_equipment": "Heart-Lung Machine",
+            "operating_hours": "24/7 Emergency"
+        },
+        {
+            "name": "Neurology",
+            "head": "Dr. Sudhir Kumar",
+            "beds": 30,
+            "facilities": "Stroke Unit, EEG",
+            "special_equipment": "Neuro-navigation System",
+            "operating_hours": "9:00 AM - 7:00 PM"
+        },
+        {
+            "name": "Neurosurgery",
+            "head": "Dr. K. Prashanth",
+            "beds": 25,
+            "facilities": "Brain & Spine OT",
+            "special_equipment": "Intraoperative MRI",
+            "operating_hours": "24/7"
+        },
+        {
+            "name": "Oncology",
+            "head": "Dr. P Vijay Anand Reddy",
+            "beds": 50,
+            "facilities": "Chemotherapy, Radiation",
+            "special_equipment": "Linear Accelerator, PET-CT",
+            "operating_hours": "9:00 AM - 6:00 PM"
+        },
+        {
+            "name": "Orthopedics",
+            "head": "Dr. K J Reddy",
+            "beds": 45,
+            "facilities": "Joint Replacement, Arthroscopy",
+            "special_equipment": "Robotic Surgery System",
+            "operating_hours": "9:00 AM - 7:00 PM"
+        },
+        {
+            "name": "Gastroenterology",
+            "head": "Dr. B V A Ranga Reddy",
+            "beds": 30,
+            "facilities": "Endoscopy Suite",
+            "special_equipment": "ERCP, Capsule Endoscopy",
+            "operating_hours": "9:00 AM - 6:00 PM"
+        },
+        {
+            "name": "Nephrology",
+            "head": "Dr. Sanjay Maitra",
+            "beds": 35,
+            "facilities": "Dialysis Unit",
+            "special_equipment": "Hemodialysis Machines (50+)",
+            "operating_hours": "24/7 Dialysis"
+        },
+        {
+            "name": "Obstetrics & Gynaecology",
+            "head": "Dr. Anuradha Panda",
+            "beds": 40,
+            "facilities": "Labor Rooms, IVF",
+            "special_equipment": "Laparoscopic OT",
+            "operating_hours": "24/7"
+        },
+        {
+            "name": "Pediatrics",
+            "head": "Dr. Indira Ramasahayam Reddy",
+            "beds": 30,
+            "facilities": "NICU, PICU",
+            "special_equipment": "Neonatal Ventilators",
+            "operating_hours": "9:00 AM - 8:00 PM"
+        },
+        {
+            "name": "Pulmonology",
+            "head": "Dr. Rajesh Fogla",
+            "beds": 25,
+            "facilities": "PFT Lab, Bronchoscopy",
+            "special_equipment": "Thoracoscopy",
+            "operating_hours": "9:00 AM - 6:00 PM"
+        },
+        {
+            "name": "Urology",
+            "head": "Dr. Arun Shah",
+            "beds": 20,
+            "facilities": "Lithotripsy, Endourology",
+            "special_equipment": "Laser for Stones",
+            "operating_hours": "9:00 AM - 7:00 PM"
+        },
+        {
+            "name": "ENT",
+            "head": "Dr. Sharat P",
+            "beds": 15,
+            "facilities": "Cochlear Implant",
+            "special_equipment": "Endoscopic Sinus Surgery",
+            "operating_hours": "9:00 AM - 6:00 PM"
+        },
+        {
+            "name": "Ophthalmology",
+            "head": "Dr. Aashish K Bansal",
+            "beds": 15,
+            "facilities": "Cataract, Retina",
+            "special_equipment": "Phacoemulsification",
+            "operating_hours": "9:00 AM - 6:00 PM"
+        },
+        {
+            "name": "Dermatology",
+            "head": "Dr. Madhuri Khilari",
+            "beds": 10,
+            "facilities": "Laser Treatments",
+            "special_equipment": "CO2 Laser",
+            "operating_hours": "10:00 AM - 5:00 PM"
+        },
+        {
+            "name": "Critical Care",
+            "head": "Dr. Anand Reddy",
+            "beds": 50,
+            "facilities": "Multi-disciplinary ICU",
+            "special_equipment": "Advanced Ventilators",
+            "operating_hours": "24/7"
+        }
+    ],
+    "doctors": [
+        {
+            "name": "Dr. A Sreenivas Kumar",
+            "specialization": "Cardiology",
+            "department": "Cardiology",
+            "qualifications": "MBBS, MD, DM (Cardiology)",
+            "experience_years": 25,
+            "consultation_fee": 800,
+            "available_days": [
+                "Mon",
+                "Tue",
+                "Wed",
+                "Thu",
+                "Fri",
+                "Sat"
+            ],
+            "time_slots": [
+                "9:00 AM - 1:00 PM",
+                "4:00 PM - 7:00 PM"
+            ],
+            "languages": [
+                "English",
+                "Hindi",
+                "Telugu"
+            ],
+            "special_interests": "Interventional Cardiology, Angiography",
+            "opd_room": "C101"
+        },
+        {
+            "name": "Dr. Vijay Dikshit",
+            "specialization": "Cardiothoracic Surgery",
+            "department": "Cardiothoracic & Vascular Surgery",
+            "qualifications": "MBBS, MS, MCh",
+            "experience_years": 35,
+            "consultation_fee": 1200,
+            "available_days": [
+                "Mon",
+                "Wed",
+                "Fri"
+            ],
+            "time_slots": [
+                "10:00 AM - 2:00 PM"
+            ],
+            "languages": [
+                "English",
+                "Hindi"
+            ],
+            "special_interests": "Bypass Surgery, Valve Replacement",
+            "opd_room": "CS201"
+        },
+        {
+            "name": "Dr. Sudhir Kumar",
+            "specialization": "Neurology",
+            "department": "Neurology",
+            "qualifications": "MBBS, MD, DM (Neurology)",
+            "experience_years": 20,
+            "consultation_fee": 900,
+            "available_days": [
+                "Mon-Sat"
+            ],
+            "time_slots": [
+                "9:00 AM - 5:00 PM"
+            ],
+            "languages": [
+                "English",
+                "Telugu"
+            ],
+            "special_interests": "Stroke, Epilepsy",
+            "opd_room": "N301"
+        },
+        {
+            "name": "Dr. K J Reddy",
+            "specialization": "Orthopedics",
+            "department": "Orthopedics",
+            "qualifications": "MBBS, MS (Ortho), DNB, FRCS",
+            "experience_years": 34,
+            "consultation_fee": 1000,
+            "available_days": [
+                "Mon",
+                "Tue",
+                "Thu",
+                "Sat"
+            ],
+            "time_slots": [
+                "10:00 AM - 1:00 PM",
+                "5:00 PM - 8:00 PM"
+            ],
+            "languages": [
+                "English",
+                "Hindi",
+                "Telugu"
+            ],
+            "special_interests": "Joint Replacement",
+            "opd_room": "O401"
+        },
+        {
+            "name": "Dr. P Vijay Anand Reddy",
+            "specialization": "Radiation Oncology",
+            "department": "Oncology",
+            "qualifications": "MBBS, MD, DNB",
+            "experience_years": 30,
+            "consultation_fee": 1100,
+            "available_days": [
+                "Mon-Fri"
+            ],
+            "time_slots": [
+                "9:00 AM - 4:00 PM"
+            ],
+            "languages": [
+                "English",
+                "Hindi"
+            ],
+            "special_interests": "Cancer Radiotherapy",
+            "opd_room": "ON501"
+        },
+        {
+            "name": "Dr. Anuradha Panda",
+            "specialization": "Obstetrics & Gynaecology",
+            "department": "Obstetrics & Gynaecology",
+            "qualifications": "MBBS, MD",
+            "experience_years": 25,
+            "consultation_fee": 800,
+            "available_days": [
+                "Mon, Wed, Fri"
+            ],
+            "time_slots": [
+                "10:00 AM - 2:00 PM"
+            ],
+            "languages": [
+                "English",
+                "Telugu",
+                "Hindi"
+            ],
+            "special_interests": "High-Risk Pregnancy",
+            "opd_room": "G601"
+        },
+        {
+            "name": "Dr. Sanjay Maitra",
+            "specialization": "Nephrology",
+            "department": "Nephrology",
+            "qualifications": "MBBS, MD, DM",
+            "experience_years": 22,
+            "consultation_fee": 900,
+            "available_days": [
+                "Tue, Thu, Sat"
+            ],
+            "time_slots": [
+                "9:00 AM - 1:00 PM"
+            ],
+            "languages": [
+                "English",
+                "Bengali",
+                "Hindi"
+            ],
+            "special_interests": "Kidney Transplant",
+            "opd_room": "NE701"
+        },
+        {
+            "name": "Dr. A Mohan Krishna",
+            "specialization": "Orthopedics",
+            "department": "Orthopedics",
+            "qualifications": "MBBS, MS",
+            "experience_years": 24,
+            "consultation_fee": 850,
+            "available_days": [
+                "Mon-Sat"
+            ],
+            "time_slots": [
+                "11:00 AM - 4:00 PM"
+            ],
+            "languages": [
+                "English",
+                "Telugu"
+            ],
+            "special_interests": "Trauma Surgery",
+            "opd_room": "O402"
+        },
+        {
+            "name": "Dr. Rooma Sinha",
+            "specialization": "Gynaecology",
+            "department": "Obstetrics & Gynaecology",
+            "qualifications": "MBBS, MD",
+            "experience_years": 28,
+            "consultation_fee": 950,
+            "available_days": [
+                "Wed, Fri"
+            ],
+            "time_slots": [
+                "2:00 PM - 6:00 PM"
+            ],
+            "languages": [
+                "English",
+                "Hindi"
+            ],
+            "special_interests": "Laparoscopic Surgery",
+            "opd_room": "G602"
+        },
+        {
+            "name": "Dr. Prameela Sekhar K",
+            "specialization": "Obstetrics & Gynaecology",
+            "department": "Obstetrics & Gynaecology",
+            "qualifications": "MBBS, DGO, MD",
+            "experience_years": 30,
+            "consultation_fee": 1000,
+            "available_days": [
+                "Mon, Thu"
+            ],
+            "time_slots": [
+                "9:00 AM - 3:00 PM"
+            ],
+            "languages": [
+                "English",
+                "Telugu"
+            ],
+            "special_interests": "Infertility",
+            "opd_room": "G603"
+        }
+    ],
+    "services_offered": [
+        "MRI Scan",
+        "CT Scan",
+        "X-Ray",
+        "Ultrasound",
+        "PET-CT",
+        "Mammography",
+        "ECG",
+        "Echocardiography",
+        "Treadmill Test",
+        "Complete Blood Count",
+        "Liver Function Test",
+        "Kidney Function Test",
+        "Thyroid Profile",
+        "Coronary Artery Bypass Grafting",
+        "Knee Replacement",
+        "Hip Replacement",
+        "Laparoscopic Cholecystectomy",
+        "Hysterectomy",
+        "Chemotherapy",
+        "Radiotherapy",
+        "Dialysis",
+        "Physiotherapy",
+        "Preventive Health Checkups",
+        "Executive Health Packages",
+        "24/7 Emergency Services",
+        "Ambulance Services",
+        "24/7 Pharmacy",
+        "Blood Bank",
+        "Maternity & Delivery Services",
+        "Neonatal Intensive Care",
+        "Pediatric Surgery",
+        "Geriatric Care",
+        "Vaccination Services",
+        "Nutrition Counseling",
+        "Telemedicine Consultations"
+    ],
+    "health_packages": [
+        {
+            "name": "Master Health Checkup",
+            "tests": [
+                "CBC",
+                "Lipid Profile",
+                "LFT",
+                "KFT",
+                "ECG",
+                "Chest X-Ray",
+                "Ultrasound Abdomen"
+            ],
+            "price": 4500,
+            "duration": "Half Day",
+            "target_age": "Above 35 years"
+        },
+        {
+            "name": "Executive Heart Checkup",
+            "tests": [
+                "TMT",
+                "Echo",
+                "Lipid Profile",
+                "ECG",
+                "Cardiac CT"
+            ],
+            "price": 12000,
+            "duration": "Full Day",
+            "target_age": "Above 40 years"
+        },
+        {
+            "name": "Whole Body Checkup",
+            "tests": [
+                "MRI Brain",
+                "Full Body CT",
+                "All Blood Tests",
+                "Pap Smear",
+                "Mammogram"
+            ],
+            "price": 25000,
+            "duration": "2 Days",
+            "target_age": "Above 45 years"
+        },
+        {
+            "name": "Diabetes Screening Package",
+            "tests": [
+                "HbA1c",
+                "Fasting Sugar",
+                "PP Sugar",
+                "Lipid Profile"
+            ],
+            "price": 2500,
+            "duration": "Half Day",
+            "target_age": "All ages"
+        },
+        {
+            "name": "Women's Wellness Package",
+            "tests": [
+                "Pap Smear",
+                "Mammogram",
+                "Pelvic Ultrasound",
+                "Hormone Profile"
+            ],
+            "price": 8000,
+            "duration": "Full Day",
+            "target_age": "Women 30+"
+        }
+    ],
+    "appointment_slots": {
+        "next_7_days_availability": "High availability Mon-Fri; Moderate on Sat; Limited on Sun",
+        "department_wise": {
+            "Cardiology": "80% available slots next week",
+            "Orthopedics": "70% available",
+            "Oncology": "60% available"
+        },
+        "doctor_wise_sample": {
+            "Dr. A Sreenivas Kumar": {
+                "2026-01-23": [
+                    "9:00 AM - 1:00 PM (3 slots booked)"
+                ],
+                "2026-01-24": [
+                    "Full day available"
+                ]
+            }
+        },
+        "booked_slots_sample": [
+            {
+                "date": "2026-01-23",
+                "doctor": "Dr. K J Reddy",
+                "time": "10:30 AM",
+                "patient_id": "P12345"
+            },
+            {
+                "date": "2026-01-24",
+                "doctor": "Dr. Sudhir Kumar",
+                "time": "11:15 AM",
+                "patient_id": "P67890"
+            }
+        ]
+    },
+    "emergency_contact": {
+        "ambulance": "1066 or +91-40-23607777",
+        "emergency_department": "+91-40-23605555",
+        "blood_bank": "+91-40-23602000",
+        "trauma_center": "+91-40-23607777"
+    },
+    "facilities": {
+        "parking": {
+            "capacity": 300,
+            "charges": "Free for patients"
+        },
+        "cafeteria": {
+            "timings": "7:00 AM - 10:00 PM",
+            "highlights": "South Indian, North Indian, Healthy options"
+        },
+        "atm": "Available inside premises (SBI, HDFC)",
+        "pharmacy": "24/7",
+        "waiting_areas": "Air-conditioned with TV and Wi-Fi",
+        "patient_rooms": [
+            {
+                "type": "General Ward",
+                "price_per_day": 3000
+            },
+            {
+                "type": "Semi-Private",
+                "price_per_day": 6000
+            },
+            {
+                "type": "Private",
+                "price_per_day": 10000
+            },
+            {
+                "type": "Deluxe",
+                "price_per_day": 15000
+            },
+            {
+                "type": "Suite",
+                "price_per_day": 25000
+            }
+        ]
+    },
+    "insurance_payment": {
+        "accepted_providers": [
+            "Star Health",
+            "ICICI Lombard",
+            "Bajaj Allianz",
+            "HDFC Ergo",
+            "Apollo Munich",
+            "New India Assurance",
+            "Oriental Insurance",
+            "United India",
+            "National Insurance",
+            "Religare Health",
+            "Medi Assist",
+            "FHPL",
+            "Good Health",
+            "Paramount",
+            "Vidal Health"
+        ],
+        "payment_modes": [
+            "Cash",
+            "UPI",
+            "Credit/Debit Card",
+            "Net Banking",
+            "Insurance Cashless"
+        ],
+        "cashless_facility": true
+    },
+    "patient_feedback": [
+        {
+            "patient": "Patient A",
+            "department": "Cardiology",
+            "doctor": "Dr. A Sreenivas Kumar",
+            "rating": 5,
+            "review": "Excellent care and prompt attention. Highly recommended!",
+            "date": "2025-12-15"
+        },
+        {
+            "patient": "Patient B",
+            "department": "Orthopedics",
+            "doctor": "Dr. K J Reddy",
+            "rating": 4,
+            "review": "Successful knee replacement, good post-op support.",
+            "date": "2025-11-20"
+        },
+        {
+            "patient": "Patient C",
+            "department": "Oncology",
+            "doctor": "Dr. P Vijay Anand Reddy",
+            "rating": 5,
+            "review": "Compassionate and detailed explanation of treatment.",
+            "date": "2025-10-10"
+        },
+        {
+            "patient": "Patient D",
+            "department": "Gynaecology",
+            "doctor": "Dr. Anuradha Panda",
+            "rating": 5,
+            "review": "Smooth delivery experience, caring staff.",
+            "date": "2026-01-05"
+        },
+        {
+            "patient": "Patient E",
+            "department": "Neurology",
+            "doctor": "Dr. Sudhir Kumar",
+            "rating": 4,
+            "review": "Accurate diagnosis for migraine issues.",
+            "date": "2025-09-18"
+        },
+        {
+            "patient": "Patient F",
+            "department": "Nephrology",
+            "doctor": "Dr. Sanjay Maitra",
+            "rating": 5,
+            "review": "Life-saving dialysis support.",
+            "date": "2025-08-22"
+        },
+        {
+            "patient": "Patient G",
+            "department": "Emergency",
+            "doctor": "N/A",
+            "rating": 4,
+            "review": "Quick response in trauma case.",
+            "date": "2026-01-10"
+        },
+        {
+            "patient": "Patient H",
+            "department": "Pediatrics",
+            "doctor": "Dr. Indira Ramasahayam Reddy",
+            "rating": 5,
+            "review": "Child-friendly environment.",
+            "date": "2025-07-14"
+        },
+        {
+            "patient": "Patient I",
+            "department": "Pulmonology",
+            "doctor": "Dr. Rajesh Fogla",
+            "rating": 4,
+            "review": "Effective asthma management.",
+            "date": "2025-06-30"
+        },
+        {
+            "patient": "Patient J",
+            "department": "Urology",
+            "doctor": "Dr. Arun Shah",
+            "rating": 5,
+            "review": "Minimally invasive procedure, fast recovery.",
+            "date": "2025-05-25"
+        }
+    ],
+    "common_queries": {
+        "how_to_book_appointment": "Online via Apollo 24|7 app/website or call +91-40-23607777",
+        "documents_for_admission": "Aadhaar/PAN, Insurance card (if applicable), Previous reports, Doctor referral",
+        "visiting_hours": "10:00 AM - 12:00 PM and 4:00 PM - 7:00 PM",
+        "covid_protocols": "Mask mandatory, Sanitization at entry, Limited visitors",
+        "medical_records": "Request at MRD dept or via patient portal",
+        "refund_policy": "As per hospital policy; processed within 7-10 days for cancellations",
+        "second_opinion": "Available via telemedicine or in-person consultation"
+    },
+    "specializations_treatments": {
+        "complex_surgeries": [
+            "Heart Transplant",
+            "Liver Transplant",
+            "Kidney Transplant",
+            "Robotic Joint Replacement",
+            "Brain Tumor Resection",
+            "Minimally Invasive Cardiac Surgery",
+            "CAR T-Cell Therapy",
+            "Bariatric Surgery"
+        ],
+        "success_rates": {
+            "CABG": "98%",
+            "Knee Replacement": "97%",
+            "Organ Transplants": "92-95%"
+        },
+        "international_patient_services": "Dedicated desk, Visa assistance, Language interpreters, Airport pickup",
+        "telemedicine": "Available 24/7 via Apollo 24|7 platform"
+    }
+}
