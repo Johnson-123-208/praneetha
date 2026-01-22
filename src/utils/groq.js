@@ -89,7 +89,7 @@ When users ask about:
         model: 'llama-3.3-70b-versatile', // Using Groq's powerful model
         messages: messages,
         temperature: 0.7,
-        max_tokens: 1024,
+        max_tokens: 150, // Limit to ~2-3 sentences
       }),
     });
 
@@ -139,7 +139,7 @@ When users ask about:
 // Detect if a function call is needed based on the response
 const detectFunctionCall = (message, companyContext) => {
   const lowerMessage = message.toLowerCase();
-  
+
   // Check for various function call patterns
   if (lowerMessage.includes('vacancy') || lowerMessage.includes('job opening')) {
     return { name: 'check_vacancies', args: { companyId: companyContext?.id } };
@@ -159,14 +159,14 @@ const detectFunctionCall = (message, companyContext) => {
   if (lowerMessage.includes('order status') || lowerMessage.includes('trace order')) {
     return { name: 'trace_order', args: {} };
   }
-  
+
   return null;
 };
 
 // Execute function calls
 const executeFunctionCall = async (functionMatch) => {
   const { name, args } = functionMatch;
-  
+
   switch (name) {
     case 'get_company_directory':
       return tools.get_company_directory();
@@ -195,19 +195,19 @@ const executeFunctionCall = async (functionMatch) => {
 const processWithLocalAI = async (prompt, history, companyContext) => {
   try {
     const action = detectAction(prompt);
-    
+
     if (action === 'appointment') {
       const details = extractAppointmentDetails(prompt);
       if (details.date && details.time) {
         return `I understand you'd like to book an appointment on ${details.date} at ${details.time}. However, I need an API key to process this request. Please configure your Groq API key.`;
       }
     }
-    
+
     if (action === 'feedback') {
       const details = extractFeedbackDetails(prompt);
       return `Thank you for your feedback! I've noted your ${details.rating}-star rating. However, I need an API key to save this. Please configure your Groq API key.`;
     }
-    
+
     return processQuestionLocally(prompt);
   } catch (error) {
     console.error('Local AI processing error:', error);
