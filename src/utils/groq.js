@@ -69,12 +69,31 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 
     // Check if the response indicates a function call need
     const functionMatch = detectFunctionCall(assistantMessage, companyContext);
+
+    // Cleanup utility for internal markers
+    const cleanInternalCommands = (text) => {
+      return text
+        .replace(/\bBOOK_APPOINTMENT\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/\bBOOK_TABLE\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/\bBOOK_ORDER\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/\bCOLLECT_RATING\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/\bCOLLECT_FEEDBACK\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/\bTRACE_ORDER\b/gi, '')
+        .replace(/\bHANG_UP\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
     if (functionMatch) {
       const result = await executeFunctionCall(functionMatch);
       const followUpMessages = [
         ...messages,
-        { role: 'assistant', content: assistantMessage },
-        { role: 'system', content: `Function ${functionMatch.name} returned: ${JSON.stringify(result)}. Provide a response.` }
+        { role: 'assistant', content: cleanInternalCommands(assistantMessage) },
+        {
+          role: 'system', content: `ACTION SUCCESSFUL. Result: ${JSON.stringify(result)}. 
+        Tell the user that the action (booking/order/rating) is confirmed. 
+        DO NOT repeat the internal commands (BOOK_APPOINTMENT, etc.) or mention tool names. 
+        Speak like a helpful human assistant. Mention specific details if available.` }
       ];
 
       const followUpResponse = await fetch(GROQ_API_URL, {
@@ -87,15 +106,16 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
           model: 'llama-3.3-70b-versatile',
           messages: followUpMessages,
           temperature: 0.7,
-          max_tokens: 1024,
+          max_tokens: 300,
         }),
       });
 
       const followUpData = await followUpResponse.json();
-      return followUpData.choices[0]?.message?.content || assistantMessage;
+      const finalResponse = followUpData.choices[0]?.message?.content || assistantMessage;
+      return cleanInternalCommands(finalResponse);
     }
 
-    return assistantMessage;
+    return cleanInternalCommands(assistantMessage);
   } catch (error) {
     console.error('Error chatting with Groq:', error);
     throw error;
@@ -106,43 +126,65 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 const detectFunctionCall = (message, companyContext) => {
   const upperMessage = message.toUpperCase();
 
-  // ONLY trigger on explicit Uppercase Command Keywords to avoid false positives
+  // ONLY trigger on explicit Command Keywords or clear intent
 
   if (upperMessage.includes('BOOK_APPOINTMENT')) {
     const details = extractAppointmentDetails(message);
+    const isHospital = companyContext?.industry?.toLowerCase().includes('health') ||
+      companyContext?.name?.toLowerCase().includes('hospital');
+
     return {
       name: 'book_appointment',
       args: {
         entityId: companyContext?.id,
-        type: 'doctor',
-        personName: details.personName || 'Arjun',
+        entityName: companyContext?.name,
+        type: isHospital ? 'doctor' : 'demo',
+        personName: details.personName || (isHospital ? 'General Physician' : 'Callix Demo'),
         date: details.date || new Date().toISOString().split('T')[0],
         time: details.time || '10:00',
         userEmail: companyContext?.userEmail,
         userName: companyContext?.userName,
-        userInfo: { name: companyContext?.userName || 'Customer' }
+        userInfo: { ...details, specialization: isHospital ? 'Consultation' : 'Business' }
       }
     };
   }
 
   if (upperMessage.includes('BOOK_ORDER')) {
+    const itemMatch = message.match(/BOOK_ORDER\s+([a-zA-Z0-9\s]+)/i);
+    const itemName = itemMatch ? itemMatch[1].trim() : 'Premium Product';
+    // Generate a semi-realistic price based on item name keywords
+    let price = 49.99;
+    if (itemName.toLowerCase().includes('phone')) price = 699.00;
+    else if (itemName.toLowerCase().includes('laptop')) price = 1299.00;
+    else if (itemName.toLowerCase().includes('watch')) price = 199.00;
+    else if (itemName.toLowerCase().includes('pizza') || itemName.toLowerCase().includes('food')) price = 15.00;
+
     return {
       name: 'book_order',
       args: {
         companyId: companyContext?.id,
-        item: 'Product',
+        item: itemName,
         quantity: 1,
-        userEmail: companyContext?.userEmail
+        totalPrice: price,
+        currency: 'USD',
+        userEmail: companyContext?.userEmail,
+        customerName: companyContext?.userName || 'Customer'
       }
     };
   }
 
-  if (upperMessage.includes('COLLECT_FEEDBACK') || upperMessage.includes('COLLECT_RATING')) {
+  // Robust Feedback detection - either keyword or message containing a rating if we expect one
+  const feedbackMatch = upperMessage.includes('COLLECT_FEEDBACK') ||
+    upperMessage.includes('COLLECT_RATING') ||
+    (upperMessage.includes('RATING') && /\b[1-5]\b/.test(upperMessage));
+
+  if (feedbackMatch) {
     const details = extractFeedbackDetails(message);
     return {
       name: 'collect_feedback',
       args: {
         entityId: companyContext?.id,
+        entityName: companyContext?.name,
         rating: details.rating || 5,
         comment: details.comment || message,
         category: 'performance',
@@ -157,6 +199,7 @@ const detectFunctionCall = (message, companyContext) => {
       name: 'book_appointment',
       args: {
         entityId: companyContext?.id,
+        entityName: companyContext?.name,
         type: 'table',
         date: details.date || new Date().toISOString().split('T')[0],
         time: details.time || '19:00',

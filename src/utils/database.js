@@ -42,9 +42,11 @@ export const database = {
       company_id: order.companyId,
       item: order.item,
       quantity: order.quantity || 1,
+      total_price: order.totalPrice || 0,
+      currency: order.currency || 'USD',
       status: 'completed',
       customer_name: order.customerName,
-      user_email: order.userEmail, // Added for user-specific tracking
+      user_email: order.userEmail,
     };
 
     const { data, error } = await supabase.from('orders').insert([newOrder]).select();
@@ -81,13 +83,13 @@ export const database = {
   saveAppointment: async (appointment) => {
     const newAppointment = {
       entity_id: appointment.entityId,
-      entity_name: appointment.entityName,
+      entity_name: appointment.entityName || 'General',
       type: appointment.type,
       person_name: appointment.personName,
       appointment_date: appointment.date,
       appointment_time: appointment.time,
       user_info: appointment.userInfo || {},
-      user_email: appointment.userEmail, // Added for user-specific tracking
+      user_email: appointment.userEmail,
       status: 'scheduled'
     };
 
@@ -97,6 +99,38 @@ export const database = {
       throw error;
     }
     return data[0];
+  },
+
+  saveRestaurantBooking: async (booking) => {
+    const newBooking = {
+      restaurant_id: booking.entityId,
+      restaurant_name: booking.entityName || 'Spice Garden',
+      customer_name: booking.personName || 'Customer',
+      party_size: booking.userInfo?.peopleCount || 1,
+      booking_date: booking.date,
+      booking_time: booking.time,
+      special_requests: booking.userInfo?.notes || '',
+      user_email: booking.userEmail,
+      status: 'confirmed'
+    };
+
+    const { data, error } = await supabase.from('restaurant_bookings').insert([newBooking]).select();
+    if (error) {
+      console.error('Error saving restaurant booking:', error);
+      throw error;
+    }
+    return data[0];
+  },
+
+  getRestaurantBookings: async (userEmail = null) => {
+    let query = supabase.from('restaurant_bookings').select('*');
+    if (userEmail) query = query.eq('user_email', userEmail);
+    const { data, error } = await query.order('booking_date', { ascending: false });
+    if (error) {
+      console.error('Error fetching restaurant bookings:', error);
+      return [];
+    }
+    return data;
   },
 
   // --- Feedback management ---
@@ -177,35 +211,50 @@ export const tools = {
   },
 
   book_appointment: async (params) => {
-    const { entityId, type, personName, date, time, userInfo, userEmail } = params;
+    const { entityId, entityName, type, personName, date, time, userInfo, userEmail } = params;
 
     if (!entityId || !type || !date || !time) {
       return { error: 'Missing required fields: entityId, type, date, time' };
     }
 
     try {
-      const appointment = await database.saveAppointment({
-        entityId,
-        type,
-        personName: personName || 'General',
-        date,
-        time,
-        userInfo: userInfo || {},
-        userEmail: userEmail // Pass to database service
-      });
+      let result;
+      if (type === 'table') {
+        result = await database.saveRestaurantBooking({
+          entityId,
+          entityName,
+          personName,
+          date,
+          time,
+          userInfo,
+          userEmail
+        });
+      } else {
+        result = await database.saveAppointment({
+          entityId,
+          entityName,
+          type,
+          personName: personName || 'General',
+          date,
+          time,
+          userInfo: userInfo || {},
+          userEmail
+        });
+      }
 
+      const label = type === 'table' ? 'Table booking' : 'Appointment';
       return {
         success: true,
-        appointmentId: appointment.id,
-        message: `CONFIRMED: Appointment for ${personName} on ${date} at ${time} has been saved to our database.`,
+        id: result.id,
+        message: `CONFIRMED: ${label} for ${personName || 'you'} on ${date} at ${time} has been saved to our database.`,
       };
     } catch (e) {
-      return { error: 'Failed to save appointment to database' };
+      return { error: `Failed to save ${type} booking to database` };
     }
   },
 
   collect_feedback: async (params) => {
-    const { entityId, rating, comment, category, userEmail } = params;
+    const { entityId, entityName, rating, comment, category, userEmail } = params;
 
     if (!entityId) {
       return { error: 'Entity ID is required' };
@@ -214,10 +263,11 @@ export const tools = {
     try {
       const fb = await database.saveFeedback({
         entityId,
+        entityName: entityName || 'General',
         rating: rating || 0,
         comment: comment || '',
-        category: category || 'general',
-        userEmail: userEmail // Pass to database service
+        category: category || 'performance',
+        userEmail: userEmail
       });
 
       return {

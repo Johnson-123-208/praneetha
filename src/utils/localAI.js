@@ -195,12 +195,21 @@ export const extractAppointmentDetails = (question) => {
     const match = question.match(pattern);
     if (match) {
       const matchLower = match[0].toLowerCase();
-      if (matchLower === 'today' || matchLower === 'tonight' || (matchLower.includes('today') && matchLower.includes('evening'))) {
+      if (matchLower === 'today' || matchLower === 'tonight') {
         date = new Date().toISOString().split('T')[0];
       } else if (matchLower === 'tomorrow') {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         date = tomorrow.toISOString().split('T')[0];
+      } else if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].includes(matchLower)) {
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const targetDay = days.indexOf(matchLower);
+        const today = new Date();
+        const currentDay = today.getDay();
+        let diff = targetDay - currentDay;
+        if (diff <= 0) diff += 7; // Next occurrence of that day
+        today.setDate(today.getDate() + diff);
+        date = today.toISOString().split('T')[0];
       } else {
         date = match[0];
       }

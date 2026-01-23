@@ -5,7 +5,7 @@ import { chatWithGroq } from '../utils/groq';
 import { detectLanguage } from '../utils/languageDetection';
 import { crmIntegration } from '../utils/crmIntegration';
 import { ttsService } from '../utils/ttsService';
-import { HospitalPrompt, RestaurantPrompt, ECommercePrompt, DefaultPrompt } from '../prompts/agentPrompts';
+import { HospitalPrompt, RestaurantPrompt, ECommercePrompt, BusinessPrompt, DefaultPrompt } from '../prompts/agentPrompts';
 
 const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const [callState, setCallState] = useState('idle'); // idle, ringing, connected, ended
@@ -49,7 +49,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     convoPhase,
     userName,
     userEmail,
-    selectedLanguage
+    selectedLanguage,
+    messages
   });
 
   // Sync refs with state
@@ -63,9 +64,10 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       convoPhase,
       userName,
       userEmail,
-      selectedLanguage
+      selectedLanguage,
+      messages
     };
-  }, [callState, isListening, isSpeaking, isMuted, isOpen, convoPhase, userName, userEmail, selectedLanguage]);
+  }, [callState, isListening, isSpeaking, isMuted, isOpen, convoPhase, userName, userEmail, selectedLanguage, messages]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -73,13 +75,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   }, [messages, transcript]);
 
   // Determine agent gender and avatar based on company
-  const agentGender = selectedCompany?.gender || (
-    (selectedCompany?.industry === 'Healthcare' ||
-      selectedCompany?.name?.toLowerCase().includes('hospital') ||
-      selectedCompany?.name?.toLowerCase().includes('voxsphere'))
-      ? 'female' : 'male'
-  );
-  const agentAvatar = agentGender === 'female' ? '/Female.png' : '/Male.png';
+  const agentGender = 'female';
+  const agentAvatar = '/Female.png';
 
   // Speech Recognition Initialization
   const initRecognition = () => {
@@ -265,7 +262,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       setTranscript('');
 
       // Prevent Loop: If message is too similar to last agent message, ignore (echo protection)
-      const lastAgentMsg = messages.filter(m => m.sender === 'agent').pop();
+      const curMessages = stateRef.current.messages;
+      const lastAgentMsg = curMessages.filter(m => m.sender === 'agent').pop();
       if (lastAgentMsg) {
         const similarity = (s1, s2) => {
           const longer = s1.length > s2.length ? s1 : s2;
@@ -398,7 +396,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       }
 
       // Phase 2: Main AI Flow
-      const historyContext = messages.slice(-10).map(msg => `${msg.sender.toUpperCase()}: ${msg.text}`).join('\n');
+      const currentMessages = stateRef.current.messages;
+      const historyContext = currentMessages.slice(-10).map(msg => `${msg.sender.toUpperCase()}: ${msg.text}`).join('\n');
 
       let specializedPrompt = DefaultPrompt;
       const industry = selectedCompany?.industry?.toLowerCase() || '';
@@ -407,7 +406,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       if (industry.includes('health') || compName.includes('hospital') || compName.includes('aarogya')) specializedPrompt = HospitalPrompt;
       else if (industry.includes('restaur') || compName.includes('garden')) specializedPrompt = RestaurantPrompt;
       else if (industry.includes('commerce') || compName.includes('kart')) specializedPrompt = ECommercePrompt;
-
+      else if (industry.includes('business') || compName.includes('voxsphere') || industry.includes('tech')) specializedPrompt = BusinessPrompt;
       // Strong language enforcement
       let languageInstruction = '';
       if (curLang.code === 'te-IN') {
@@ -425,18 +424,38 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       }
 
       const latestName = stateRef.current.userName || 'Guest';
-      const systemPrompt = `You are Callix for ${selectedCompany?.name}.\n${specializedPrompt}\nUser: ${latestName}\nLanguage: ${curLang.name}${languageInstruction}\n\nHistory:\n${historyContext}`;
+      const systemPrompt = `You are Callix for ${selectedCompany?.name}.\n${specializedPrompt}\nUser: ${latestName}\nLanguage: ${curLang.name}${languageInstruction}`;
 
-      const aiResponse = await chatWithGroq(
+      const rawResponse = await chatWithGroq(
         `User Message: ${message}`,
-        messages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text })),
+        currentMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text })),
         { ...selectedCompany, userName: latestName, userEmail },
         systemPrompt
       );
 
-      const cleanedResponse = aiResponse.replace(/\(Translation:.*?\)|Translation:.*?:|\(Note:.*?\)|System:.*?:|Internal:.*?:/gi, '').replace(/\(.*\)/g, '').trim();
-      addMessage('agent', cleanedResponse);
+      // Clean metadata and detected system commands
+      const cleanedResponse = rawResponse
+        .replace(/\(Translation:.*?\)|Translation:.*?:|\(Note:.*?\)|System:.*?:|Internal:.*?:/gi, '')
+        .replace(/\(.*\)/g, '')
+        .replace(/\bBOOK_APPOINTMENT\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/\bBOOK_TABLE\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/\bBOOK_ORDER\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/\bCOLLECT_RATING\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/\bCOLLECT_FEEDBACK\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/\bTRACE_ORDER\b/gi, '')
+        .replace(/\bHANG_UP\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      addMessage('agent', cleanedResponse || "I've processed that for you.");
+
+      // Speak the response
       await speak(cleanedResponse, curLang.code);
+
+      // Auto-hangup if keyword was present
+      if (rawResponse.toUpperCase().includes('HANG_UP')) {
+        setTimeout(endCall, 1000);
+      }
 
     } catch (error) {
       console.error('Message Handling Error:', error);
@@ -452,82 +471,73 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     setMessages(prev => [...prev, { sender, text, timestamp: new Date() }]);
   };
 
-  const speak = async (text, languageCode) => {
-    // Determine language name for backend (lowercase: english, hindi, telugu, etc.)
-    const targetLangCode = languageCode || selectedLanguage.code;
-    const languageName = languageLookup[targetLangCode] || 'English';
-    const targetLang = languageName.toLowerCase(); // Backend expects lowercase
+  const speak = (text, languageCode) => {
+    return new Promise((resolve) => {
+      // Determine language name for backend
+      const targetLangCode = languageCode || selectedLanguage.code;
+      const languageName = languageLookup[targetLangCode] || 'English';
+      const targetLang = languageName.toLowerCase();
 
-    console.log(`🗣️ Speak: Code="${targetLangCode}", Language="${targetLang}", Gender="${agentGender}"`);
+      console.log(`🗣️ Speak: Code="${targetLangCode}", Language="${targetLang}", Gender="${agentGender}"`);
 
-    // Set speaking state BEFORE starting
-    setIsSpeaking(true);
+      setIsSpeaking(true);
 
-    // Stop recording before speaking
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-        setIsListening(false);
-      } catch (e) { }
-    }
+      // Stop recording before speaking
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+          setIsListening(false);
+        } catch (e) { }
+      }
 
-    // Try Self-Hosted Edge-TTS First
-    try {
-      await ttsService.speak(text, targetLang, agentGender);
-      onSpeechEnd();
-      return;
-    } catch (error) {
-      console.warn('⚠️ TTS Backend failed, using browser fallback...', error);
-    }
+      const finishSpeech = () => {
+        setIsSpeaking(false);
+        resolve(); // Resolve promise when speech ends
 
-    // Fallback: Web Speech API
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = targetLangCode;
-    utterance.rate = 1.0;
-    utterance.pitch = agentGender === 'female' ? 1.05 : 0.95;
+        // Only restart recognition if we aren't about to hang up
+        const { callState: curCallState, isMuted: curIsMuted, isOpen: curIsOpen } = stateRef.current;
+        if (curCallState === 'connected' && !curIsMuted && curIsOpen && !text.toUpperCase().includes('HANG_UP')) {
+          setTimeout(() => {
+            try {
+              if (recognitionRef.current) recognitionRef.current.start();
+              setIsListening(true);
+            } catch (e) { }
+          }, 400);
+        }
+      };
 
-    // Voice Selection
-    const voices = window.speechSynthesis.getVoices();
-    const langPrefix = targetLangCode.split('-')[0];
+      // Try Self-Hosted Edge-TTS First
+      ttsService.speak(text, targetLang, agentGender)
+        .then(() => {
+          finishSpeech();
+        })
+        .catch(() => {
+          // Fallback: Web Speech API
+          const getBestVoice = () => {
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length === 0) return null;
+            const langPrefix = targetLangCode.split('-')[0];
+            let v = voices.find(v => v.lang.startsWith(langPrefix) && /female|woman|samantha|zira|neerja|swarata|shruti|susan|victoria/i.test(v.name));
+            if (!v) v = voices.find(v => v.lang.startsWith(langPrefix));
+            if (!v) v = voices.find(v => v.lang.startsWith('en')) || voices[0];
+            return v;
+          };
 
-    let selectedVoice = voices.find(v =>
-      v.lang.startsWith(langPrefix) &&
-      (agentGender === 'female'
-        ? /female|woman|samantha|zira|neerja|swarata|shruti/i.test(v.name)
-        : /male|man|david|prabhat|madhur|mohan/i.test(v.name))
-    );
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = targetLangCode;
+          utterance.onend = finishSpeech;
+          utterance.onerror = finishSpeech;
 
-    if (!selectedVoice) {
-      selectedVoice = voices.find(v => v.lang.startsWith(langPrefix));
-    }
-
-    if (!selectedVoice && voices.length > 0) {
-      selectedVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
-    }
-
-    if (selectedVoice) utterance.voice = selectedVoice;
-
-    utterance.onend = onSpeechEnd;
-    window.speechSynthesis.speak(utterance);
+          let voice = getBestVoice();
+          if (voice) utterance.voice = voice;
+          window.speechSynthesis.speak(utterance);
+        });
+    });
   };
 
   const onSpeechEnd = () => {
-    setIsSpeaking(false);
-    // RELIABLE RESTART
-    setTimeout(() => {
-      const { callState: curCallState, isMuted: curIsMuted, isOpen: curIsOpen } = stateRef.current;
-      if (curCallState === 'connected' && !curIsMuted && curIsOpen) {
-        try {
-          if (recognitionRef.current) {
-            recognitionRef.current.start();
-            setIsListening(true);
-          }
-        } catch (e) {
-          console.log('Restarting recognition from speech end...');
-        }
-      }
-    }, 400);
+    // This is now handled inside the speak promise finishSpeech
   };
 
   const stopAudio = () => {

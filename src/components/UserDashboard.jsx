@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, MapPin, User, Loader, Package, ShoppingBag, Stethoscope, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Loader, Package, ShoppingBag, Stethoscope, ChevronRight, Utensils } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
 
 const UserDashboard = ({ user, onClose }) => {
     const [appointments, setAppointments] = useState([]);
     const [orders, setOrders] = useState([]);
+    const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('appointments');
 
@@ -24,11 +25,10 @@ const UserDashboard = ({ user, onClose }) => {
                 .from('appointments')
                 .select(`
           *,
-          companies:entity_id (name, industry),
-          doctors:doctor_id (name, specialization)
+          companies:entity_id (name, industry)
         `)
-                .eq('user_id', user.id)
-                .order('date', { ascending: false });
+                .eq('user_email', user.email)
+                .order('appointment_date', { ascending: false });
 
             if (appointmentsError) throw appointmentsError;
 
@@ -39,13 +39,23 @@ const UserDashboard = ({ user, onClose }) => {
           *,
           companies:company_id (name, industry)
         `)
-                .eq('user_id', user.id)
+                .eq('user_email', user.email)
                 .order('created_at', { ascending: false });
 
             if (ordersError) throw ordersError;
 
+            // Fetch restaurant bookings
+            const { data: bookingsData, error: bookingsError } = await supabase
+                .from('restaurant_bookings')
+                .select('*')
+                .eq('user_email', user.email)
+                .order('booking_date', { ascending: false });
+
+            if (bookingsError) throw bookingsError;
+
             setAppointments(appointmentsData || []);
             setOrders(ordersData || []);
+            setBookings(bookingsData || []);
         } catch (error) {
             console.error('Error loading user data:', error);
         } finally {
@@ -154,6 +164,20 @@ const UserDashboard = ({ user, onClose }) => {
                                         </span>
                                     </button>
                                     <button
+                                        onClick={() => setActiveTab('bookings')}
+                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'bookings'
+                                            ? 'bg-[#000080] text-white shadow-xl shadow-blue-900/20'
+                                            : 'text-slate-500 hover:bg-white hover:shadow-md hover:text-slate-900 border border-transparent'
+                                            }`}
+                                    >
+                                        <Utensils size={18} />
+                                        <span>Table Bookings</span>
+                                        <span className={`ml-auto px-2 py-0.5 rounded-md text-[10px] ${activeTab === 'bookings' ? 'bg-white/20' : 'bg-slate-200 text-slate-700'
+                                            }`}>
+                                            {bookings.length}
+                                        </span>
+                                    </button>
+                                    <button
                                         onClick={() => setActiveTab('orders')}
                                         className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'orders'
                                             ? 'bg-[#000080] text-white shadow-xl shadow-blue-900/20'
@@ -214,7 +238,7 @@ const UserDashboard = ({ user, onClose }) => {
                                                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                                             <div className="flex items-center space-x-5">
                                                                 <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:border-[#000080]/20 transition-all">
-                                                                    {appointment.appointment_type === 'doctor' ? (
+                                                                    {appointment.type === 'doctor' ? (
                                                                         <Stethoscope className="text-[#000080]" size={26} />
                                                                     ) : (
                                                                         <Calendar className="text-[#000080]" size={26} />
@@ -230,7 +254,7 @@ const UserDashboard = ({ user, onClose }) => {
                                                                         </span>
                                                                         <span className="text-slate-300">•</span>
                                                                         <span className="text-slate-500 text-xs font-bold uppercase tracking-tight">
-                                                                            {appointment.appointment_type === 'doctor' ? 'Healthcare' : 'Business'}
+                                                                            {appointment.type === 'doctor' ? 'Healthcare' : 'Business'}
                                                                         </span>
                                                                     </div>
                                                                 </div>
@@ -239,14 +263,81 @@ const UserDashboard = ({ user, onClose }) => {
                                                             <div className="flex items-center md:space-x-8 space-x-4">
                                                                 <div className="text-left md:text-right">
                                                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Schedule</p>
-                                                                    <p className="text-sm font-bold text-slate-700">{formatDate(appointment.date)}</p>
-                                                                    <p className="text-xs text-slate-500 font-bold">{formatTime(appointment.time)}</p>
+                                                                    <p className="text-sm font-bold text-slate-700">{formatDate(appointment.appointment_date)}</p>
+                                                                    <p className="text-xs text-slate-500 font-bold">{formatTime(appointment.appointment_time)}</p>
                                                                 </div>
                                                                 <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 group-hover:bg-[#000080] group-hover:text-white group-hover:shadow-lg group-hover:shadow-blue-900/20 transition-all">
                                                                     <ChevronRight size={20} />
                                                                 </div>
                                                             </div>
                                                         </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : activeTab === 'bookings' ? (
+                                    <div className="space-y-6">
+                                        <div className="flex items-center justify-between mb-8">
+                                            <h2 className="text-2xl font-black text-slate-900 leading-none">Restaurant Bookings</h2>
+                                            <span className="text-sm font-bold text-slate-500 bg-slate-50 px-4 py-2 rounded-full border border-slate-200 shadow-sm">
+                                                {bookings.length} reservations
+                                            </span>
+                                        </div>
+
+                                        {bookings.length === 0 ? (
+                                            <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-slate-50/50">
+                                                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
+                                                    <Utensils size={40} className="text-slate-300" />
+                                                </div>
+                                                <h3 className="text-xl font-bold text-slate-900 mb-2">No table reservations</h3>
+                                                <p className="text-slate-500 max-w-xs mx-auto text-sm leading-relaxed font-medium">Book a table through our AI agent to see it here.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid gap-4">
+                                                {bookings.map((booking, index) => (
+                                                    <div
+                                                        key={booking.id}
+                                                        className="group p-6 rounded-[2rem] border border-slate-200 hover:border-[#000080]/30 hover:bg-slate-50/50 transition-all duration-300"
+                                                    >
+                                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                                            <div className="flex items-center space-x-5">
+                                                                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:border-[#000080]/20 transition-all">
+                                                                    <Utensils className="text-[#000080]" size={26} />
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="text-lg font-black text-slate-900 mb-1">
+                                                                        {booking.restaurant_name}
+                                                                    </h3>
+                                                                    <div className="flex items-center space-x-2">
+                                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border tracking-wider ${getStatusStyle(booking.status)}`}>
+                                                                            {booking.status.toUpperCase()}
+                                                                        </span>
+                                                                        <span className="text-slate-300">•</span>
+                                                                        <span className="text-slate-500 text-xs font-bold uppercase tracking-tight">
+                                                                            {booking.party_size} People
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center md:space-x-8 space-x-4">
+                                                                <div className="text-left md:text-right">
+                                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Reservation</p>
+                                                                    <p className="text-sm font-bold text-slate-700">{formatDate(booking.booking_date)}</p>
+                                                                    <p className="text-xs text-slate-500 font-bold">{formatTime(booking.booking_time)}</p>
+                                                                </div>
+                                                                <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 group-hover:bg-[#000080] group-hover:text-white group-hover:shadow-lg group-hover:shadow-blue-900/20 transition-all">
+                                                                    <ChevronRight size={20} />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {booking.special_requests && (
+                                                            <div className="mt-4 p-3 bg-white rounded-xl border border-slate-100 text-xs text-slate-500 font-medium">
+                                                                <span className="text-slate-400 font-black uppercase text-[10px] mr-2">Notes:</span>
+                                                                {booking.special_requests}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>

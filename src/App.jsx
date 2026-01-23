@@ -131,8 +131,8 @@ function App() {
             name: 'Spice Garden',
             industry: 'Food & Beverage',
             logo: '🍕',
-            gender: 'male',
-            agentId: 'male_1',
+            gender: 'female',
+            agentId: 'female_4',
             contextSummary: 'Trained on: Food Catalog, Chef Special Registry, and Seating Slot Grid.',
             nlpContext: 'Trained on Restaurant Database: Access to dinehouse_profile (cuisine), food_catalog_registry (full menu, pricing, veg flags), chef_special_registry (chef recommendations), and seating_slot_grid (table availability).',
             apiLinked: true
@@ -142,19 +142,19 @@ function App() {
           //   name: 'Tech Mahindra',
           //   industry: 'Software IT',
           //   logo: '🚀',
-          //   gender: 'male',
-          //   agentId: 'male_2',
+          //   gender: 'female',
+          //   agentId: 'female_5',
           //   contextSummary: 'Trained on: Business Units, Job Openings, Leadership Team, and Office Locations.',
           //   nlpContext: 'Trained on Tech Mahindra Database: Access to business_units (key technologies, head_name), job_openings (skills required, salary range, location), office_locations (city hubs), and leadership_team (executive designations).',
           //   apiLinked: true
-          // }
+          // },
           // {
           //   id: 'agile-it-global',
           //   name: 'Agile IT Global',
           //   industry: 'Technology',
           //   logo: '💻',
-          //   gender: 'male',
-          //   agentId: 'male_3',
+          //   gender: 'female',
+          //   agentId: 'female_6',
           //   contextSummary: 'Trained on: Cloud Infrastructure, Digital Transformation, and Managed Services.',
           //   nlpContext: 'Trained on Global IT Database: Access to infrastructure_map (cloud nodes), service_catalog (managed services), tech_stack_registry (modern frameworks), and support_incident_log.',
           //   apiLinked: true
