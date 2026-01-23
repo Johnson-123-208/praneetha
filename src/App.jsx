@@ -94,7 +94,7 @@ function App() {
             })),
           // 6 Specialized Agents (3 Female, 3 Male)
           {
-            id: 'aarogya-hospital',
+            id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
             name: 'Aarogya Multispeciality',
             industry: 'Healthcare',
             logo: '🏥',
@@ -105,7 +105,7 @@ function App() {
             apiLinked: true
           },
           {
-            id: 'quickkart-ecommerce',
+            id: 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
             name: 'QuickKart store',
             industry: 'E-Commerce',
             logo: '🛒',
@@ -116,7 +116,7 @@ function App() {
             apiLinked: true
           },
           {
-            id: 'voxsphere-biz-solutions',
+            id: 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
             name: 'VoxSphere Solutions',
             industry: 'AI & Business',
             logo: '🌐',
@@ -127,7 +127,7 @@ function App() {
             apiLinked: true
           },
           {
-            id: 'spice-garden-restaurant',
+            id: 'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44',
             name: 'Spice Garden',
             industry: 'Food & Beverage',
             logo: '🍕',

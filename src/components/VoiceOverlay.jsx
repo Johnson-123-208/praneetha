@@ -23,6 +23,14 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const [sessionId] = useState(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [selectedLanguage, setSelectedLanguage] = useState({ code: 'en-IN', name: 'English' });
 
+  // Sync with user prop if logged in
+  useEffect(() => {
+    if (user) {
+      setUserName(user.user_metadata?.full_name || '');
+      setUserEmail(user.email || '');
+    }
+  }, [user]);
+
   const recognitionRef = useRef(null);
   const synthesisRef = useRef(null);
   const ringingAudioRef = useRef(null);
@@ -75,8 +83,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   }, [messages, transcript]);
 
   // Determine agent gender and avatar based on company
-  const agentGender = 'female';
-  const agentAvatar = '/Female.png';
+  const agentGender = selectedCompany?.gender || 'female';
+  const agentAvatar = agentGender === 'male' ? '/Male.png' : '/Female.png';
 
   // Speech Recognition Initialization
   const initRecognition = () => {
@@ -447,10 +455,11 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         .replace(/\s+/g, ' ')
         .trim();
 
-      addMessage('agent', cleanedResponse || "I've processed that for you.");
+      const finalDisplay = cleanedResponse || "I've processed your request.";
+      addMessage('agent', finalDisplay);
 
       // Speak the response
-      await speak(cleanedResponse, curLang.code);
+      await speak(finalDisplay, curLang.code);
 
       // Auto-hangup if keyword was present
       if (rawResponse.toUpperCase().includes('HANG_UP')) {

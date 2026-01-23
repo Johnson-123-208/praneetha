@@ -43,7 +43,6 @@ export const database = {
       item: order.item,
       quantity: order.quantity || 1,
       total_price: order.totalPrice || 0,
-      currency: order.currency || 'USD',
       status: 'completed',
       customer_name: order.customerName,
       user_email: order.userEmail,
@@ -134,9 +133,9 @@ export const database = {
   },
 
   // --- Feedback management ---
-  getFeedback: async (entityId) => {
+  getFeedback: async (userEmail = null) => {
     let query = supabase.from('feedbacks').select('*');
-    if (entityId) query = query.eq('entity_id', entityId);
+    if (userEmail) query = query.eq('user_email', userEmail);
 
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) {
@@ -153,7 +152,7 @@ export const database = {
       rating: feedback.rating,
       comment: feedback.comment,
       category: feedback.category || 'general',
-      user_email: feedback.userEmail // Added for user-specific tracking
+      user_email: feedback.userEmail
     };
 
     const { data, error } = await supabase.from('feedbacks').insert([newFeedback]).select();

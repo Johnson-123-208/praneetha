@@ -7,6 +7,7 @@ const UserDashboard = ({ user, onClose }) => {
     const [appointments, setAppointments] = useState([]);
     const [orders, setOrders] = useState([]);
     const [bookings, setBookings] = useState([]);
+    const [feedback, setFeedback] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('appointments');
 
@@ -53,9 +54,19 @@ const UserDashboard = ({ user, onClose }) => {
 
             if (bookingsError) throw bookingsError;
 
+            // Fetch feedback
+            const { data: feedbackData, error: feedbackError } = await supabase
+                .from('feedbacks')
+                .select('*')
+                .eq('user_email', user.email)
+                .order('created_at', { ascending: false });
+
+            if (feedbackError) throw feedbackError;
+
             setAppointments(appointmentsData || []);
             setOrders(ordersData || []);
             setBookings(bookingsData || []);
+            setFeedback(feedbackData || []);
         } catch (error) {
             console.error('Error loading user data:', error);
         } finally {
@@ -64,6 +75,7 @@ const UserDashboard = ({ user, onClose }) => {
     };
 
     const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
             weekday: 'short',
@@ -90,7 +102,8 @@ const UserDashboard = ({ user, onClose }) => {
             'no-show': 'bg-slate-50 text-slate-700 border-slate-200',
             pending: 'bg-amber-50 text-amber-700 border-amber-200',
             processing: 'bg-blue-50 text-blue-700 border-blue-200',
-            paid: 'bg-emerald-50 text-emerald-700 border-emerald-100'
+            paid: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+            confirmed: 'bg-emerald-50 text-emerald-700 border-emerald-200'
         };
         return styles[status] || 'bg-slate-50 text-slate-700 border-slate-200';
     };
@@ -108,17 +121,13 @@ const UserDashboard = ({ user, onClose }) => {
 
     return (
         <div className="min-h-screen bg-[#F8FAFC] relative">
-            {/* Background Orbs */}
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-purple-100 rounded-full blur-[120px] opacity-40"></div>
                 <div className="absolute bottom-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-blue-100 rounded-full blur-[120px] opacity-40"></div>
             </div>
 
-            <div className="max-w-6xl mx-auto px-4 pt-24 pb-20 relative z-10 transition-all duration-500">
-                {/* Unified Dashboard Container */}
+            <div className="max-w-6xl mx-auto px-4 pt-24 pb-20 relative z-10">
                 <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/40 border border-slate-300 overflow-hidden">
-
-                    {/* Integrated Header Section */}
                     <div className="p-8 md:p-10 border-b border-slate-300 relative overflow-hidden bg-gradient-to-r from-white to-slate-50/50">
                         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                             <div>
@@ -137,73 +146,49 @@ const UserDashboard = ({ user, onClose }) => {
                                 </div>
                             </div>
                         </div>
-                        {/* Decorative pattern */}
-                        <div className="absolute top-0 right-0 w-64 h-64 opacity-[0.02] pointer-events-none translate-x-1/4 -translate-y-1/4">
-                            <div className="w-full h-full border-[40px] border-[#000080] rounded-full"></div>
-                        </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
-                        {/* Integrated Vertical Sidebar */}
                         <div className="lg:col-span-3 border-r border-slate-300 bg-slate-50/50">
                             <div className="p-6">
                                 <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-6 px-2">Overview</h3>
                                 <nav className="space-y-2">
                                     <button
                                         onClick={() => setActiveTab('appointments')}
-                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'appointments'
-                                            ? 'bg-[#000080] text-white shadow-xl shadow-blue-900/20'
-                                            : 'text-slate-600 hover:bg-white hover:shadow-md hover:text-slate-900 border border-transparent'
-                                            }`}
+                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'appointments' ? 'bg-[#000080] text-white shadow-xl' : 'text-slate-600 hover:bg-white'}`}
                                     >
                                         <Calendar size={18} />
                                         <span>Appointments</span>
-                                        <span className={`ml-auto px-2 py-0.5 rounded-md text-[10px] ${activeTab === 'appointments' ? 'bg-white/20' : 'bg-slate-200 text-slate-700'
-                                            }`}>
-                                            {appointments.length}
-                                        </span>
+                                        <span className="ml-auto px-2 py-0.5 rounded-md text-[10px] bg-slate-200 text-slate-700">{appointments.length}</span>
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('bookings')}
-                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'bookings'
-                                            ? 'bg-[#000080] text-white shadow-xl shadow-blue-900/20'
-                                            : 'text-slate-500 hover:bg-white hover:shadow-md hover:text-slate-900 border border-transparent'
-                                            }`}
+                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'bookings' ? 'bg-[#000080] text-white shadow-xl' : 'text-slate-600 hover:bg-white'}`}
                                     >
                                         <Utensils size={18} />
                                         <span>Table Bookings</span>
-                                        <span className={`ml-auto px-2 py-0.5 rounded-md text-[10px] ${activeTab === 'bookings' ? 'bg-white/20' : 'bg-slate-200 text-slate-700'
-                                            }`}>
-                                            {bookings.length}
-                                        </span>
+                                        <span className="ml-auto px-2 py-0.5 rounded-md text-[10px] bg-slate-200 text-slate-700">{bookings.length}</span>
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('orders')}
-                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'orders'
-                                            ? 'bg-[#000080] text-white shadow-xl shadow-blue-900/20'
-                                            : 'text-slate-500 hover:bg-white hover:shadow-md hover:text-slate-900 border border-transparent'
-                                            }`}
+                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'orders' ? 'bg-[#000080] text-white shadow-xl' : 'text-slate-600 hover:bg-white'}`}
                                     >
                                         <ShoppingBag size={18} />
                                         <span>Orders</span>
-                                        <span className={`ml-auto px-2 py-0.5 rounded-md text-[10px] ${activeTab === 'orders' ? 'bg-white/20' : 'bg-slate-200 text-slate-700'
-                                            }`}>
-                                            {orders.length}
-                                        </span>
+                                        <span className="ml-auto px-2 py-0.5 rounded-md text-[10px] bg-slate-200 text-slate-700">{orders.length}</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('feedback')}
+                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'feedback' ? 'bg-[#000080] text-white shadow-xl' : 'text-slate-600 hover:bg-white'}`}
+                                    >
+                                        <div className="flex items-center justify-center w-[18px]">⭐</div>
+                                        <span>Feedback</span>
+                                        <span className="ml-auto px-2 py-0.5 rounded-md text-[10px] bg-slate-200 text-slate-700">{feedback.length}</span>
                                     </button>
                                 </nav>
-
-                                <div className="mt-12 p-6 bg-white rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
-                                    <p className="text-xs font-bold text-slate-500 uppercase mb-3 relative z-10">Quick Tip</p>
-                                    <p className="text-xs text-slate-600 leading-relaxed relative z-10 font-medium">Use our AI agent to schedule meetings or place orders instantly via voice calls.</p>
-                                    <div className="absolute bottom-[-10px] right-[-10px] text-[#000080]/5 rotate-12">
-                                        <ShoppingBag size={64} />
-                                    </div>
-                                </div>
                             </div>
                         </div>
 
-                        {/* Integrated Content Area */}
                         <div className="lg:col-span-9 bg-white p-8 md:p-10">
                             <motion.div
                                 key={activeTab}
@@ -211,208 +196,128 @@ const UserDashboard = ({ user, onClose }) => {
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ duration: 0.3 }}
                             >
-                                {activeTab === 'appointments' ? (
+                                {activeTab === 'appointments' && (
                                     <div className="space-y-6">
                                         <div className="flex items-center justify-between mb-8">
                                             <h2 className="text-2xl font-black text-slate-900 leading-none">Your Appointments</h2>
-                                            <span className="text-sm font-bold text-slate-500 bg-slate-50 px-4 py-2 rounded-full border border-slate-200 shadow-sm">
-                                                {appointments.length} active schedules
-                                            </span>
                                         </div>
-
                                         {appointments.length === 0 ? (
                                             <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-slate-50/50">
-                                                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
-                                                    <Calendar size={40} className="text-slate-300" />
-                                                </div>
+                                                <Calendar size={40} className="text-slate-300 mx-auto mb-4" />
                                                 <h3 className="text-xl font-bold text-slate-900 mb-2">No upcoming appointments</h3>
-                                                <p className="text-slate-500 max-w-xs mx-auto text-sm leading-relaxed font-medium">Your scheduled calls and meetings will appear here once booked.</p>
                                             </div>
                                         ) : (
                                             <div className="grid gap-4">
-                                                {appointments.map((appointment, index) => (
-                                                    <div
-                                                        key={appointment.id}
-                                                        className="group p-6 rounded-[2rem] border border-slate-200 hover:border-[#000080]/30 hover:bg-slate-50/50 transition-all duration-300"
-                                                    >
-                                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                                            <div className="flex items-center space-x-5">
-                                                                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:border-[#000080]/20 transition-all">
-                                                                    {appointment.type === 'doctor' ? (
-                                                                        <Stethoscope className="text-[#000080]" size={26} />
-                                                                    ) : (
-                                                                        <Calendar className="text-[#000080]" size={26} />
-                                                                    )}
-                                                                </div>
-                                                                <div>
-                                                                    <h3 className="text-lg font-black text-slate-900 mb-1">
-                                                                        {appointment.companies?.name || appointment.entity_name}
-                                                                    </h3>
-                                                                    <div className="flex items-center space-x-2">
-                                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border tracking-wider ${getStatusStyle(appointment.status)}`}>
-                                                                            {appointment.status.toUpperCase()}
-                                                                        </span>
-                                                                        <span className="text-slate-300">•</span>
-                                                                        <span className="text-slate-500 text-xs font-bold uppercase tracking-tight">
-                                                                            {appointment.type === 'doctor' ? 'Healthcare' : 'Business'}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
+                                                {appointments.map((appointment) => (
+                                                    <div key={appointment.id} className="p-6 rounded-[2rem] border border-slate-200 hover:bg-slate-50/50 transition-all flex items-center justify-between">
+                                                        <div className="flex items-center space-x-5">
+                                                            <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                                                                {appointment.type === 'doctor' ? <Stethoscope size={26} className="text-[#000080]" /> : <Calendar size={26} className="text-[#000080]" />}
                                                             </div>
-
-                                                            <div className="flex items-center md:space-x-8 space-x-4">
-                                                                <div className="text-left md:text-right">
-                                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Schedule</p>
-                                                                    <p className="text-sm font-bold text-slate-700">{formatDate(appointment.appointment_date)}</p>
-                                                                    <p className="text-xs text-slate-500 font-bold">{formatTime(appointment.appointment_time)}</p>
-                                                                </div>
-                                                                <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 group-hover:bg-[#000080] group-hover:text-white group-hover:shadow-lg group-hover:shadow-blue-900/20 transition-all">
-                                                                    <ChevronRight size={20} />
-                                                                </div>
+                                                            <div>
+                                                                <h3 className="text-lg font-black text-slate-900">{appointment.companies?.name || appointment.entity_name}</h3>
+                                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border tracking-wider mt-1 inline-block ${getStatusStyle(appointment.status)}`}>{appointment.status.toUpperCase()}</span>
                                                             </div>
+                                                        </div>
+                                                        <div className="text-right flex items-center space-x-6">
+                                                            <div>
+                                                                <p className="text-sm font-bold text-slate-700">{formatDate(appointment.appointment_date)}</p>
+                                                                <p className="text-xs text-slate-500 font-bold">{formatTime(appointment.appointment_time)}</p>
+                                                            </div>
+                                                            <ChevronRight size={20} className="text-slate-300" />
                                                         </div>
                                                     </div>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
-                                ) : activeTab === 'bookings' ? (
-                                    <div className="space-y-6">
-                                        <div className="flex items-center justify-between mb-8">
-                                            <h2 className="text-2xl font-black text-slate-900 leading-none">Restaurant Bookings</h2>
-                                            <span className="text-sm font-bold text-slate-500 bg-slate-50 px-4 py-2 rounded-full border border-slate-200 shadow-sm">
-                                                {bookings.length} reservations
-                                            </span>
-                                        </div>
+                                )}
 
+                                {activeTab === 'bookings' && (
+                                    <div className="space-y-6">
+                                        <h2 className="text-2xl font-black text-slate-900 mb-8">Table Bookings</h2>
                                         {bookings.length === 0 ? (
                                             <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-slate-50/50">
-                                                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
-                                                    <Utensils size={40} className="text-slate-300" />
-                                                </div>
+                                                <Utensils size={40} className="text-slate-300 mx-auto mb-4" />
                                                 <h3 className="text-xl font-bold text-slate-900 mb-2">No table reservations</h3>
-                                                <p className="text-slate-500 max-w-xs mx-auto text-sm leading-relaxed font-medium">Book a table through our AI agent to see it here.</p>
                                             </div>
                                         ) : (
                                             <div className="grid gap-4">
-                                                {bookings.map((booking, index) => (
-                                                    <div
-                                                        key={booking.id}
-                                                        className="group p-6 rounded-[2rem] border border-slate-200 hover:border-[#000080]/30 hover:bg-slate-50/50 transition-all duration-300"
-                                                    >
-                                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                                            <div className="flex items-center space-x-5">
-                                                                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:border-[#000080]/20 transition-all">
-                                                                    <Utensils className="text-[#000080]" size={26} />
-                                                                </div>
-                                                                <div>
-                                                                    <h3 className="text-lg font-black text-slate-900 mb-1">
-                                                                        {booking.restaurant_name}
-                                                                    </h3>
-                                                                    <div className="flex items-center space-x-2">
-                                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border tracking-wider ${getStatusStyle(booking.status)}`}>
-                                                                            {booking.status.toUpperCase()}
-                                                                        </span>
-                                                                        <span className="text-slate-300">•</span>
-                                                                        <span className="text-slate-500 text-xs font-bold uppercase tracking-tight">
-                                                                            {booking.party_size} People
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex items-center md:space-x-8 space-x-4">
-                                                                <div className="text-left md:text-right">
-                                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Reservation</p>
-                                                                    <p className="text-sm font-bold text-slate-700">{formatDate(booking.booking_date)}</p>
-                                                                    <p className="text-xs text-slate-500 font-bold">{formatTime(booking.booking_time)}</p>
-                                                                </div>
-                                                                <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 group-hover:bg-[#000080] group-hover:text-white group-hover:shadow-lg group-hover:shadow-blue-900/20 transition-all">
-                                                                    <ChevronRight size={20} />
-                                                                </div>
+                                                {bookings.map((booking) => (
+                                                    <div key={booking.id} className="p-6 rounded-[2rem] border border-slate-200 hover:bg-slate-50/50 transition-all flex items-center justify-between">
+                                                        <div className="flex items-center space-x-5">
+                                                            <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm"><Utensils size={26} className="text-[#000080]" /></div>
+                                                            <div>
+                                                                <h3 className="text-lg font-black text-slate-900">{booking.restaurant_name}</h3>
+                                                                <span className="text-slate-500 text-xs font-bold uppercase">{booking.party_size} People</span>
                                                             </div>
                                                         </div>
-                                                        {booking.special_requests && (
-                                                            <div className="mt-4 p-3 bg-white rounded-xl border border-slate-100 text-xs text-slate-500 font-medium">
-                                                                <span className="text-slate-400 font-black uppercase text-[10px] mr-2">Notes:</span>
-                                                                {booking.special_requests}
-                                                            </div>
-                                                        )}
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-bold text-slate-700">{formatDate(booking.booking_date)}</p>
+                                                            <p className="text-xs text-slate-500 font-bold">{formatTime(booking.booking_time)}</p>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        <div className="flex items-center justify-between mb-8">
-                                            <h2 className="text-2xl font-black text-slate-900 leading-none">Your Orders</h2>
-                                            <span className="text-sm font-bold text-slate-500 bg-slate-50 px-4 py-2 rounded-full border border-slate-200 shadow-sm">
-                                                {orders.length} total orders
-                                            </span>
-                                        </div>
+                                )}
 
+                                {activeTab === 'orders' && (
+                                    <div className="space-y-6">
+                                        <h2 className="text-2xl font-black text-slate-900 mb-8">Your Orders</h2>
                                         {orders.length === 0 ? (
                                             <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-slate-50/50">
-                                                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
-                                                    <Package size={40} className="text-slate-300" />
-                                                </div>
+                                                <ShoppingBag size={40} className="text-slate-300 mx-auto mb-4" />
                                                 <h3 className="text-xl font-bold text-slate-900 mb-2">No orders placed</h3>
-                                                <p className="text-slate-500 max-w-xs mx-auto text-sm leading-relaxed font-medium">Place an order through our AI agent to see it here.</p>
                                             </div>
                                         ) : (
                                             <div className="grid gap-4">
-                                                {orders.map((order, index) => (
-                                                    <div
-                                                        key={order.id}
-                                                        className="group p-6 rounded-[2.5rem] border border-slate-200 hover:border-[#000080]/30 hover:bg-slate-50/50 transition-all duration-300"
-                                                    >
-                                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                                            <div className="flex items-center space-x-5">
-                                                                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:border-[#000080]/20 transition-all">
-                                                                    <ShoppingBag className="text-[#000080]" size={26} />
-                                                                </div>
-                                                                <div>
-                                                                    <h3 className="text-lg font-black text-slate-900 mb-1">
-                                                                        Order #{order.id}
-                                                                    </h3>
-                                                                    <div className="flex items-center space-x-2">
-                                                                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border tracking-wider ${getStatusStyle(order.status)}`}>
-                                                                            {order.status.toUpperCase()}
-                                                                        </span>
-                                                                        <span className="text-slate-300">•</span>
-                                                                        <span className="text-slate-500 text-xs font-bold uppercase tracking-tight">
-                                                                            {order.companies?.name}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="flex items-center md:space-x-8 space-x-4">
-                                                                <div className="text-left md:text-right">
-                                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Value</p>
-                                                                    <p className="text-xl font-black text-slate-900 tracking-tighter">
-                                                                        {order.currency} {order.total_price || (order.unit_price * order.quantity).toFixed(2)}
-                                                                    </p>
-                                                                    <p className="text-xs text-slate-500 font-bold">{order.item} × {order.quantity}</p>
-                                                                </div>
-                                                                <div className="w-10 h-10 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-[#000080] group-hover:text-white transition-all">
-                                                                    <ChevronRight size={20} />
-                                                                </div>
+                                                {orders.map((order) => (
+                                                    <div key={order.id} className="p-6 rounded-[2rem] border border-slate-200 hover:bg-slate-50/50 transition-all flex items-center justify-between">
+                                                        <div className="flex items-center space-x-5">
+                                                            <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm"><ShoppingBag size={26} className="text-[#000080]" /></div>
+                                                            <div>
+                                                                <h3 className="text-lg font-black text-slate-900">Order #{order.id}</h3>
+                                                                <p className="text-xs text-slate-500 font-bold uppercase">{order.item} × {order.quantity}</p>
                                                             </div>
                                                         </div>
+                                                        <div className="text-right">
+                                                            <p className="text-xl font-black text-slate-900 leading-none">₹{order.total_price}</p>
+                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black border mt-2 inline-block ${getStatusStyle(order.status)}`}>{order.status.toUpperCase()}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
-                                                        {order.delivery_address && (
-                                                            <div className="mt-6 pt-5 border-t border-slate-200 flex items-start space-x-4">
-                                                                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#000080]/10 group-hover:text-[#000080] transition-colors border border-slate-100">
-                                                                    <MapPin size={14} />
-                                                                </div>
+                                {activeTab === 'feedback' && (
+                                    <div className="space-y-6">
+                                        <h2 className="text-2xl font-black text-slate-900 mb-8">Your Feedback</h2>
+                                        {feedback.length === 0 ? (
+                                            <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-slate-50/50">
+                                                <div className="text-4xl mb-4">⭐</div>
+                                                <h3 className="text-xl font-bold text-slate-900 mb-2">No feedback given yet</h3>
+                                            </div>
+                                        ) : (
+                                            <div className="grid gap-6">
+                                                {feedback.map((item) => (
+                                                    <div key={item.id} className="p-6 rounded-[2rem] bg-slate-50 border border-slate-200">
+                                                        <div className="flex items-start justify-between">
+                                                            <div className="flex items-center space-x-4">
+                                                                <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm text-xl">🏢</div>
                                                                 <div>
-                                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Destination</p>
-                                                                    <p className="text-sm text-slate-700 font-bold leading-tight">{order.delivery_address}</p>
+                                                                    <h3 className="text-lg font-black text-slate-900">{item.entity_name}</h3>
+                                                                    <p className="text-xs text-slate-500 font-bold">{formatDate(item.created_at)}</p>
                                                                 </div>
                                                             </div>
-                                                        )}
+                                                            <div className="flex items-center space-x-1 bg-white px-3 py-1.5 rounded-full border border-slate-200">
+                                                                {[...Array(5)].map((_, i) => (<span key={i} className={i < item.rating ? "text-amber-400" : "text-slate-200"}>★</span>))}
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-4 text-slate-600 font-medium italic">"{item.comment}"</div>
                                                     </div>
                                                 ))}
                                             </div>

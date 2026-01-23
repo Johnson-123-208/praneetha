@@ -1,0 +1,31 @@
+Callix: AI-Powered Autonomous Calling Assistant
+
+Project Overview:
+Callix is an advanced AI voice assistant designed to function as an autonomous digital receptionist. It handles complex, industry-specific tasks through conversational AI, providing a seamless bridge between customers and businesses.
+
+Working Features:
+1. Specialized AI Agents: Industry-specific agents for Healthcare (Aarogya), E-Commerce (QuickKart), and Hospitality (Spice Garden) that can answer queries and perform actions.
+2. Automated Transactions: Capable of booking doctor appointments, processing e-commerce orders, and reserving restaurant tables without human assistance.
+3. Database Integration: Fully integrated with Supabase. Records for all bookings, orders, and feedback are stored (using specific UUIDs for company foreign keys) and displayed on a centralized User Dashboard.
+4. Information Retrieval: Dynamically fetches company details, staff information, and FAQs to provide accurate responses to user inquiries.
+
+Upcoming Features:
+1. Robust Speech-to-Text: Integration with Google Cloud or Azure Speech-to-Text APIs to solve current browser limitations in understanding diverse Indian languages and accents.
+2. Enhanced Training: Implementing larger datasets to further improve the model's accuracy and conversational flow.
+3. Advanced Dashboard: Scaling the user interface to support real-time tracking of orders and detailed history across all service sectors.
+
+How to Run the Project:
+
+1. Frontend Application:
+   - Ensure you have Node.js installed.
+   - Open the project directory in your terminal.
+   - Run '(npm install)/(npm install --legacy-peer-deps)' to install dependencies.
+   - Ensure your '.env' file is configured with the necessary API keys (Supabase and Groq).
+   - Execute 'npm run dev' to start the frontend application.
+
+Final Commands : 
+    1.   npm install --legacy-peer-deps
+    2.   npm run dev    
+
+2. Backend TTS Server:
+   - Note: There is a Python backend for specialized Text-to-Speech in the 'tts_server' folder. However, as the advanced multilingual processing is currently paused to optimize browser-side recognition, there is NO NEED TO RUN THE BACKEND server for the current production demo. The application will use standard fallback mechanisms.
