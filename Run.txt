@@ -31,3 +31,8 @@ Final Commands :
 
 2. Backend TTS Server:
    - Note: There is a Python backend for specialized Text-to-Speech in the 'tts_server' folder. However, as the advanced multilingual processing is currently paused to optimize browser-side recognition, there is NO NEED TO RUN THE BACKEND server for the current production demo. The application will use standard fallback mechanisms.
+
+                                    Fianl Commands : 
+       (Not Required Now)               1. cd tts_server
+                                        2. pip install -r requirements.txt
+                                        3. python main.py
