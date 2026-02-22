@@ -39,9 +39,17 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const dataArrayRef = useRef(null);
 
   const languageLookup = {
-    'en-IN': 'en',
-    'hi-IN': 'hi',
-    'te-IN': 'te'
+    'en-IN': 'en', 'en': 'en',
+    'hi-IN': 'hi', 'hi': 'hi',
+    'te-IN': 'te', 'te': 'te'
+  };
+
+  const languageNameMap = {
+    'en': 'English', 'en-IN': 'English',
+    'hi': 'Hindi', 'hi-IN': 'Hindi',
+    'te': 'Telugu', 'te-IN': 'Telugu',
+    'ta': 'Tamil', 'ta-IN': 'Tamil',
+    'kn': 'Kannada', 'kn-IN': 'Kannada'
   };
 
   // Refs for state to avoid stale closures in event listeners
@@ -706,12 +714,12 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
 
   const speak = (text, languageCode, shouldTerminate = false) => {
     return new Promise((resolve) => {
-      // Determine language name for backend
+      // Determine language mapping for consistency
       const targetLangCode = languageCode || selectedLanguage.code;
-      const languageName = languageLookup[targetLangCode] || 'English';
-      const targetLang = languageName.toLowerCase();
+      const ttsLang = languageLookup[targetLangCode] || 'en';
+      const languageFullName = languageNameMap[targetLangCode] || 'English';
 
-      console.log(`🗣️ Speak: Code="${targetLangCode}", Language="${targetLang}", Gender="${agentGender}"`);
+      console.log(`🗣️ Speak: Code="${targetLangCode}" (mapped to ${ttsLang}), Language="${languageFullName}", Gender="${agentGender}"`);
 
       setIsSpeaking(true);
 
@@ -736,9 +744,7 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
         }
       };
 
-      // Map long codes to 2-letter ISO codes for the TTS backend
-      const ttsLang = languageLookup[targetLangCode] || 'en';
-
+      // use ttsLang computed above
       console.log(`🗣️ Pro TTS Request: Lang="${ttsLang}", Text="${text.substring(0, 40)}..."`);
 
       // Force Single Female Voice
@@ -764,7 +770,7 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
             };
 
             // 2. WHITELIST: High-quality female voices for identity consistency
-            const femaleKeywords = ['heera', 'neerja', 'shruti', 'kalpana', 'vani', 'sangeeta', 'swara', 'swarata', 'ananya', 'aarti', 'priya', 'female', 'woman', 'zira', 'samantha', 'google hindi', 'google telugu'];
+            const femaleKeywords = ['heera', 'neerja', 'shruti', 'kalpana', 'vani', 'sangeeta', 'swara', 'swarata', 'ananya', 'aarti', 'priya', 'female', 'woman', 'zira', 'samantha', 'google hindi', 'google telugu', 'telugu', 'hindi', 'india', 'natural', 'online'];
 
             const isFemale = (v) => {
               const n = v.name.toLowerCase();

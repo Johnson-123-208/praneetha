@@ -21,10 +21,11 @@ class STTService {
         try {
             // MATCHING DIAGNOSTIC TOOL CONFIG EXACTLY
             const params = new URLSearchParams({
-                model: 'nova-2',
-                language: lang,
+                model: 'nova-3',
+                language: lang === 'en' ? 'en-IN' : lang, // Better locale mapping
                 smart_format: 'true',
-                punctuate: 'true'
+                punctuate: 'true',
+                interaction_type: 'voicemail' // Helps with short utterances
             });
 
             const url = `https://api.deepgram.com/v1/listen?${params.toString()}`;
@@ -33,7 +34,6 @@ class STTService {
                 method: 'POST',
                 headers: {
                     'Authorization': `Token ${this.deepgramApiKey}`,
-                    'Content-Type': 'audio/webm', // Explicitly help Deepgram detect the format
                 },
                 body: audioBlob
             });
