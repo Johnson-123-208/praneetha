@@ -1,0 +1,81 @@
+================================================================================
+PROJECT: CALLIX - AI AUTONOMOUS VOICE RECEPTIONIST
+================================================================================
+
+1. PROJECT OVERVIEW
+------------------
+Callix is a high-performance, industry-aware AI Voice Assistant designed to 
+replace traditional receptionists. It bridges the gap between human speech and 
+digital databases, allowing users to book appointments, order products, or 
+provide feedback using only their voice in multiple languages (English, Telugu, Hindi).
+
+2. CORE TECHNOLOGY STACK
+-----------------------
+* FRONTEND: React.js with Tailwind CSS & Framer Motion (Premium UI/UX).
+* BACKEND: Node.js & Express (Robust API Layer).
+* DATABASE: MongoDB Atlas (Cloud Database for real-time sync).
+* AI (THE BRAIN): Groq AI (Llama-3 models) for near-instant reasoning.
+* STT (EARS): Deepgram Nova-3 (State-of-the-art voice-to-text with <200ms latency).
+* TTS (VOICE): Custom TTS Engine & Google Web Speech fallbacks (Professional female voice).
+
+3. TECHNICAL WORKFLOW (THE FLOW)
+------------------------------
+A. VOICE CAPTURE: 
+   The user speaks into the microphone. Deepgram Nova-3 processes the audio 
+   instantly, converting it into native script (Telugu, Hindi, or English).
+
+B. INTELLIGENT REASONING:
+   The text is sent to Groq AI. The AI is grounded with "Context Data" 
+   (e.g., specific doctor names, prices, or menu items) from MongoDB.
+   The AI decides two things:
+   1. How to respond warmly in the user's native language.
+   2. Whether a "Command" needs to be executed (e.g., BOOK_APPOINTMENT).
+
+C. ACTION EXECUTION:
+   If the AI issues a command, the system automatically sends a request to 
+   the Node.js backend to update the MongoDB database. This data is then 
+   immediately visible on the User Dashboard.
+
+D. VOICE RESPONSE:
+   The AI's text response is converted back to speech using the TTS engine, 
+   providing a natural 2-way phone-call experience.
+
+4. KEY FEATURES FOR THE DEMO
+---------------------------
+* MULTI-INDUSTRY: Switch between a Hospital, a Restaurant, or a Corporate office.
+* GROUNDED FACTS: The AI knows exact prices (e.g., iPhone 15 at ₹1.3L) and 
+  doctor schedules because it reads them from the database.
+* REAL-TIME DASHBOARD: Open the dashboard in one tab and speak to the AI in another. 
+  When you book a table, it appears on the dashboard without refreshing.
+* COMPACT PORTFOLIO: A professional account section where all your businesses 
+  are listed in a sleek, modern UI.
+
+5. HOW TO RUN THE PROJECT (LOCAL SETUP)
+--------------------------------------
+STEP 1: PREREQUISITES
+Make sure you have Node.js installed on your system.
+
+STEP 2: BACKEND SETUP
+1. Open a terminal and go to the backend folder: 'cd backend'
+2. Install dependencies: 'npm install'
+3. Start the server: 'npm run dev'
+   - It will say "Connected to MongoDB" and "Server running on port 5000".
+
+STEP 3: FRONTEND SETUP
+1. Open a SECOND terminal in the root folder.
+2. Install dependencies: 'npm install --legacy-peer-deps'
+3. Start the application: 'npm run dev'
+4. Open your browser to the link provided (usually http://localhost:5173).
+
+6. DEPLOYMENT (ONLINE DEMO)
+--------------------------
+The project is "Deployment Ready." To host it for free online:
+1. Connect this folder to GitHub.
+2. Import the project into VERCEL (vercel.com).
+3. Set the Environment Variables (.env) in the Vercel dashboard.
+4. Vercel will give you a live HTTPS link to share with your clients.
+
+================================================================================
+Developed with specialized AI architecture for Aarogya Hospital, Spice Garden, 
+and Agile-IT Solutions.
+================================================================================

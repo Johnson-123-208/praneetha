@@ -2,7 +2,47 @@ import { tools } from './database.js';
 import { processQuestionLocally, detectAction, extractAppointmentDetails, extractFeedbackDetails } from './localAI.js';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_AUDIO_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
 let apiKey = null;
+
+/**
+ * Transcribes audio blob using Groq Whisper Large v3
+ */
+export const transcribeAudio = async (audioBlob, languageCode = 'en') => {
+  if (!apiKey) throw new Error('Groq API key not configured');
+
+  try {
+    const formData = new FormData();
+    // Groq expects a file with an extension, 'audio.webm' is common for MediaRecorder
+    formData.append('file', audioBlob, 'audio.webm');
+    formData.append('model', 'whisper-large-v3');
+
+    // Convert 'te-IN' to 'te', 'hi-IN' to 'hi'
+    const lang = languageCode.split('-')[0];
+    formData.append('language', lang);
+    formData.append('task', 'transcribe');
+    formData.append('response_format', 'verbose_json');
+
+    const response = await fetch(GROQ_AUDIO_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'Transcription failed');
+    }
+
+    const data = await response.json();
+    return data.text;
+  } catch (error) {
+    console.error('Transcription Error:', error);
+    throw error;
+  }
+};
 
 export const initializeGroq = (key) => {
   if (!key) {

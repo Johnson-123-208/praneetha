@@ -1,0 +1,62 @@
+/**
+ * Professional STT Service - EXCLUSIVE DEEPGRAM NOVA-3
+ * Forces high-accuracy transcription for Telugu, Hindi, and English.
+ */
+
+class STTService {
+    constructor() {
+        this.deepgramApiKey = localStorage.getItem('deepgram_api_key') || import.meta.env.VITE_DEEPGRAM_API_KEY;
+        this.activeProvider = "DEEPGRAM";
+
+        if (!this.deepgramApiKey) {
+            console.error("❌ DEEPGRAM API KEY MISSING!");
+        }
+    }
+
+    async transcribe(audioBlob, languageCode = 'te') {
+        if (!this.deepgramApiKey) throw new Error("STT Error: No Key.");
+
+        const lang = languageCode.split('-')[0];
+
+        try {
+            // MATCHING DIAGNOSTIC TOOL CONFIG EXACTLY
+            const params = new URLSearchParams({
+                model: 'nova-3',
+                language: lang,
+                smart_format: 'false',
+                punctuate: 'true'
+            });
+
+            const url = `https://api.deepgram.com/v1/listen?${params.toString()}`;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Token ${this.deepgramApiKey}`,
+                    'Content-Type': 'audio/webm;codecs=opus',
+                },
+                body: audioBlob
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Deepgram API ${response.status}: ${errorText}`);
+            }
+
+            const data = await response.json();
+            const transcript = data.results?.channels[0]?.alternatives[0]?.transcript;
+
+            return transcript || "";
+        } catch (error) {
+            console.error("❌ STT Failure:", error.message);
+            throw error;
+        }
+    }
+
+    setApiKey(key) {
+        this.deepgramApiKey = key;
+        localStorage.setItem('deepgram_api_key', key);
+    }
+}
+
+export const sttService = new STTService();

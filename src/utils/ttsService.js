@@ -13,25 +13,40 @@ export const ttsService = {
      * @param {string} gender - male or female
      */
     async speak(text, language, gender = 'female') {
+        if (!text) return;
+
         try {
             this.stop(); // Stop any previous audio
 
-            console.log(`🎤 TTS Request: Language="${language}", Gender="${gender}", Text="${text.substring(0, 50)}..."`);
+            // Map short codes back to names if the server expects them, 
+            // or keep them short if it's a modern AI server (like Piper/XTTS)
+            const langMap = { 'te': 'Telugu', 'hi': 'Hindi', 'en': 'English' };
+            const fullLanguage = langMap[language] || language;
+
+            // FORCE FEMALE - Never let a male ID through
+            const speakerId = 'female';
+
+            console.log(`📡 [TTS Server Request] Lang: ${fullLanguage}, Speaker: ${speakerId}, Text: "${text.substring(0, 30)}..."`);
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5 seconds timeout
 
             const response = await fetch(this.API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                signal: controller.signal,
                 body: JSON.stringify({
                     text,
-                    language,
-                    speaker_id: gender.toLowerCase()
+                    language: fullLanguage,
+                    speaker_id: speakerId
                 })
             });
+            clearTimeout(timeoutId);
 
             if (!response.ok) {
-                throw new Error(`TTS Server responded with ${response.status}`);
+                throw new Error(`Server status ${response.status}`);
             }
 
             const audioBlob = await response.blob();
@@ -45,14 +60,18 @@ export const ttsService = {
                     resolve();
                 };
                 this.currentAudio.onerror = (e) => {
+                    console.error('Audio Playback Error:', e);
                     this.currentAudio = null;
                     reject(e);
                 };
                 this.currentAudio.play().catch(reject);
             });
         } catch (error) {
-            console.error('XTTS Error:', error);
-            throw error; // Let the caller handle fallback
+            // Silently swallow connection errors if server is down (normal for standalone mode)
+            if (error.name !== 'AbortError') {
+                console.log('💡 [TTS] Local Pro Server not detected. Using high-quality Browser Voice.');
+            }
+            throw error; // Fallback to Browser TTS in VoiceOverlay.jsx
         }
     },
 

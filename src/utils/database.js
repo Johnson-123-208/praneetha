@@ -1,39 +1,139 @@
-import { supabase } from './supabaseClient';
-
 /**
- * Real-time database utilities using Supabase
- * This provides the 'API' layer for the application to interact with the database.
+ * Independent Database Layer
+ * Automatically switches between Backend API and Local Storage / Mock Data.
+ * This allows the frontend to work perfectly without a running local backend.
+ *
+ * IMPORTANT: localStorage prefix is 'callix_' for ALL modules so CRM-saved data
+ * is always readable by the dashboard.
  */
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// --- Static Fallback Data (Matches Backend Seed) ---
+const MOCK_COMPANIES = [
+  {
+    _id: "hospital_1",
+    name: "Aarogya Multispeciality Hospital",
+    industry: "Healthcare",
+    logo: "🏥",
+    gender: "female",
+    context_summary: "Tier-1 Healthcare Facility with 50+ Doctors, 15+ specialized departments, and 24/7 Emergency Care.",
+    nlp_context: "DATABASE: [Departments: Cardiology, Neurology, Pediatrics, Orthopedics, Oncology, Dental]. DOCTORS: [Dr. Sharm: Cardiology (Mon-Fri, 10-4), Dr. Verma: Neurology (Tue-Sat, 9-2), Dr. Iyer: Pediatrics (Daily, 5-8)]. FEES: [Consultation: ₹500, Emergency: ₹1500, Specialist Senior: ₹1000]. ROOMS: [General: ₹2000/day, Private: ₹5000/day, ICU: ₹12000/day]. FACILITIES: 24/7 Trauma, In-house Pharmacy, Radiology. Action: 'BOOK_APPOINTMENT for [Doctor] on [Date] at [Time]'.",
+    contact_email: "appointments@aarogya.com",
+    contact_phone: "+91-98765-43000"
+  },
+  {
+    _id: "hotel_1",
+    name: "Spice Garden Fine Dine & Hotel",
+    industry: "Food & Beverage",
+    logo: "🥗",
+    gender: "female",
+    context_summary: "Luxury Multi-cuisine Hotel with Indian, Continental, and Oriental menus. Seats up to 300 guests.",
+    nlp_context: "MENU: [Veg: Paneer Lababdar (₹380), Dal Makhani (₹320), Malai Kofta (₹350)]. [Non-Veg: Butter Chicken (₹480), Hyderabadi Mutton Biryani (₹550), Fish Curry (₹420)]. [Desserts: Gulab Jamun (₹120), Rasmalai (₹150)]. COMBOS: 'Couple Combo' (₹1800), 'Family Feast' (₹3500). TABLE OPTIONS: [Standard, Garden View, Private Cabin (₹500 extra)]. Action: 'BOOK_TABLE for [People] on [Date] at [Time]'.",
+    contact_email: "tables@spicegarden.com",
+    contact_phone: "+91-88888-55555"
+  },
+  {
+    _id: "it_1",
+    name: "Agile-IT Global Solutions",
+    industry: "Technology",
+    logo: "💻",
+    gender: "female",
+    context_summary: "Fortune 500 IT Giant with 40+ open roles in AI, Cloud, and Software Engineering. Remote-First Culture.",
+    nlp_context: "HR PORTAL: [Roles: Senior React Dev (Hybrid), Node.js Lead (Remote), AI Researcher (On-site), UI/UX Specialist]. SALARY: [Entry: 8-12 LPA, Senior: 25-45 LPA]. CULTURE: 4-day work week, learning stipends, health insurance. PROCESS: Screening -> Technical -> HR. Action: 'BOOK_APPOINTMENT for Interview on [Date] at [Time]'.",
+    contact_email: "careers@agile-it.com",
+    contact_phone: "+1-555-TECH-HIRE"
+  },
+  {
+    _id: "ecommerce_1",
+    name: "QuickKart Pro Electronics",
+    industry: "E-Commerce",
+    logo: "🛒",
+    gender: "female",
+    context_summary: "Premier Electronics Store featuring 100+ products from Apple, Sony, Samsung, and more.",
+    nlp_context: "CATALOG: [Phones: iPhone 15 Pro (₹1,34,900), S24 Ultra (₹1,29,900), OnePlus 12 (₹64,900)]. [Laptops: Macbook Pro M3 (₹1,69,900), Dell XPS (₹1,45,000), ROG Zephyrus (₹1,89,000)]. [Audio: Sony XM5 (₹29,900), AirPods Pro (₹24,900)]. SHIPPING: Free for orders above ₹5000, Express (1-day) at ₹250. Action: 'BOOK_ORDER [Item]' or 'TRACE_ORDER'.",
+    contact_email: "support@quickkart.com",
+    contact_phone: "+1-800-KART-PRO"
+  }
+];
+
+// --- Local Storage Helper (shared 'callix_' prefix used by all modules) ---
+const getLocal = (key) => {
+  try { return JSON.parse(localStorage.getItem(`callix_${key}`)) || []; }
+  catch { return []; }
+};
+const saveLocal = (key, data) => {
+  const existing = getLocal(key);
+  existing.push({ ...data, _id: data._id || data.id || `local_${Date.now()}` });
+  localStorage.setItem(`callix_${key}`, JSON.stringify(existing));
+};
+
 export const database = {
   // --- Company management ---
   getCompanies: async () => {
-    const { data, error } = await supabase.from('companies').select('*');
-    if (error) {
-      console.error('Error fetching companies:', error);
-      return [];
+    try {
+      const res = await fetch(`${API_URL}/companies`).catch(() => null);
+      if (res && res.ok) return await res.json();
+
+      const localCompanies = getLocal('companies');
+      return [...MOCK_COMPANIES, ...localCompanies];
+    } catch (error) {
+      return MOCK_COMPANIES;
     }
-    return data;
   },
 
   getCompany: async (id) => {
-    const { data, error } = await supabase.from('companies').select('*').eq('id', id).single();
-    if (error) {
-      console.error('Error fetching company:', error);
-      return null;
+    try {
+      const res = await fetch(`${API_URL}/companies/${id}`).catch(() => null);
+      if (res && res.ok) return await res.json();
+
+      const all = [...MOCK_COMPANIES, ...getLocal('companies')];
+      return all.find(c => c._id === id || c.id === id) || null;
+    } catch (error) {
+      const all = [...MOCK_COMPANIES, ...getLocal('companies')];
+      return all.find(c => c._id === id || c.id === id) || null;
     }
-    return data;
+  },
+
+  saveCompany: async (companyData) => {
+    try {
+      const res = await fetch(`${API_URL}/companies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(companyData)
+      }).catch(() => null);
+
+      if (res && res.ok) return await res.json();
+
+      const newCompany = {
+        ...companyData,
+        id: `COMP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        _id: `COMP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+        created_at: new Date().toISOString()
+      };
+      saveLocal('companies', newCompany);
+      return newCompany;
+    } catch (error) {
+      const newCompany = { id: Date.now().toString(), ...companyData };
+      saveLocal('companies', newCompany);
+      return newCompany;
+    }
   },
 
   // --- Order management ---
   getOrders: async (userEmail = null) => {
-    let query = supabase.from('orders').select('*');
-    if (userEmail) query = query.eq('user_email', userEmail);
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) {
-      console.error('Error fetching orders:', error);
-      return [];
+    try {
+      let url = `${API_URL}/orders`;
+      if (userEmail) url += `?user_email=${userEmail}`;
+      const res = await fetch(url).catch(() => null);
+      if (res && res.ok) return await res.json();
+
+      const local = getLocal('orders');
+      return userEmail ? local.filter(o => o.user_email === userEmail) : local;
+    } catch (error) {
+      const local = getLocal('orders');
+      return userEmail ? local.filter(o => o.user_email === userEmail) : local;
     }
-    return data;
   },
 
   saveOrder: async (order) => {
@@ -46,131 +146,158 @@ export const database = {
       status: 'completed',
       customer_name: order.customerName,
       user_email: order.userEmail,
+      created_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase.from('orders').insert([newOrder]).select();
-    if (error) {
-      console.error('Error saving order:', error);
-      throw error;
+    try {
+      const res = await fetch(`${API_URL}/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newOrder)
+      }).catch(() => null);
+
+      if (res && res.ok) return await res.json();
+
+      saveLocal('orders', newOrder);
+      return newOrder;
+    } catch (error) {
+      saveLocal('orders', newOrder);
+      return newOrder;
     }
-    return data[0];
   },
 
   getOrder: async (id) => {
-    const { data, error } = await supabase.from('orders').select('*').eq('id', id).single();
-    if (error) {
-      console.error('Error fetching order:', error);
-      return null;
+    try {
+      const res = await fetch(`${API_URL}/orders/${id}`).catch(() => null);
+      if (res && res.ok) return await res.json();
+      return getLocal('orders').find(o => o.id === id?.toUpperCase()) || null;
+    } catch (error) {
+      return getLocal('orders').find(o => o.id === id?.toUpperCase()) || null;
     }
-    return data;
   },
 
   // --- Appointment management ---
   getAppointments: async (entityId = null, userEmail = null) => {
-    let query = supabase.from('appointments').select('*');
-    if (entityId) query = query.eq('entity_id', entityId);
-    if (userEmail) query = query.eq('user_email', userEmail);
+    try {
+      let url = `${API_URL}/appointments?`;
+      if (entityId) url += `entity_id=${entityId}&`;
+      if (userEmail) url += `user_email=${userEmail}`;
 
-    const { data, error } = await query.order('appointment_date', { ascending: true });
-    if (error) {
-      console.error('Error fetching appointments:', error);
-      return [];
+      const res = await fetch(url).catch(() => null);
+      if (res && res.ok) return await res.json();
+
+      let local = getLocal('appointments');
+      if (entityId) local = local.filter(a => a.entity_id === entityId);
+      if (userEmail) local = local.filter(a => a.user_email === userEmail);
+      return local;
+    } catch (error) {
+      return getLocal('appointments');
     }
-    return data;
   },
 
   saveAppointment: async (appointment) => {
-    const newAppointment = {
+    const newApp = {
+      id: `APP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       entity_id: appointment.entityId,
       entity_name: appointment.entityName || 'General',
       type: appointment.type,
       person_name: appointment.personName,
-      appointment_date: appointment.date,
-      appointment_time: appointment.time,
+      date: appointment.date,
+      time: appointment.time,
       user_info: appointment.userInfo || {},
       user_email: appointment.userEmail,
-      status: 'scheduled'
+      status: 'scheduled',
+      created_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase.from('appointments').insert([newAppointment]).select();
-    if (error) {
-      console.error('Error saving appointment:', error);
-      throw error;
+    try {
+      const res = await fetch(`${API_URL}/appointments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newApp)
+      }).catch(() => null);
+
+      if (res && res.ok) return await res.json();
+
+      saveLocal('appointments', newApp);
+      return newApp;
+    } catch (error) {
+      saveLocal('appointments', newApp);
+      return newApp;
     }
-    return data[0];
   },
 
   saveRestaurantBooking: async (booking) => {
-    const newBooking = {
-      restaurant_id: booking.entityId,
-      restaurant_name: booking.entityName || 'Spice Garden',
-      customer_name: booking.personName || 'Customer',
-      party_size: booking.userInfo?.peopleCount || 1,
-      booking_date: booking.date,
-      booking_time: booking.time,
-      special_requests: booking.userInfo?.notes || '',
-      user_email: booking.userEmail,
-      status: 'confirmed'
-    };
-
-    const { data, error } = await supabase.from('restaurant_bookings').insert([newBooking]).select();
-    if (error) {
-      console.error('Error saving restaurant booking:', error);
-      throw error;
-    }
-    return data[0];
+    return await database.saveAppointment({
+      ...booking,
+      type: 'table',
+      userInfo: { party_size: booking.userInfo?.peopleCount || 1, notes: booking.userInfo?.notes || '' }
+    });
   },
 
-  getRestaurantBookings: async (userEmail = null) => {
-    let query = supabase.from('restaurant_bookings').select('*');
-    if (userEmail) query = query.eq('user_email', userEmail);
-    const { data, error } = await query.order('booking_date', { ascending: false });
-    if (error) {
-      console.error('Error fetching restaurant bookings:', error);
-      return [];
+  // --- Doctor management ---
+  getDoctors: async (hospitalId) => {
+    try {
+      const res = await fetch(`${API_URL}/doctors?hospital_id=${hospitalId}`).catch(() => null);
+      if (res && res.ok) return await res.json();
+      return getLocal('doctors').filter(d => d.hospital_id === hospitalId);
+    } catch (e) {
+      return getLocal('doctors').filter(d => d.hospital_id === hospitalId);
     }
-    return data;
+  },
+
+  saveDoctor: async (doctor) => {
+    saveLocal('doctors', doctor);
+    return doctor;
+  },
+
+  // --- Vacancy management ---
+  saveVacancy: async (vacancy) => {
+    saveLocal('vacancies', vacancy);
+    return vacancy;
   },
 
   // --- Feedback management ---
   getFeedback: async (userEmail = null) => {
-    let query = supabase.from('feedbacks').select('*');
-    if (userEmail) query = query.eq('user_email', userEmail);
+    try {
+      let url = `${API_URL}/feedback`;
+      if (userEmail) url += `?user_email=${encodeURIComponent(userEmail)}`;
+      const res = await fetch(url).catch(() => null);
+      if (res && res.ok) return await res.json();
 
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) {
-      console.error('Error fetching feedback:', error);
-      return [];
+      const local = getLocal('feedback');
+      return userEmail ? local.filter(f => f.user_email === userEmail) : local;
+    } catch (error) {
+      const local = getLocal('feedback');
+      return userEmail ? local.filter(f => f.user_email === userEmail) : local;
     }
-    return data;
   },
 
   saveFeedback: async (feedback) => {
-    const newFeedback = {
-      entity_id: feedback.entityId,
-      entity_name: feedback.entityName,
+    const newFb = {
+      _id: `local_fb_${Date.now()}`,
+      entity_id: feedback.entity_id || feedback.entityId,
+      entity_name: feedback.entity_name || feedback.entityName,
       rating: feedback.rating,
       comment: feedback.comment,
       category: feedback.category || 'general',
-      user_email: feedback.userEmail
+      user_email: feedback.user_email || feedback.userEmail,
+      created_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase.from('feedbacks').insert([newFeedback]).select();
-    if (error) {
-      console.error('Error saving feedback:', error);
-      throw error;
+    try {
+      const res = await fetch(`${API_URL}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newFb)
+      }).catch(() => null);
+      if (res && res.ok) return await res.json();
+      saveLocal('feedback', newFb);
+      return newFb;
+    } catch (error) {
+      saveLocal('feedback', newFb);
+      return newFb;
     }
-    return data[0];
-  },
-
-  // --- Doctor management (Hospitals) ---
-  getDoctors: async (hospitalId) => {
-    const { data, error } = await supabase.from('doctors').select('*').eq('hospital_id', hospitalId);
-    if (error) {
-      console.error('Error fetching doctors:', error);
-      return [];
-    }
-    return data;
   }
 };
 
@@ -183,7 +310,7 @@ export const tools = {
     const companies = await database.getCompanies();
     return {
       companies: companies.map(c => ({
-        id: c.id,
+        id: c._id || c.id,
         name: c.name,
         industry: c.industry,
       })),
@@ -191,88 +318,44 @@ export const tools = {
   },
 
   book_order: async (orderData) => {
-    const { companyId, item, quantity, userEmail } = orderData;
     try {
       const order = await database.saveOrder({
-        companyId,
-        item: item || 'Product',
-        quantity: quantity || 1,
-        userEmail: userEmail // Pass to database service
+        companyId: orderData.companyId,
+        item: orderData.item || 'Product',
+        quantity: orderData.quantity || 1,
+        totalPrice: orderData.totalPrice,
+        customerName: orderData.customerName,
+        userEmail: orderData.userEmail
       });
       return {
         success: true,
         orderId: order.id,
-        message: `SUCCESS: Order ${order.id} for ${item} has been placed and saved to our database.`,
+        message: `SUCCESS: Order ${order.id} for ${orderData.item} has been placed. (Local Save)`,
       };
     } catch (e) {
-      return { error: 'Failed to save order to database' };
+      return { error: 'Failed to process order' };
     }
   },
 
   book_appointment: async (params) => {
-    const { entityId, entityName, type, personName, date, time, userInfo, userEmail } = params;
-
-    if (!entityId || !type || !date || !time) {
-      return { error: 'Missing required fields: entityId, type, date, time' };
-    }
-
     try {
-      let result;
-      if (type === 'table') {
-        result = await database.saveRestaurantBooking({
-          entityId,
-          entityName,
-          personName,
-          date,
-          time,
-          userInfo,
-          userEmail
-        });
-      } else {
-        result = await database.saveAppointment({
-          entityId,
-          entityName,
-          type,
-          personName: personName || 'General',
-          date,
-          time,
-          userInfo: userInfo || {},
-          userEmail
-        });
-      }
-
-      const label = type === 'table' ? 'Table booking' : 'Appointment';
+      const result = await database.saveAppointment(params);
       return {
         success: true,
         id: result.id,
-        message: `CONFIRMED: ${label} for ${personName || 'you'} on ${date} at ${time} has been saved to our database.`,
+        message: `CONFIRMED: Appointment for ${params.personName} on ${params.date} at ${params.time} has been saved.`,
       };
     } catch (e) {
-      return { error: `Failed to save ${type} booking to database` };
+      return { error: `Failed to save booking` };
     }
   },
 
   collect_feedback: async (params) => {
-    const { entityId, entityName, rating, comment, category, userEmail } = params;
-
-    if (!entityId) {
-      return { error: 'Entity ID is required' };
-    }
-
     try {
-      const fb = await database.saveFeedback({
-        entityId,
-        entityName: entityName || 'General',
-        rating: rating || 0,
-        comment: comment || '',
-        category: category || 'performance',
-        userEmail: userEmail
-      });
-
+      const fb = await database.saveFeedback(params);
       return {
         success: true,
-        feedbackId: fb.id,
-        message: 'Thank you for your feedback! It has been saved to our database.',
+        message: 'Thank you for your feedback! It has been saved.',
       };
     } catch (e) {
       return { error: 'Failed to save feedback' };
@@ -281,18 +364,12 @@ export const tools = {
 
   get_available_slots: async (params) => {
     const { entityId, date } = params;
-    if (!entityId) return { error: 'Entity ID is required' };
     const allSlots = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
-    const bookedAppointments = await database.getAppointments(entityId);
-    const bookedTimes = bookedAppointments
-      .filter(a => a.appointment_date === date && a.status === 'scheduled')
-      .map(a => a.appointment_time.substring(0, 5));
-    const availableSlots = allSlots.filter(slot => !bookedTimes.includes(slot));
+    const booked = await database.getAppointments(entityId);
+    const bookedTimes = booked.filter(a => a.appointment_date === date).map(a => a.appointment_time);
     return {
-      entityId,
-      date: date || new Date().toISOString().split('T')[0],
-      availableSlots,
-      bookedSlots: bookedTimes,
+      availableSlots: allSlots.filter(slot => !bookedTimes.includes(slot)),
+      date: date || 'Today'
     };
   },
 
@@ -300,36 +377,16 @@ export const tools = {
     const company = await database.getCompany(companyId);
     if (!company) return { error: 'Company not found' };
     return {
-      id: company.id,
       name: company.name,
       industry: company.industry,
-      context: company.nlpContext || company.contextSummary || '',
+      context: company.nlp_context || company.context_summary || '',
     };
   },
 
   trace_order: async (orderId) => {
     const id = typeof orderId === 'object' ? orderId.orderId : orderId;
-    const order = await database.getOrder(id?.toUpperCase());
+    const order = await database.getOrder(id);
     if (!order) return { error: 'Order not found' };
-    const company = await database.getCompany(order.company_id);
-    return {
-      orderId: order.id,
-      item: order.item,
-      quantity: order.quantity,
-      status: order.status,
-      timestamp: order.created_at,
-      company: company ? company.name : 'Unknown',
-    };
-  },
-
-  check_vacancies: async (params) => {
-    return { count: 0, vacancies: [], message: "Check our careers page." };
-  },
-
-  query_entity_database: async (params) => {
-    const { entityId } = params;
-    const company = await database.getCompany(entityId);
-    if (!company) return { error: 'Entity not found' };
-    return { id: company.id, name: company.name, industry: company.industry };
+    return { orderId: order.id, status: order.status, item: order.item };
   }
 };

@@ -36,7 +36,7 @@ const HeroSection = ({ onCallAgent }) => {
               ease: 'easeInOut',
             }}
           >
-            Hi, I'm <span className="text-purple-600">Callix</span>
+            Hi, I'm <span className="text-purple-600">CALLIX</span>
           </motion.h1>
 
           {/* Second Line - Smaller */}
@@ -54,6 +54,8 @@ const HeroSection = ({ onCallAgent }) => {
           >
             your AI Calling Agent
           </motion.p>
+
+
         </motion.div>
       </div>
     </section>

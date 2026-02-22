@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mic, MicOff, Phone, PhoneOff, Globe, User, MessageSquare, VolumeX } from 'lucide-react';
-import { chatWithGroq } from '../utils/groq';
+import { chatWithGroq, transcribeAudio, isGroqInitialized } from '../utils/groq';
 import { detectLanguage } from '../utils/languageDetection';
 import { crmIntegration } from '../utils/crmIntegration';
 import { ttsService } from '../utils/ttsService';
+import { sttService } from '../utils/sttService';
 import { HospitalPrompt, RestaurantPrompt, ECommercePrompt, BusinessPrompt, DefaultPrompt } from '../prompts/agentPrompts';
 
 const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
@@ -15,6 +16,10 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const [messages, setMessages] = useState([]);
   const [isMuted, setIsMuted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [pulseScale, setPulseScale] = useState(1);
+  const [isUserTalking, setIsUserTalking] = useState(false);
 
   // Advanced conversation state
   const [convoPhase, setConvoPhase] = useState(user?.user_metadata?.full_name ? 'chatting' : 'intro');
@@ -22,29 +27,18 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const [userEmail, setUserEmail] = useState(user?.email || '');
   const [sessionId] = useState(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [selectedLanguage, setSelectedLanguage] = useState({ code: 'en-IN', name: 'English' });
+  const [useProSTT, setUseProSTT] = useState(true); // Default to Pro STT for better results
 
-  // Sync with user prop if logged in
-  useEffect(() => {
-    if (user) {
-      setUserName(user.user_metadata?.full_name || '');
-      setUserEmail(user.email || '');
-    }
-  }, [user]);
-
-  const recognitionRef = useRef(null);
-  const synthesisRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
   const ringingAudioRef = useRef(null);
   const chatEndRef = useRef(null);
+  const sttCleanupRef = useRef(null);
 
   const languageLookup = {
-    'en-US': 'English',
-    'en-IN': 'English',
-    'hi-IN': 'Hindi',
-    'te-IN': 'Telugu',
-    'ta-IN': 'Tamil',
-    'kn-IN': 'Kannada',
-    'mr-IN': 'Marathi',
-    'ml-IN': 'Malayalam'
+    'en-IN': 'en',
+    'hi-IN': 'hi',
+    'te-IN': 'te'
   };
 
   // Refs for state to avoid stale closures in event listeners
@@ -82,71 +76,182 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, transcript]);
 
-  // Determine agent gender and avatar based on company
-  const agentGender = selectedCompany?.gender || 'female';
-  const agentAvatar = agentGender === 'male' ? '/Male.png' : '/Female.png';
+  // Determine agent gender and avatar - LOCKED TO FEMALE
+  const agentGender = 'female';
+  const agentAvatar = '/Female.png';
 
-  // Speech Recognition Initialization
-  const initRecognition = () => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = selectedLanguage.code;
+  // Pre-load voices for browser TTS Fallback
+  const [availableVoices, setAvailableVoices] = useState([]);
 
-      recognition.onresult = (event) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
+  useEffect(() => {
+    const loadVoices = () => {
+      setAvailableVoices(window.speechSynthesis.getVoices());
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, []);
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
+  // Sync with user prop if logged in
+  useEffect(() => {
+    if (user) {
+      setUserName(user.user_metadata?.full_name || '');
+      setUserEmail(user.email || '');
+    }
+  }, [user]);
+
+  // Pro STT Logic (MediaRecorder + Deepgram Nova-3) - STOP-WAIT-RESTART PATTERN
+  const startProSTT = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false
         }
+      });
 
-        if (finalTranscript) {
-          handleUserMessage(finalTranscript);
-        } else {
-          setTranscript(interimTranscript);
-        }
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType,
+        audioBitsPerSecond: 128000
+      });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
 
-      recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        if (event.error === 'not-allowed') {
-          alert('Microphone access is required for the AI call.');
-        }
-      };
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        audioChunksRef.current = []; // Clear immediately to start fresh
 
-      recognition.onend = () => {
-        // Automatically restart if not speaking and not muted
-        const { callState: curCallState, isSpeaking: curIsSpeaking, isMuted: curIsMuted, isOpen: curIsOpen } = stateRef.current;
-        if (curCallState === 'connected' && !curIsSpeaking && !curIsMuted && curIsOpen) {
+        const { selectedLanguage: curLang, isSpeaking, isMuted, callState, isOpen, useProSTT: curUseProSTT } = stateRef.current;
+
+        // Lowered threshold to 1000 bytes to capture EVEN tiny words (like names) instantly
+        if (audioBlob.size > 1000 && !isSpeaking && !isMuted) {
+          console.log(`🎙️ Sending COMPLETE WebM to DEEPGRAM: ${audioBlob.size} bytes`);
+          setIsProcessing(true);
           try {
-            recognition.start();
-            setIsListening(true);
+            console.log("📡 Transcribing with Deepgram...");
+            setIsTranscribing(true);
+            const text = await sttService.transcribe(audioBlob, curLang.code);
+            console.log(`🎤 Raw Result: "${text}"`);
+            setIsTranscribing(false);
+
+            if (text && text.trim().length > 1) {
+              console.log("✅ Final STT Output:", text);
+              await handleUserMessage(text, true); // CRITICAL: Wait for AI to finish thinking
+            } else {
+              console.log("ℹ️ Transcript too short or empty. Skipping.");
+              setIsProcessing(false); // Clear if no message to handle
+            }
           } catch (e) {
-            console.log('Recognition restart failed or already running');
+            console.error('❌ STT Pipeline failed:', e);
+          } finally {
+            setIsTranscribing(false);
+            setIsProcessing(false);
           }
-        } else {
-          setIsListening(false);
+        }
+
+        // CRITICAL: Only restart AFTER transcription/processing completes
+        if (callState === 'connected' && isOpen && !isSpeaking && !isMuted && curUseProSTT) {
+          setTimeout(() => {
+            if (mediaRecorderRef.current?.state === 'inactive') {
+              mediaRecorderRef.current.start();
+              console.log("⏺️ STT Recording Restarted");
+            }
+          }, 100);
         }
       };
 
-      recognitionRef.current = recognition;
+      // Start the manual cycle
+      mediaRecorder.start();
+      setIsListening(true);
+      console.log("⏺️ STT Recording Started");
+
+      // SMART FLUSH: 8-second safety window with silence detection
+      // STABILIZED FLUSHER: Fixed 5-second chunks (Industry Standard)
+      const interval = setInterval(() => {
+        const { isSpeaking, isMuted, callState, isOpen } = stateRef.current;
+        if (mediaRecorderRef.current?.state === 'recording' && !isSpeaking && !isMuted && callState === 'connected' && isOpen) {
+          console.log("⏹️ Flushing 5s audio chunk...");
+          mediaRecorderRef.current.stop();
+        }
+      }, 5000);
+
+      const checkVolume = () => {
+        const { isOpen: curIsOpen, callState: curCallState } = stateRef.current;
+        if (!curIsOpen || curCallState !== 'connected') return;
+
+        if (mediaRecorder.state === 'recording') {
+          analyser.getByteFrequencyData(dataArray);
+          const volume = dataArray.reduce((a, b) => a + b) / dataArray.length;
+          setPulseScale(1 + (volume / 255) * 0.4);
+          setIsUserTalking(volume > 10);
+        }
+        requestAnimationFrame(checkVolume);
+      };
+      requestAnimationFrame(checkVolume);
+
+      sttCleanupRef.current = () => {
+        try {
+          clearInterval(interval);
+          audioContext.close();
+          stream.getTracks().forEach(track => track.stop());
+        } catch (e) { }
+      };
+
+    } catch (e) {
+      console.error('Failed to start Pro STT:', e);
+      setUseProSTT(false);
     }
   };
 
   useEffect(() => {
+    // Cleanup old STT before starting new one
+    if (sttCleanupRef.current) {
+      sttCleanupRef.current();
+      sttCleanupRef.current = null;
+    }
+
+    if (callState === 'connected' && isOpen) {
+      console.log(`🚀 [STT] Activating Deepgram Nova-3 for ${selectedLanguage.name}...`);
+      startProSTT();
+    }
+
+    return () => {
+      if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop();
+      if (sttCleanupRef.current) {
+        sttCleanupRef.current();
+        sttCleanupRef.current = null;
+      }
+    };
+  }, [selectedLanguage.code, callState, isOpen]);
+
+  useEffect(() => {
     if (!isOpen) return;
 
-    initRecognition();
+    // Prime the voices list (some browsers load them async)
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+    }
 
     // Play ringing sound
     setCallState('ringing');
+
+    // AUTO-SELECT Telugu for Indian companies to prevent transliteration issues
+    const compName = selectedCompany?.name?.toLowerCase() || '';
+    if (compName.includes('aarogya') || compName.includes('spice')) {
+      setSelectedLanguage({ code: 'te-IN', name: 'Telugu' });
+      stateRef.current.selectedLanguage = { code: 'te-IN', name: 'Telugu' };
+      console.log("🇮🇳 Indian Company detected: Defaulting to Telugu (Native Script).");
+    }
+
     ringingAudioRef.current = new Audio('/ringtone-027-376908.mp3');
     ringingAudioRef.current.loop = true;
     ringingAudioRef.current.play().catch(e => console.log('Audio play failed:', e));
@@ -154,9 +259,6 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     // Don't auto-connect - wait for user to select language and click continue
 
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
       if (ringingAudioRef.current) {
         ringingAudioRef.current.pause();
       }
@@ -164,60 +266,27 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     };
   }, [isOpen]);
 
-  // Dynamic Language Change Handler - Restart Recognition with New Language
-  useEffect(() => {
-    if (!isOpen || callState !== 'connected') return;
-
-    console.log(`🌐 Language changed to: ${selectedLanguage.name} (${selectedLanguage.code})`);
-
-    // Stop current recognition
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-        setIsListening(false);
-      } catch (e) {
-        console.log('Recognition stop failed:', e);
-      }
-    }
-
-    // Reinitialize with new language
-    initRecognition();
-
-    // Restart recognition if not speaking and not muted
-    setTimeout(() => {
-      const { isSpeaking: curIsSpeaking, isMuted: curIsMuted } = stateRef.current;
-      if (!curIsSpeaking && !curIsMuted && recognitionRef.current) {
-        try {
-          recognitionRef.current.start();
-          setIsListening(true);
-          console.log(`✅ Recognition restarted in ${selectedLanguage.name}`);
-        } catch (e) {
-          console.log('Recognition restart failed:', e);
-        }
-      }
-    }, 500);
-  }, [selectedLanguage.code]);
 
   const getServiceInfo = (langCode = 'en-IN') => {
     const name = selectedCompany?.name?.toLowerCase() || '';
     const sMap = {
       'en-US': {
-        hospital: "I can assist you with doctor availability, booking consultations or follow-up appointments, and providing department contact information.",
-        restaurant: "I can help you with menu prices, checking veg or non-veg options, and booking a table for your visit.",
-        ecommerce: "I can track your orders, check product stock, manage refunds, and handle support tickets.",
-        tech_mahindra: "I can provide information about our business units, share the latest job openings, and tell you about our leadership team.",
-        voxsphere: "I can explain our AI service catalog, provide pricing plan details, and schedule a demo slot for you.",
-        agile_it: "I can help with cloud infrastructure queries, digital transformation services, and managed IT support.",
-        default: "I'm here to assist you with all your queries today."
+        hospital: "I can help you explore our registry of 15+ doctors, check their consultation fees, specialty availability (Cardiology to Pediatrics), and book appointments instantly.",
+        restaurant: "I can present our full continental and Indian menu, provide budget-friendly recommendations for groups or couples, and reserve your table instantly.",
+        ecommerce: "I can provide updated pricing for the latest iPhone, MacBook, and Sony devices, book your orders directly, and track your shipment status.",
+        tech_mahindra: "I can guide you through our 12+ open roles (like React Dev or ML Engineer), explain our remote-first culture and 4-day work week, and schedule your interview.",
+        voxsphere: "I can guide you through our open roles, work culture, and help you schedule a recruitment interview.",
+        agile_it: "I can help with career queries, role descriptions, culture insights, and direct interview scheduling.",
+        default: "I'm here to assist you with all your professional queries today."
       },
       'en-IN': {
-        hospital: "I can assist you with doctor availability, booking consultations or follow-up appointments, and providing department contact information.",
-        restaurant: "I can help you with menu prices, checking veg or non-veg options, and booking a table for your visit.",
-        ecommerce: "I can track your orders, check product stock, manage refunds, and handle support tickets.",
-        tech_mahindra: "I can provide information about our business units, share the latest job openings, and tell you about our leadership team.",
-        voxsphere: "I can explain our AI service catalog, provide pricing plan details, and schedule a demo slot for you.",
-        agile_it: "I can help with cloud infrastructure queries, digital transformation services, and managed IT support.",
-        default: "I'm here to assist you with all your queries today."
+        hospital: "I can help you explore our registry of 15+ doctors, check their consultation fees, specialty availability (Cardiology to Pediatrics), and book appointments instantly.",
+        restaurant: "I can present our full continental and Indian menu, provide budget-friendly recommendations for groups or couples, and reserve your table instantly.",
+        ecommerce: "I can provide updated pricing for the latest iPhone, MacBook, and Sony devices, book your orders directly, and track your shipment status.",
+        tech_mahindra: "I can guide you through our 12+ open roles (like React Dev or ML Engineer), explain our remote-first culture and 4-day work week, and schedule your interview.",
+        voxsphere: "I can guide you through our open roles, work culture, and help you schedule a recruitment interview.",
+        agile_it: "I can help with career queries, role descriptions, culture insights, and direct interview scheduling.",
+        default: "I'm here to assist you with all your professional queries today."
       },
       'te-IN': {
         hospital: "నేను డాక్టర్ల లభ్యత, కన్సల్టేషన్ లేదా ఫాలో-అప్ అపాయింట్‌మెంట్‌లను బుక్ చేయడం మరియు విభాగాల సమాచారాన్ని అందించడంలో మీకు సహాయపడగలను.",
@@ -252,7 +321,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     return strings[compKey];
   };
 
-  const handleUserMessage = async (message) => {
+  const handleUserMessage = async (message, fromSTT = false) => {
     // ALWAYS use stateRef for logic inside async handlers to avoid stale closures
     const {
       convoPhase: curPhase,
@@ -261,9 +330,11 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       isSpeaking: curIsSpeaking
     } = stateRef.current;
 
-    if (!message.trim() || curIsSpeaking || isProcessing) return;
+    if (!message.trim() || curIsSpeaking || (isProcessing && !fromSTT)) return;
 
-    setIsProcessing(true);
+    if (!fromSTT) setIsProcessing(true); // Only set if not already set by STT
+    setIsThinking(true);
+
     try {
       addMessage('user', message);
       setIsListening(false);
@@ -301,8 +372,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
           return costs[s2.length];
         };
 
-        if (similarity(message, lastAgentMsg.text) > 0.6) {
-          console.log("Echo detected, ignoring message.");
+        if (similarity(message, lastAgentMsg.text) > 0.85) { // Less aggressive
+          console.log("🚫 Echo detected, ignoring message.");
           setIsProcessing(false);
           return;
         }
@@ -317,9 +388,32 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         if (nameMatch) {
           extractedName = nameMatch[1];
         } else {
-          // Try to extract first word that's not a common word
-          const words = cleanMsg.split(' ').filter(w => !['hi', 'hello', 'hey', 'my', 'name', 'is', 'the', 'a', 'an', 'yeah'].includes(w.toLowerCase()));
-          if (words.length > 0) extractedName = words[0];
+          // Robust extraction for Indian names and simple responses
+          // Filter out stop words and common phrases in English, Telugu, and Hindi
+          const ignoreList = [
+            'hi', 'hello', 'hey', 'my', 'name', 'is', 'the', 'a', 'an', 'yeah', 'yes', 'i', 'am', 'im',
+            'నమస్కారం', 'పేరు', 'నా', 'నాకు', 'నేను', 'నా పేరు', 'naa', 'na', 'naperu',
+            'नमस्ते', 'नाम', 'मेरा', 'मै', 'हूँ', 'mera', 'naam'
+          ];
+
+          // Split by space and remove punctuation from each word for cleaner filtering
+          const words = cleanMsg.split(/\s+/).filter(w => {
+            const lowW = w.toLowerCase().replace(/[^a-zA-Z0-9\u0C00-\u0C7F\u0900-\u097F]/g, '');
+            return lowW.length > 0 && !ignoreList.includes(lowW);
+          });
+
+          if (words.length > 0) {
+            // Usually the last word in "My name is X" or "Naa peru X" is the name.
+            // But if it's just "Johnson", it's the first word.
+            // Priority: Last word that starts with a Capital letter (English) 
+            // OR simply the LAST word (for Telugu/Native script)
+            const capWords = words.filter(w => w[0] === w[0].toUpperCase() && /[a-zA-Z]/.test(w[0]) && w.length > 1);
+            if (capWords.length > 0) {
+              extractedName = capWords[capWords.length - 1];
+            } else if (words.length > 0) {
+              extractedName = words[words.length - 1]; // Fallback to last word (Great for Telugu)
+            }
+          }
         }
 
         // Update name and transition phase
@@ -343,8 +437,11 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         }
 
         addMessage('agent', response);
-        await speak(response, curLang.code);
-        setIsProcessing(false);
+        try {
+          await speak(response, curLang.code);
+        } finally {
+          setIsProcessing(false);
+        }
         return;
       }
 
@@ -387,15 +484,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
           ? `Sure! I'll continue in English.`
           : newLang.code === 'te-IN'
             ? `సరే! నేను తెలుగులో కొనసాగిస్తాను.`
-            : newLang.code === 'hi-IN'
-              ? `ठीक है! मैं हिंदी में जारी रखूंगा।`
-              : newLang.code === 'ta-IN'
-                ? `சரி! நான் தமிழில் தொடர்வேன்.`
-                : newLang.code === 'kn-IN'
-                  ? `ಸರಿ! ನಾನು ಕನ್ನಡದಲ್ಲಿ ಮುಂದುವರಿಸುತ್ತೇನೆ.`
-                  : newLang.code === 'mr-IN'
-                    ? `ठीक आहे! मी मराठीत सुरू ठेवतो.`
-                    : `Sure! I'll continue in ${newLang.name}.`;
+            : `ठीक है! मैं हिंदी में जारी रखूंगा।`;
 
         addMessage('agent', response);
         await speak(response, newLang.code);
@@ -414,7 +503,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       if (industry.includes('health') || compName.includes('hospital') || compName.includes('aarogya')) specializedPrompt = HospitalPrompt;
       else if (industry.includes('restaur') || compName.includes('garden')) specializedPrompt = RestaurantPrompt;
       else if (industry.includes('commerce') || compName.includes('kart')) specializedPrompt = ECommercePrompt;
-      else if (industry.includes('business') || compName.includes('voxsphere') || industry.includes('tech')) specializedPrompt = BusinessPrompt;
+      else if (industry.includes('business') || industry.includes('tech')) specializedPrompt = BusinessPrompt;
       // Strong language enforcement
       let languageInstruction = '';
       if (curLang.code === 'te-IN') {
@@ -432,38 +521,129 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       }
 
       const latestName = stateRef.current.userName || 'Guest';
-      const systemPrompt = `You are Callix for ${selectedCompany?.name}.\n${specializedPrompt}\nUser: ${latestName}\nLanguage: ${curLang.name}${languageInstruction}`;
+
+      const systemPrompt = `
+IDENTITY: You are Callix for ${selectedCompany?.name}.
+${specializedPrompt}
+BUSINESS DATA (Use these facts to answer user queries):
+${selectedCompany?.nlp_context || 'Standard business operations'}
+
+USER CONTEXT: Name is ${latestName}.
+LANGUAGE: Response MUST be in ${curLang.name} using ${curLang.name} script.
+
+STRICT CONVERSATIONAL RULES:
+1. Be Warm & Human: Use phrases like "Certainly," "I'd be happy to," or "Got it!" (translated naturally).
+2. Complete Sentences: NEVER respond with just a few words or fragments. Use full, polite sentences.
+3. No English: Use 100% native script for ${curLang.name}.
+4. Commands: If you use a command (like BOOK_APPOINTMENT), place it at the very END on a new line.
+
+${languageInstruction}
+
+Example of a good response:
+"నమస్కారం ${latestName}! డాక్టర్ శర్మతో మీ అపాయింట్‌మెంట్ రేపు ఉదయం 10 గంటలకు ఖరారు చేయబడింది. నేను దీన్ని మీ కోసం రిజిస్టర్ చేస్తున్నాను.
+BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
+`;
 
       const rawResponse = await chatWithGroq(
         `User Message: ${message}`,
         currentMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text })),
-        { ...selectedCompany, userName: latestName, userEmail },
+        { ...selectedCompany, userName: latestName, userEmail, sessionId },
         systemPrompt
       );
 
-      // Clean metadata and detected system commands
+      console.log(`🤖 Raw LLM Response: "${rawResponse}"`);
+
+      // 1. Process System Commands (Side Effects)
+      const processCommands = async (text) => {
+        const appointmentMatch = text.match(/BOOK_APPOINTMENT for (.*?) on (.*?) at (.*)/i);
+        const tableMatch = text.match(/BOOK_TABLE for (.*?) on (.*?) at (.*)/i);
+        const orderMatch = text.match(/BOOK_ORDER (.*)/i);
+        const ratingMatch = text.match(/COLLECT_RATING (\d+)/i);
+
+        const currentCompanyId = selectedCompany?._id || selectedCompany?.id || 'manual';
+        const commonData = {
+          entity_id: currentCompanyId,
+          entity_name: selectedCompany?.name,
+          user_email: userEmail,
+          user_info: { name: latestName, session: sessionId }
+        };
+
+        try {
+          if (appointmentMatch) {
+            console.log("📅 Syncing Appointment to Database...");
+            await crmIntegration.syncAppointment({
+              ...commonData,
+              type: 'doctor',
+              person_name: appointmentMatch[1],
+              date: appointmentMatch[2],
+              time: appointmentMatch[3]
+            });
+            console.log("✅ Appointment Saved.");
+          } else if (tableMatch) {
+            console.log("🍽️ Syncing Table Booking to Database...");
+            await crmIntegration.syncAppointment({
+              ...commonData,
+              type: 'table',
+              person_name: `Table for ${tableMatch[1]} (${latestName})`,
+              date: tableMatch[2],
+              time: tableMatch[3]
+            });
+            console.log("✅ Table Booking Saved.");
+          } else if (orderMatch) {
+            console.log("🛍️ Syncing Order to Database...");
+            await crmIntegration.syncOrder({
+              id: `ORD-${Date.now()}`,
+              company_id: currentCompanyId,
+              item: orderMatch[1],
+              quantity: 1,
+              total_price: 999, // Suggested default/mock price
+              customer_name: latestName,
+              user_email: userEmail
+            });
+            console.log("✅ Order Saved.");
+          } else if (ratingMatch) {
+            console.log("⭐ Syncing Rating to Database...");
+            await crmIntegration.syncFeedback({
+              ...commonData,
+              rating: parseInt(ratingMatch[1]),
+              comment: "Voice Rating"
+            });
+            console.log("✅ Feedback Saved.");
+          }
+        } catch (cmdErr) {
+          console.warn("❌ CRM Sync Failed:", cmdErr);
+        }
+      };
+
+      await processCommands(rawResponse);
+
+      setIsThinking(false);
+
+      // 2. Clean response for Display & TTS
       const cleanedResponse = rawResponse
-        .replace(/\(Translation:.*?\)|Translation:.*?:|\(Note:.*?\)|System:.*?:|Internal:.*?:/gi, '')
-        .replace(/\(.*\)/g, '')
-        .replace(/\bBOOK_APPOINTMENT\b.*?(?=[.!?,]|$)/gi, '')
-        .replace(/\bBOOK_TABLE\b.*?(?=[.!?,]|$)/gi, '')
-        .replace(/\bBOOK_ORDER\b.*?(?=[.!?,]|$)/gi, '')
-        .replace(/\bCOLLECT_RATING\b.*?(?=[.!?,]|$)/gi, '')
-        .replace(/\bCOLLECT_FEEDBACK\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/^(Callix|Agent|Assistant|System):\s*/i, '')
+        .replace(/\bBOOK_APPOINTMENT\b.*$/gim, '')
+        .replace(/\bBOOK_TABLE\b.*$/gim, '')
+        .replace(/\bBOOK_ORDER\b.*$/gim, '')
+        .replace(/\bCOLLECT_RATING\b.*$/gim, '')
+        .replace(/\bCOLLECT_FEEDBACK\b.*$/gim, '')
         .replace(/\bTRACE_ORDER\b/gi, '')
         .replace(/\bHANG_UP\b/gi, '')
-        .replace(/\s+/g, ' ')
         .trim();
 
-      const finalDisplay = cleanedResponse || "I've processed your request.";
+      const finalDisplay = cleanedResponse || "సరే, నేను దాన్ని ప్రాసెస్ చేస్తున్నాను.";
       addMessage('agent', finalDisplay);
 
+      const shouldTerminate = rawResponse.toUpperCase().includes('HANG_UP');
+
       // Speak the response
-      await speak(finalDisplay, curLang.code);
+      await speak(finalDisplay, curLang.code, shouldTerminate);
 
       // Auto-hangup if keyword was present
-      if (rawResponse.toUpperCase().includes('HANG_UP')) {
-        setTimeout(endCall, 1000);
+      if (shouldTerminate) {
+        console.log("🏁 Termination keyword detected. Ending call...");
+        // Call endCall directly instead of setTimeout to avoid race conditions with STT restart
+        endCall();
       }
 
     } catch (error) {
@@ -473,6 +653,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       await speak(err);
     } finally {
       setIsProcessing(false);
+      setIsThinking(false);
     }
   };
 
@@ -480,7 +661,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     setMessages(prev => [...prev, { sender, text, timestamp: new Date() }]);
   };
 
-  const speak = (text, languageCode) => {
+  const speak = (text, languageCode, shouldTerminate = false) => {
     return new Promise((resolve) => {
       // Determine language name for backend
       const targetLangCode = languageCode || selectedLanguage.code;
@@ -491,55 +672,89 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
 
       setIsSpeaking(true);
 
-      // Stop recording before speaking
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-          setIsListening(false);
-        } catch (e) { }
+      // Stop recording IMMEDIATELY to prevent echo or delay
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+        setIsListening(false);
       }
 
       const finishSpeech = () => {
         setIsSpeaking(false);
         resolve(); // Resolve promise when speech ends
 
-        // Only restart recognition if we aren't about to hang up
+        // Restart recording ONLY if call is still active AND not terminating
         const { callState: curCallState, isMuted: curIsMuted, isOpen: curIsOpen } = stateRef.current;
-        if (curCallState === 'connected' && !curIsMuted && curIsOpen && !text.toUpperCase().includes('HANG_UP')) {
-          setTimeout(() => {
-            try {
-              if (recognitionRef.current) recognitionRef.current.start();
-              setIsListening(true);
-            } catch (e) { }
-          }, 400);
+        if (curCallState === 'connected' && !curIsMuted && curIsOpen && !shouldTerminate) {
+          // Restart Pro STT if needed
+          if (mediaRecorderRef.current?.state === 'inactive') {
+            mediaRecorderRef.current.start();
+          }
         }
       };
 
-      // Try Self-Hosted Edge-TTS First
-      ttsService.speak(text, targetLang, agentGender)
+      // Map long codes to 2-letter ISO codes for the TTS backend
+      const ttsLang = languageLookup[targetLangCode] || 'en';
+
+      console.log(`🗣️ Pro TTS Request: Lang="${ttsLang}", Text="${text.substring(0, 40)}..."`);
+
+      // Force Single Female Voice
+      const femaleSpeaker = 'female';
+
+      // Try Self-Hosted Pro TTS Server First
+      ttsService.speak(text, ttsLang, femaleSpeaker)
         .then(() => {
           finishSpeech();
         })
         .catch(() => {
           // Fallback: Web Speech API
           const getBestVoice = () => {
-            const voices = window.speechSynthesis.getVoices();
-            if (voices.length === 0) return null;
             const langPrefix = targetLangCode.split('-')[0];
-            let v = voices.find(v => v.lang.startsWith(langPrefix) && /female|woman|samantha|zira|neerja|swarata|shruti|susan|victoria/i.test(v.name));
-            if (!v) v = voices.find(v => v.lang.startsWith(langPrefix));
-            if (!v) v = voices.find(v => v.lang.startsWith('en')) || voices[0];
+            // 1. STRICTLY FEMALE ONLY - Must contain female keywords
+            const isFemale = (name) => /female|woman|samantha|zira|neerja|swarata|shruti|kalpana|vani|kavita|pallavi|hema|ananya|aarti|priya|lekha|madhur|sudha|heera|sangeeta/i.test(name) && !/male|guy|man|david|mark|ravi/i.test(name);
+
+            // 1. Try to find a native Indian voice for the SPECIFIC language (STRICTLY FEMALE)
+            let v = availableVoices.find(v => v.lang.startsWith(langPrefix) && isFemale(v.name));
+
+            // 2. Specific Telugu/Hindi keyword matches for generic voices
+            if (!v && langPrefix === 'te') v = availableVoices.find(v => (v.name.includes('Shruti') || v.name.includes('Vani')) && isFemale(v.name));
+            if (!v && langPrefix === 'hi') v = availableVoices.find(v => (v.name.includes('Hema') || v.name.includes('Kalpana')) && isFemale(v.name));
+
+            // 3. If no native language, try Generic Indian English FEMALE (Neerja/Sangeeta)
+            if (!v) v = availableVoices.find(v => v.lang.includes('IN') && isFemale(v.name));
+
+            // 3. Fallback: Any Female English (India/UK/Global) - AVOID US if possible
+            if (!v) v = availableVoices.find(v => !v.lang.includes('US') && isFemale(v.name));
+
+            // 4. Final Shield: Any female voice at all
+            if (!v) v = availableVoices.find(v => isFemale(v.name));
+
+            // 5. Ultimate Fallback: Just something that isn't known to be male
+            if (!v) v = availableVoices.find(v => !/male|guy|man|david|mark|ravi/i.test(v.name)) || availableVoices[0];
+
             return v;
           };
 
           window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = targetLangCode;
-          utterance.onend = finishSpeech;
-          utterance.onerror = finishSpeech;
+          const voice = getBestVoice();
+          if (!voice) {
+            console.warn("⚠️ No suitable voice found for", targetLangCode);
+            finishSpeech();
+            return;
+          }
 
-          let voice = getBestVoice();
-          if (voice) utterance.voice = voice;
+          console.log(`🔊 [Browser TTS] Using Voice: ${voice.name} (${voice.lang})`);
+
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.voice = voice;
+          utterance.lang = voice.lang; // CRITICAL: Must match voice to avoid silence
+          utterance.pitch = 1.1;
+          utterance.rate = 1.0;
+          utterance.onend = finishSpeech;
+          utterance.onerror = (e) => {
+            console.error("Browser TTS Error:", e);
+            finishSpeech();
+          };
+
           window.speechSynthesis.speak(utterance);
         });
     });
@@ -557,26 +772,27 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     setTimeout(() => {
       const { callState: curCallState, isMuted: curIsMuted, isOpen: curIsOpen } = stateRef.current;
       if (curCallState === 'connected' && !curIsMuted && curIsOpen) {
-        try {
-          if (recognitionRef.current) {
-            recognitionRef.current.start();
-            setIsListening(true);
-          }
-        } catch (e) {
-          console.log('Restarting recognition from audio stop...');
+        if (mediaRecorderRef.current?.state === 'inactive') {
+          mediaRecorderRef.current.start();
+          setIsListening(true);
         }
       }
     }, 400);
   };
 
   const toggleMute = () => {
-    setIsMuted(!isMuted);
-    if (!isMuted) {
-      if (recognitionRef.current) recognitionRef.current.stop();
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+
+    if (nextMuted) {
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
       setIsListening(false);
     } else {
-      if (recognitionRef.current && callState === 'connected') {
-        try { recognitionRef.current.start(); setIsListening(true); } catch (e) { }
+      if (callState === 'connected' && mediaRecorderRef.current?.state === 'inactive') {
+        mediaRecorderRef.current.start();
+        setIsListening(true);
       }
     }
   };
@@ -597,9 +813,9 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       setConvoPhase('chatting');
       // Greet in selected language with name AND services
       if (selectedLanguage.code === 'te-IN') {
-        introMsg = `నమస్కారం! నేను ${selectedCompany?.name} కోసం మీ AI అసిస్టెంట్ కాలిక్స్. మళ్లీ మిమ్మల్ని కలవడం సంతోషంగా ఉంది, ${userName}! ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
+        introMsg = `నమస్కారం! నేను ${selectedCompany?.name} కోసం మీ AI అసిస్టెంట్ కేలిక్స్. మళ్లీ మిమ్మల్ని కలవడం సంతోషంగా ఉంది, ${userName}! ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
       } else if (selectedLanguage.code === 'hi-IN') {
-        introMsg = `नमस्ते! मैं ${selectedCompany?.name} के लिए आपका AI सहायक कैलिक्स हूं। आपको फिर से देखकर खुशी हुई, ${userName}! ${serviceInfo} मैं आपकी कैसे मदद कर सकता हूं?`;
+        introMsg = `नमस्ते! मैं ${selectedCompany?.name} के लिए आपका AI सहायक सेलिक्स हूं। आपको फिर से देखकर खुशी हुई, ${userName}! ${serviceInfo} मैं आपकी कैसे मदद कर सकता हूं?`;
       } else {
         introMsg = `Hi! I'm Callix, your AI assistant for ${selectedCompany?.name}. Great to see you again, ${userName}! ${serviceInfo} How can I assist you today?`;
       }
@@ -607,16 +823,27 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       setConvoPhase('onboarding');
       // Greet in selected language and ask for name only
       if (selectedLanguage.code === 'te-IN') {
-        introMsg = `నమస్కారం! నేను ${selectedCompany?.name} కోసం మీ AI అసిస్టెంట్ కాలిక్స్. మీ పేరు ఏమిటి?`;
+        introMsg = `నమస్కారం! నేను ${selectedCompany?.name} కోసం మీ AI అసిస్టెంట్ కేలిక్స్. మీ పేరు ఏమిటి?`;
       } else if (selectedLanguage.code === 'hi-IN') {
-        introMsg = `नमस्ते! मैं ${selectedCompany?.name} के लिए आपका AI सहायक कैलिक्स हूं। आपका नाम क्या है?`;
+        introMsg = `नमस्ते! मैं ${selectedCompany?.name} के लिए आपका AI सहायक सेलिक्स हूं। आपका नाम क्या है?`;
       } else {
         introMsg = `Hello! I'm Callix, your AI assistant from ${selectedCompany?.name}. May I know your name?`;
       }
     }
 
     addMessage('agent', introMsg);
-    speak(introMsg);
+
+    // Ensure voices are loaded before speaking to prevent default male voice greeting
+    const startSpeaking = () => {
+      speak(introMsg, selectedLanguage.code);
+    };
+
+    if (availableVoices.length === 0) {
+      window.speechSynthesis.getVoices();
+      setTimeout(startSpeaking, 500);
+    } else {
+      startSpeaking();
+    }
   };
 
   const endCall = () => {
@@ -624,7 +851,9 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     setIsListening(false);
     setIsSpeaking(false);
     setMessages([]); // Clear history for next call
-    if (recognitionRef.current) recognitionRef.current.abort();
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
     if (ringingAudioRef.current) ringingAudioRef.current.pause();
     window.speechSynthesis.cancel();
     ttsService.stop();
@@ -635,7 +864,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       setUserName(user?.user_metadata?.full_name || '');
       setConvoPhase('intro');
       setTranscript('');
-      setSelectedLanguage({ code: 'en-US', name: 'English' });
+      setSelectedLanguage({ code: 'en-IN', name: 'English' });
       onClose();
     }, 1500);
   };
@@ -690,12 +919,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
                 <div className="flex justify-center flex-nowrap gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
                   {[
                     { code: 'en-IN', name: 'English', locked: false },
-                    { code: 'hi-IN', name: 'Hindi', locked: true },
-                    { code: 'te-IN', name: 'Telugu', locked: true },
-                    { code: 'ta-IN', name: 'Tamil', locked: true },
-                    { code: 'kn-IN', name: 'Kannada', locked: true },
-                    { code: 'mr-IN', name: 'Marathi', locked: true },
-                    { code: 'ml-IN', name: 'Malayalam', locked: true },
+                    { code: 'hi-IN', name: 'Hindi', locked: false },
+                    { code: 'te-IN', name: 'Telugu', locked: false },
                   ].map((lang) => (
                     <div key={lang.code} className="relative group">
                       <button
@@ -769,26 +994,73 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
           <div className="h-full flex flex-col md:flex-row bg-white">
             {/* Left: Visual Agent */}
             <div className="md:w-1/2 flex flex-col items-center justify-center p-8 bg-slate-50 border-r border-slate-200 relative">
-              <motion.div
-                animate={{ scale: isSpeaking ? [1, 1.02, 1] : 1 }}
-                transition={{ duration: 0.5, repeat: isSpeaking ? Infinity : 0 }}
-                className={`w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-[12px] transition-all duration-500 shadow-2xl ${isSpeaking ? 'border-green-400' : isListening ? 'border-[#000080]' : 'border-slate-200'}`}
-              >
-                <img src={agentAvatar} className="w-full h-full object-cover" />
-              </motion.div>
+              <div className="relative">
+                {/* Decorative Capsule Background - adjusted for smaller size */}
+                <div className="absolute inset-0 -m-4 bg-gradient-to-b from-slate-100/50 to-white/30 rounded-[80px] blur-xl -z-10 border border-slate-200/50"></div>
 
-              <div className="mt-8 text-center flex flex-col items-center">
-                <h3 className="text-3xl font-black text-slate-900">Callix</h3>
-                <p className="text-[#000080] font-black uppercase tracking-[0.3em] text-sm mt-1">{selectedCompany?.name}</p>
+                <motion.div
+                  animate={{
+                    scale: isSpeaking ? [1, 1.03, 1] : 1,
+                    boxShadow: isSpeaking
+                      ? ["0 15px 35px rgba(74, 222, 128, 0.2)", "0 25px 50px rgba(74, 222, 128, 0.4)", "0 15px 35px rgba(74, 222, 128, 0.2)"]
+                      : isListening
+                        ? "0 15px 35px rgba(59, 130, 246, 0.2)"
+                        : "0 15px 35px rgba(0, 0, 0, 0.1)"
+                  }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className={`w-48 h-48 md:w-56 md:h-56 aspect-square rounded-full overflow-hidden border-[6px] transition-all duration-500 flex items-center justify-center p-1.5 bg-white ${isSpeaking ? 'border-green-400' : isListening ? 'border-blue-600' : 'border-slate-100'
+                    }`}
+                >
+                  <img src={agentAvatar} className="w-full h-full object-cover rounded-full shadow-inner" alt="Callix Agent" />
+                </motion.div>
+              </div>
 
-                {/* Real-time Indicator */}
-                <div className={`mt-6 px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase flex items-center space-x-2 border transition-all duration-300 ${isSpeaking ? 'bg-green-100 text-green-700 border-green-200' : isListening ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSpeaking ? 'bg-green-500' : isListening ? 'bg-blue-500' : 'bg-slate-400'}`}></div>
-                  <span>{isSpeaking ? 'Agent Speaking' : isListening ? 'Listening' : 'Ready'}</span>
+              <div className="mt-10 text-center flex flex-col items-center">
+                <h3 className="text-4xl font-black text-slate-900 tracking-tight">Callix</h3>
+                <p className="text-blue-700 font-extrabold uppercase tracking-[0.4em] text-[10px] mt-2 bg-blue-50 px-4 py-1 rounded-full border border-blue-100">
+                  {selectedCompany?.name || 'VIRTUAL ASSISTANT'}
+                </p>
+
+                {/* Real-time Indicator & Waveform */}
+                <div className="flex flex-col items-center gap-4 mt-6">
+                  {/* <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 rounded-full border border-green-500/20">
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    <span className="text-[10px] font-black text-green-600 uppercase tracking-widest">Deepgram 100% Native Active</span>
+                  </div> */}
+
+                  {isListening && !isSpeaking && (
+                    <div className="flex items-center gap-1 h-8">
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                        <motion.div
+                          key={i}
+                          animate={{ height: [8, Math.random() * 24 + 8, 8] }}
+                          transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
+                          className="w-1 bg-blue-500 rounded-full"
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className={`px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase flex items-center space-x-2 border transition-all duration-300 ${isSpeaking ? 'bg-green-100 text-green-700 border-green-200' : isThinking ? 'bg-purple-100 text-purple-700 border-purple-200' : isTranscribing ? 'bg-orange-100 text-orange-700 border-orange-200' : isListening ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`} style={{ transform: `scale(${isListening && !isSpeaking ? pulseScale : 1})` }}>
+                        <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSpeaking ? 'bg-green-500' : isThinking ? 'bg-purple-500' : isTranscribing ? 'bg-orange-500' : isListening ? 'bg-blue-500' : 'bg-slate-400'}`}></div>
+                        <span>{isSpeaking ? 'Agent Speaking' : isThinking ? 'AI Thinking...' : isTranscribing ? 'Transcribing...' : isListening ? 'Listening' : 'Ready'}</span>
+                      </div>
+                      {isUserTalking && !isSpeaking && (
+                        <span className="text-[10px] font-bold text-blue-500 animate-bounce">⚡ You are speaking...</span>
+                      )}
+                    </div>
+                    {/* {useProSTT && (
+                      <span className="text-[8px] text-blue-400 font-bold uppercase tracking-widest">✨ Pro AI STT Active (Deepgram)</span>
+                    )} */}
+                  </div>
                 </div>
 
                 <div className="mt-8 flex items-center space-x-4">
-                  <button onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"} className={`p-4 rounded-full shadow-lg transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}><Mic size={24} /></button>
+                  <button onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"} className={`p-4 rounded-full shadow-lg transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}>
+                    {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
+                  </button>
                   {isSpeaking && (
                     <button onClick={stopAudio} title="Stop Audio" className="p-4 bg-orange-500 text-white rounded-full shadow-lg hover:bg-orange-600 transition-all transform hover:scale-110 animate-bounce">
                       <VolumeX size={24} />

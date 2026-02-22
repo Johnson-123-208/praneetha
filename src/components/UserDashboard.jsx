@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar, Clock, MapPin, User, Loader, Package, ShoppingBag, Stethoscope, ChevronRight, Utensils } from 'lucide-react';
-import { supabase } from '../utils/supabaseClient';
+import { Calendar, Clock, User, Loader, Package, ShoppingBag, Stethoscope, ChevronRight, Utensils } from 'lucide-react';
+import { database } from '../utils/database';
 
 const UserDashboard = ({ user, onClose }) => {
     const [appointments, setAppointments] = useState([]);
@@ -21,51 +21,17 @@ const UserDashboard = ({ user, onClose }) => {
         try {
             setLoading(true);
 
-            // Fetch user appointments
-            const { data: appointmentsData, error: appointmentsError } = await supabase
-                .from('appointments')
-                .select(`
-          *,
-          companies:entity_id (name, industry)
-        `)
-                .eq('user_email', user.email)
-                .order('appointment_date', { ascending: false });
-
-            if (appointmentsError) throw appointmentsError;
-
-            // Fetch user orders
-            const { data: ordersData, error: ordersError } = await supabase
-                .from('orders')
-                .select(`
-          *,
-          companies:company_id (name, industry)
-        `)
-                .eq('user_email', user.email)
-                .order('created_at', { ascending: false });
-
-            if (ordersError) throw ordersError;
-
-            // Fetch restaurant bookings
-            const { data: bookingsData, error: bookingsError } = await supabase
-                .from('restaurant_bookings')
-                .select('*')
-                .eq('user_email', user.email)
-                .order('booking_date', { ascending: false });
-
-            if (bookingsError) throw bookingsError;
-
-            // Fetch feedback
-            const { data: feedbackData, error: feedbackError } = await supabase
-                .from('feedbacks')
-                .select('*')
-                .eq('user_email', user.email)
-                .order('created_at', { ascending: false });
-
-            if (feedbackError) throw feedbackError;
+            // Fetch data using our unified database utility (now MongoDB)
+            const [appointmentsData, ordersData, feedbackData] = await Promise.all([
+                database.getAppointments(null, user.email),
+                database.getOrders(user.email),
+                database.getFeedback(user.email)
+            ]);
 
             setAppointments(appointmentsData || []);
             setOrders(ordersData || []);
-            setBookings(bookingsData || []);
+            // For now, bookings are mixed in appointments in our MongoDB schema
+            setBookings(appointmentsData.filter(a => a.type === 'table') || []);
             setFeedback(feedbackData || []);
         } catch (error) {
             console.error('Error loading user data:', error);
@@ -76,7 +42,15 @@ const UserDashboard = ({ user, onClose }) => {
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
+
+        // Handle natural language dates from AI
+        const lower = dateString.toLowerCase();
+        if (lower.includes('tomorrow')) return 'Tomorrow';
+        if (lower.includes('today')) return 'Today';
+
         const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString; // Return as-is if it's natural language (e.g. "Next Monday")
+
         return date.toLocaleDateString('en-US', {
             weekday: 'short',
             year: 'numeric',
@@ -87,11 +61,7 @@ const UserDashboard = ({ user, onClose }) => {
 
     const formatTime = (timeString) => {
         if (!timeString) return 'N/A';
-        const [hours, minutes] = timeString.split(':');
-        const hour = parseInt(hours);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour % 12 || 12;
-        return `${displayHour}:${minutes} ${ampm}`;
+        return timeString;
     };
 
     const getStatusStyle = (status) => {
@@ -99,10 +69,6 @@ const UserDashboard = ({ user, onClose }) => {
             scheduled: 'bg-indigo-50 text-indigo-700 border-indigo-200',
             completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
             cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
-            'no-show': 'bg-slate-50 text-slate-700 border-slate-200',
-            pending: 'bg-amber-50 text-amber-700 border-amber-200',
-            processing: 'bg-blue-50 text-blue-700 border-blue-200',
-            paid: 'bg-emerald-50 text-emerald-700 border-emerald-100',
             confirmed: 'bg-emerald-50 text-emerald-700 border-emerald-200'
         };
         return styles[status] || 'bg-slate-50 text-slate-700 border-slate-200';
@@ -113,7 +79,7 @@ const UserDashboard = ({ user, onClose }) => {
             <div className="flex items-center justify-center h-[60vh]">
                 <div className="text-center">
                     <Loader size={48} className="animate-spin text-purple-600 mx-auto mb-4" />
-                    <p className="text-slate-500 font-medium">Brewing your data...</p>
+                    <p className="text-slate-500 font-medium">Fetching your data...</p>
                 </div>
             </div>
         );
@@ -121,27 +87,23 @@ const UserDashboard = ({ user, onClose }) => {
 
     return (
         <div className="min-h-screen bg-[#F8FAFC] relative">
-            <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-purple-100 rounded-full blur-[120px] opacity-40"></div>
-                <div className="absolute bottom-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-blue-100 rounded-full blur-[120px] opacity-40"></div>
-            </div>
-
             <div className="max-w-6xl mx-auto px-4 pt-24 pb-20 relative z-10">
-                <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/40 border border-slate-300 overflow-hidden">
-                    <div className="p-8 md:p-10 border-b border-slate-300 relative overflow-hidden bg-gradient-to-r from-white to-slate-50/50">
-                        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+                    {/* Header */}
+                    <div className="p-6 md:p-8 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                             <div>
-                                <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">My Dashboard</h1>
-                                <p className="text-slate-500 text-lg">
-                                    Welcome back, <span className="font-bold text-slate-900">{user.user_metadata?.full_name || user.email}</span>
+                                <h1 className="text-3xl font-bold text-slate-900 mb-2">My Dashboard</h1>
+                                <p className="text-slate-500">
+                                    Welcome back, <span className="font-bold text-slate-900">{user.full_name || user.email}</span>
                                 </p>
                             </div>
-                            <div className="flex items-center space-x-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm self-start md:self-center">
-                                <div className="w-10 h-10 rounded-xl bg-[#000080]/10 flex items-center justify-center text-[#000080]">
+                            <div className="flex items-center space-x-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+                                <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
                                     <User size={20} />
                                 </div>
                                 <div className="pr-4">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Logged in as</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Logged in as</p>
                                     <p className="text-sm font-bold text-slate-700">{user.email}</p>
                                 </div>
                             </div>
@@ -149,82 +111,78 @@ const UserDashboard = ({ user, onClose }) => {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
-                        <div className="lg:col-span-3 border-r border-slate-300 bg-slate-50/50">
-                            <div className="p-6">
-                                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-6 px-2">Overview</h3>
-                                <nav className="space-y-2">
-                                    <button
-                                        onClick={() => setActiveTab('appointments')}
-                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'appointments' ? 'bg-[#000080] text-white shadow-xl' : 'text-slate-600 hover:bg-white'}`}
-                                    >
-                                        <Calendar size={18} />
-                                        <span>Appointments</span>
-                                        <span className="ml-auto px-2 py-0.5 rounded-md text-[10px] bg-slate-200 text-slate-700">{appointments.length}</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('bookings')}
-                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'bookings' ? 'bg-[#000080] text-white shadow-xl' : 'text-slate-600 hover:bg-white'}`}
-                                    >
-                                        <Utensils size={18} />
-                                        <span>Table Bookings</span>
-                                        <span className="ml-auto px-2 py-0.5 rounded-md text-[10px] bg-slate-200 text-slate-700">{bookings.length}</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('orders')}
-                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'orders' ? 'bg-[#000080] text-white shadow-xl' : 'text-slate-600 hover:bg-white'}`}
-                                    >
-                                        <ShoppingBag size={18} />
-                                        <span>Orders</span>
-                                        <span className="ml-auto px-2 py-0.5 rounded-md text-[10px] bg-slate-200 text-slate-700">{orders.length}</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveTab('feedback')}
-                                        className={`w-full flex items-center space-x-3 px-4 py-4 rounded-2xl transition-all duration-300 font-bold text-sm ${activeTab === 'feedback' ? 'bg-[#000080] text-white shadow-xl' : 'text-slate-600 hover:bg-white'}`}
-                                    >
-                                        <div className="flex items-center justify-center w-[18px]">⭐</div>
-                                        <span>Feedback</span>
-                                        <span className="ml-auto px-2 py-0.5 rounded-md text-[10px] bg-slate-200 text-slate-700">{feedback.length}</span>
-                                    </button>
-                                </nav>
-                            </div>
+                        {/* Sidebar */}
+                        <div className="lg:col-span-3 border-r border-slate-200 bg-slate-50/50">
+                            <nav className="p-4 space-y-1">
+                                <TabButton
+                                    active={activeTab === 'appointments'}
+                                    onClick={() => setActiveTab('appointments')}
+                                    icon={<Calendar size={18} />}
+                                    label="Appointments"
+                                    count={appointments.length - bookings.length}
+                                />
+                                <TabButton
+                                    active={activeTab === 'bookings'}
+                                    onClick={() => setActiveTab('bookings')}
+                                    icon={<Utensils size={18} />}
+                                    label="Table Bookings"
+                                    count={bookings.length}
+                                />
+                                <TabButton
+                                    active={activeTab === 'orders'}
+                                    onClick={() => setActiveTab('orders')}
+                                    icon={<ShoppingBag size={18} />}
+                                    label="Orders"
+                                    count={orders.length}
+                                />
+                                <TabButton
+                                    active={activeTab === 'feedback'}
+                                    onClick={() => setActiveTab('feedback')}
+                                    icon={<span>⭐</span>}
+                                    label="Feedback"
+                                    count={feedback.length}
+                                />
+                            </nav>
                         </div>
 
-                        <div className="lg:col-span-9 bg-white p-8 md:p-10">
+                        {/* Content */}
+                        <div className="lg:col-span-9">
                             <motion.div
                                 key={activeTab}
-                                initial={{ opacity: 0, x: 10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ duration: 0.3 }}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="p-6 md:p-8"
                             >
                                 {activeTab === 'appointments' && (
-                                    <div className="space-y-6">
-                                        <div className="flex items-center justify-between mb-8">
-                                            <h2 className="text-2xl font-black text-slate-900 leading-none">Your Appointments</h2>
-                                        </div>
-                                        {appointments.length === 0 ? (
-                                            <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-slate-50/50">
-                                                <Calendar size={40} className="text-slate-300 mx-auto mb-4" />
-                                                <h3 className="text-xl font-bold text-slate-900 mb-2">No upcoming appointments</h3>
-                                            </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900 mb-6">Your Appointments</h2>
+                                        {appointments.filter(a => a.type !== 'table').length === 0 ? (
+                                            <EmptyState icon={<Calendar size={40} />} message="No upcoming appointments" />
                                         ) : (
-                                            <div className="grid gap-4">
-                                                {appointments.map((appointment) => (
-                                                    <div key={appointment.id} className="p-6 rounded-[2rem] border border-slate-200 hover:bg-slate-50/50 transition-all flex items-center justify-between">
-                                                        <div className="flex items-center space-x-5">
-                                                            <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                                                                {appointment.type === 'doctor' ? <Stethoscope size={26} className="text-[#000080]" /> : <Calendar size={26} className="text-[#000080]" />}
+                                            <div className="space-y-3">
+                                                {appointments.filter(a => a.type !== 'table').map((appointment) => (
+                                                    <div key={appointment._id} className="group p-4 rounded-xl border border-slate-200 flex items-center justify-between hover:border-purple-300 hover:shadow-sm transition-all bg-white">
+                                                        <div className="flex items-center space-x-4">
+                                                            <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center group-hover:bg-purple-50 transition-colors">
+                                                                {appointment.type === 'doctor' ? <Stethoscope size={20} className="text-blue-500" /> : <Calendar size={20} className="text-purple-500" />}
                                                             </div>
                                                             <div>
-                                                                <h3 className="text-lg font-black text-slate-900">{appointment.companies?.name || appointment.entity_name}</h3>
-                                                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black border tracking-wider mt-1 inline-block ${getStatusStyle(appointment.status)}`}>{appointment.status.toUpperCase()}</span>
+                                                                <h3 className="font-bold text-slate-900 text-sm">{appointment.entity_name}</h3>
+                                                                <div className="flex items-center space-x-2 mt-1">
+                                                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${getStatusStyle(appointment.status)}`}>{appointment.status}</span>
+                                                                    <span className="text-[10px] text-slate-400 font-medium">Ref: {appointment._id.slice(-6).toUpperCase()}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <div className="text-right flex items-center space-x-6">
-                                                            <div>
-                                                                <p className="text-sm font-bold text-slate-700">{formatDate(appointment.appointment_date)}</p>
-                                                                <p className="text-xs text-slate-500 font-bold">{formatTime(appointment.appointment_time)}</p>
+                                                        <div className="text-right flex flex-col items-end">
+                                                            <div className="flex items-center text-slate-900 font-bold text-sm">
+                                                                <Calendar size={14} className="mr-1.5 text-slate-400" />
+                                                                {formatDate(appointment.date)}
                                                             </div>
-                                                            <ChevronRight size={20} className="text-slate-300" />
+                                                            <div className="flex items-center text-slate-500 text-xs mt-1">
+                                                                <Clock size={12} className="mr-1 text-slate-400" />
+                                                                {formatTime(appointment.time)}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -234,27 +192,35 @@ const UserDashboard = ({ user, onClose }) => {
                                 )}
 
                                 {activeTab === 'bookings' && (
-                                    <div className="space-y-6">
-                                        <h2 className="text-2xl font-black text-slate-900 mb-8">Table Bookings</h2>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900 mb-6">Table Bookings</h2>
                                         {bookings.length === 0 ? (
-                                            <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-slate-50/50">
-                                                <Utensils size={40} className="text-slate-300 mx-auto mb-4" />
-                                                <h3 className="text-xl font-bold text-slate-900 mb-2">No table reservations</h3>
-                                            </div>
+                                            <EmptyState icon={<Utensils size={40} />} message="No table reservations" />
                                         ) : (
-                                            <div className="grid gap-4">
+                                            <div className="space-y-3">
                                                 {bookings.map((booking) => (
-                                                    <div key={booking.id} className="p-6 rounded-[2rem] border border-slate-200 hover:bg-slate-50/50 transition-all flex items-center justify-between">
-                                                        <div className="flex items-center space-x-5">
-                                                            <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm"><Utensils size={26} className="text-[#000080]" /></div>
+                                                    <div key={booking._id} className="group p-4 rounded-xl border border-slate-200 flex items-center justify-between hover:border-orange-300 hover:shadow-sm transition-all bg-white">
+                                                        <div className="flex items-center space-x-4">
+                                                            <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center group-hover:bg-orange-50 transition-colors">
+                                                                <Utensils size={20} className="text-orange-500" />
+                                                            </div>
                                                             <div>
-                                                                <h3 className="text-lg font-black text-slate-900">{booking.restaurant_name}</h3>
-                                                                <span className="text-slate-500 text-xs font-bold uppercase">{booking.party_size} People</span>
+                                                                <h3 className="font-bold text-slate-900 text-sm">{booking.entity_name}</h3>
+                                                                <div className="flex items-center space-x-2 mt-1">
+                                                                    <span className="text-[10px] text-slate-500 font-bold bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">Party of {booking.user_info?.party_size || 1}</span>
+                                                                    <span className="text-[10px] text-slate-400 font-medium tracking-tight">Booking confirmed</span>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <div className="text-right">
-                                                            <p className="text-sm font-bold text-slate-700">{formatDate(booking.booking_date)}</p>
-                                                            <p className="text-xs text-slate-500 font-bold">{formatTime(booking.booking_time)}</p>
+                                                        <div className="text-right flex flex-col items-end">
+                                                            <div className="flex items-center text-slate-900 font-bold text-sm">
+                                                                <Calendar size={14} className="mr-1.5 text-slate-400" />
+                                                                {formatDate(booking.date)}
+                                                            </div>
+                                                            <div className="flex items-center text-slate-500 text-xs mt-1">
+                                                                <Clock size={12} className="mr-1 text-slate-400" />
+                                                                {formatTime(booking.time)}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -264,27 +230,29 @@ const UserDashboard = ({ user, onClose }) => {
                                 )}
 
                                 {activeTab === 'orders' && (
-                                    <div className="space-y-6">
-                                        <h2 className="text-2xl font-black text-slate-900 mb-8">Your Orders</h2>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900 mb-6">Your Orders</h2>
                                         {orders.length === 0 ? (
-                                            <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-slate-50/50">
-                                                <ShoppingBag size={40} className="text-slate-300 mx-auto mb-4" />
-                                                <h3 className="text-xl font-bold text-slate-900 mb-2">No orders placed</h3>
-                                            </div>
+                                            <EmptyState icon={<ShoppingBag size={40} />} message="No orders placed" />
                                         ) : (
-                                            <div className="grid gap-4">
+                                            <div className="space-y-3">
                                                 {orders.map((order) => (
-                                                    <div key={order.id} className="p-6 rounded-[2rem] border border-slate-200 hover:bg-slate-50/50 transition-all flex items-center justify-between">
-                                                        <div className="flex items-center space-x-5">
-                                                            <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm"><ShoppingBag size={26} className="text-[#000080]" /></div>
+                                                    <div key={order._id} className="group p-4 rounded-xl border border-slate-200 flex items-center justify-between hover:border-green-300 hover:shadow-sm transition-all bg-white">
+                                                        <div className="flex items-center space-x-4">
+                                                            <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center group-hover:bg-green-50 transition-colors">
+                                                                <ShoppingBag size={20} className="text-green-500" />
+                                                            </div>
                                                             <div>
-                                                                <h3 className="text-lg font-black text-slate-900">Order #{order.id}</h3>
-                                                                <p className="text-xs text-slate-500 font-bold uppercase">{order.item} × {order.quantity}</p>
+                                                                <h3 className="font-bold text-slate-900 text-sm">{order.item}</h3>
+                                                                <div className="flex items-center space-x-2 mt-1">
+                                                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${getStatusStyle(order.status)}`}>{order.status}</span>
+                                                                    <span className="text-[10px] text-slate-400 font-medium">Qty: {order.quantity || 1}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div className="text-right">
-                                                            <p className="text-xl font-black text-slate-900 leading-none">₹{order.total_price}</p>
-                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black border mt-2 inline-block ${getStatusStyle(order.status)}`}>{order.status.toUpperCase()}</span>
+                                                            <p className="text-base font-bold text-slate-900">₹{order.total_price}</p>
+                                                            <p className="text-[10px] text-slate-400 mt-1 font-medium italic">#{order.id?.slice(-8) || order._id?.slice(-8)}</p>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -294,30 +262,29 @@ const UserDashboard = ({ user, onClose }) => {
                                 )}
 
                                 {activeTab === 'feedback' && (
-                                    <div className="space-y-6">
-                                        <h2 className="text-2xl font-black text-slate-900 mb-8">Your Feedback</h2>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-slate-900 mb-6">Your Feedback</h2>
                                         {feedback.length === 0 ? (
-                                            <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-[2.5rem] bg-slate-50/50">
-                                                <div className="text-4xl mb-4">⭐</div>
-                                                <h3 className="text-xl font-bold text-slate-900 mb-2">No feedback given yet</h3>
-                                            </div>
+                                            <EmptyState icon={<div className="text-4xl">⭐</div>} message="No feedback given yet" />
                                         ) : (
-                                            <div className="grid gap-6">
+                                            <div className="space-y-4">
                                                 {feedback.map((item) => (
-                                                    <div key={item.id} className="p-6 rounded-[2rem] bg-slate-50 border border-slate-200">
+                                                    <div key={item._id} className="group p-4 rounded-xl border border-slate-200 bg-white hover:border-amber-300 transition-all shadow-sm">
                                                         <div className="flex items-start justify-between">
-                                                            <div className="flex items-center space-x-4">
-                                                                <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm text-xl">🏢</div>
+                                                            <div className="flex items-center space-x-3">
+                                                                <div className="w-8 h-8 rounded bg-slate-50 border border-slate-100 flex items-center justify-center text-xs group-hover:bg-amber-50 group-hover:border-amber-100 transition-colors">🏢</div>
                                                                 <div>
-                                                                    <h3 className="text-lg font-black text-slate-900">{item.entity_name}</h3>
-                                                                    <p className="text-xs text-slate-500 font-bold">{formatDate(item.created_at)}</p>
+                                                                    <h3 className="font-bold text-slate-900 text-sm">{item.entity_name}</h3>
+                                                                    <p className="text-[10px] text-slate-400 font-medium">{formatDate(item.created_at)}</p>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex items-center space-x-1 bg-white px-3 py-1.5 rounded-full border border-slate-200">
-                                                                {[...Array(5)].map((_, i) => (<span key={i} className={i < item.rating ? "text-amber-400" : "text-slate-200"}>★</span>))}
+                                                            <div className="flex items-center space-x-0.5">
+                                                                {[...Array(5)].map((_, i) => (<span key={i} className={`text-sm ${i < item.rating ? "text-amber-400" : "text-slate-200"}`}>★</span>))}
                                                             </div>
                                                         </div>
-                                                        <div className="mt-4 text-slate-600 font-medium italic">"{item.comment}"</div>
+                                                        <div className="mt-2.5 pl-11">
+                                                            <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50/50 p-2.5 rounded-lg border border-slate-100/50 italic">"{item.comment}"</p>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -332,5 +299,23 @@ const UserDashboard = ({ user, onClose }) => {
         </div>
     );
 };
+
+const TabButton = ({ active, onClick, icon, label, count }) => (
+    <button
+        onClick={onClick}
+        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${active ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-600 hover:bg-white'}`}
+    >
+        {icon}
+        <span>{label}</span>
+        {count > 0 && <span className={`ml-auto px-2 py-0.5 rounded-md text-[10px] ${active ? 'bg-purple-500 text-white' : 'bg-slate-200 text-slate-700'}`}>{count}</span>}
+    </button>
+);
+
+const EmptyState = ({ icon, message }) => (
+    <div className="py-20 text-center border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
+        <div className="flex items-center justify-center text-slate-300 mb-4">{icon}</div>
+        <h3 className="text-lg font-bold text-slate-900">{message}</h3>
+    </div>
+);
 
 export default UserDashboard;
