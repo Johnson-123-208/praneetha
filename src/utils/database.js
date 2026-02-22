@@ -7,7 +7,20 @@
  * is always readable by the dashboard.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api' : 'http://localhost:5000/api');
+const getApiUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) return envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+
+  // If running locally, default to 5000
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:5000/api';
+  }
+
+  // Default to relative if nothing else
+  return '/api';
+};
+
+const API_URL = getApiUrl();
 
 // --- Static Fallback Data (Matches Backend Seed) ---
 const MOCK_COMPANIES = [

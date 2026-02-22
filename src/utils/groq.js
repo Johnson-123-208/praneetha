@@ -150,8 +150,13 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
         }),
       });
 
+      if (!followUpResponse.ok) {
+        console.warn('⚠️ Groq follow-up failed (possibly rate limited). Using first response.');
+        return cleanInternalCommands(assistantMessage);
+      }
+
       const followUpData = await followUpResponse.json();
-      return followUpData.choices[0]?.message?.content || assistantMessage;
+      return followUpData.choices?.[0]?.message?.content || cleanInternalCommands(assistantMessage);
     }
 
     return assistantMessage;
