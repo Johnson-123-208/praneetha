@@ -8,8 +8,13 @@
  */
 
 const getApiUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl) return envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+  let envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    if (envUrl.endsWith('/')) envUrl = envUrl.slice(0, -1);
+    // Ensure /api suffix is present for consistency with backend routes
+    if (!envUrl.endsWith('/api')) envUrl += '/api';
+    return envUrl;
+  }
 
   // If running locally, default to 5000
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
