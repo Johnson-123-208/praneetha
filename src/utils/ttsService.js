@@ -41,6 +41,20 @@ export const ttsService = {
      * Azure Neural Voice Logic
      */
     async speakAzure(text, language) {
+        // XML Escape helper to prevent 400 errors from special characters like '&'
+        const escapeXml = (unsafe) => {
+            return unsafe.replace(/[<>&"']/g, (c) => {
+                switch (c) {
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '&': return '&amp;';
+                    case '"': return '&quot;';
+                    case "'": return '&apos;';
+                    default: return c;
+                }
+            });
+        };
+
         const voiceMap = {
             'te-IN': 'te-IN-ShrutiNeural',
             'te': 'te-IN-ShrutiNeural',
@@ -56,7 +70,9 @@ export const ttsService = {
 
         const url = `https://${this.AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`;
 
-        const ssml = `<speak version='1.0' xml:lang='${langCode}'><voice xml:lang='${langCode}' xml:gender='Female' name='${voiceName}'>${text}</voice></speak>`;
+        // ADDED xmlns attribute and escaped the text
+        const safeText = escapeXml(text);
+        const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${langCode}'><voice name='${voiceName}'>${safeText}</voice></speak>`;
 
         console.log(`☁️ [Azure TTS] Requesting: ${voiceName}`);
 
