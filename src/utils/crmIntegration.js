@@ -7,7 +7,18 @@ const getLocal = (key) => {
     try { return JSON.parse(localStorage.getItem(`callix_${key}`)) || []; }
     catch { return []; }
 };
+// --- Deduplication Cache ---
+const recentCache = new Set();
+const dedupe = (data) => {
+    const key = JSON.stringify(data);
+    if (recentCache.has(key)) return true;
+    recentCache.add(key);
+    setTimeout(() => recentCache.delete(key), 10000); // 10s dedupe window
+    return false;
+};
+
 const saveLocal = (key, data) => {
+    if (dedupe(data)) return;
     const existing = getLocal(key);
     const newEntry = {
         ...data,
@@ -49,6 +60,7 @@ export const crmIntegration = {
      * Create or update appointment
      */
     async syncAppointment(appointmentData) {
+        if (dedupe(appointmentData)) return { success: true, message: 'Duplicate blocked' };
         try {
             const res = await fetch(`${API_URL}/appointments`, {
                 method: 'POST',
@@ -73,6 +85,7 @@ export const crmIntegration = {
      * Create or update order
      */
     async syncOrder(orderData) {
+        if (dedupe(orderData)) return { success: true, message: 'Duplicate blocked' };
         try {
             const res = await fetch(`${API_URL}/orders`, {
                 method: 'POST',
@@ -97,6 +110,7 @@ export const crmIntegration = {
      * Save feedback to CRM
      */
     async syncFeedback(feedbackData) {
+        if (dedupe(feedbackData)) return { success: true, message: 'Duplicate blocked' };
         try {
             const res = await fetch(`${API_URL}/feedback`, {
                 method: 'POST',

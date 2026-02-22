@@ -21,9 +21,24 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const [pulseScale, setPulseScale] = useState(1);
   const [isUserTalking, setIsUserTalking] = useState(false);
 
+  // Helper to get name from user object or email
+  const getNameFromUser = (u) => {
+    if (!u) return '';
+    if (u.user_metadata?.full_name) return u.user_metadata.full_name;
+    if (u.email) {
+      // Extract part before @, replace dots/underscores with space, and capitalize words
+      const namePart = u.email.split('@')[0];
+      return namePart
+        .split(/[._]/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    }
+    return '';
+  };
+
   // Advanced conversation state
-  const [convoPhase, setConvoPhase] = useState(user?.user_metadata?.full_name ? 'chatting' : 'intro');
-  const [userName, setUserName] = useState(user?.user_metadata?.full_name || '');
+  const [convoPhase, setConvoPhase] = useState(getNameFromUser(user) ? 'chatting' : 'intro');
+  const [userName, setUserName] = useState(getNameFromUser(user));
   const [userEmail, setUserEmail] = useState(user?.email || '');
   const [sessionId] = useState(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [selectedLanguage, setSelectedLanguage] = useState({ code: 'en-IN', name: 'English' });
@@ -110,8 +125,10 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   // Sync with user prop if logged in
   useEffect(() => {
     if (user) {
-      setUserName(user.user_metadata?.full_name || '');
+      const derivedName = getNameFromUser(user);
+      setUserName(derivedName);
       setUserEmail(user.email || '');
+      if (derivedName) setConvoPhase('chatting');
     }
   }, [user]);
 
@@ -350,31 +367,31 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         default: "I'm here to assist you with all your professional queries today."
       },
       'en-IN': {
-        hospital: "I can help you explore our registry of 15+ doctors, check their consultation fees, specialty availability (Cardiology to Pediatrics), and book appointments instantly.",
-        restaurant: "I can present our full continental and Indian menu, provide budget-friendly recommendations for groups or couples, and reserve your table instantly.",
-        ecommerce: "I can provide updated pricing for the latest iPhone, MacBook, and Sony devices, book your orders directly, and track your shipment status.",
-        tech_mahindra: "I can guide you through our 12+ open roles (like React Dev or ML Engineer), explain our remote-first culture and 4-day work week, and schedule your interview.",
-        voxsphere: "I can guide you through our open roles, work culture, and help you schedule a recruitment interview.",
-        agile_it: "I can help with career queries, role descriptions, culture insights, and direct interview scheduling.",
-        default: "I'm here to assist you with all your professional queries today."
+        hospital: "Namaste! I am Callix, your AI assistant for Aarogya Hospital. I am here to help you explore our registry of 15+ doctors, check consultation fees, and book your appointments instantly. How can I assist you today?",
+        restaurant: "Namaste! I am Callix, your host for Spice Garden. I can present our multi-cuisine menu, recommend combos, and reserve your table instantly. How can I help with your dining plans?",
+        ecommerce: "Hello! I am Callix from QuickKart. I can help you with product pricing, check stock availability for the latest electronics, and track your orders. What can I find for you?",
+        tech_mahindra: "Namaste! I am Callix, your career guide. I can help you explore open roles, explain our global work culture, and schedule your recruitment interview. How can I help your career today?",
+        voxsphere: "Hello! I am Callix. I can walk you through our AI service catalog, pricing plans, and book a personalized demo for you. How can I help your business grow?",
+        agile_it: "Namaste! I am Callix from Agile-IT. I'm here to assist with digital transformation queries and schedule your technical interviews. How can I help you?",
+        default: "Namaste! I am Callix, your professional AI assistant. How can I help you today?"
       },
       'te-IN': {
-        hospital: "నేను డాక్టర్ల లభ్యత, కన్సల్టేషన్ లేదా ఫాలో-అప్ అపాయింట్‌మెంట్‌లను బుక్ చేయడం మరియు విభాగాల సమాచారాన్ని అందించడంలో మీకు సహాయపడగలను.",
-        restaurant: "నేను మీకు మెనూ ధరలు, వెజ్ లేదా నాన్-వెజ్ ఆప్షన్‌లను తనిఖీ చేయడం మరియు టేబుల్ బుక్ చేయడంలో సహాయపడతాను.",
-        ecommerce: "నేను మీ ఆర్డర్‌లను ట్రాక్ చేయగలను, స్టాక్ తనిఖీ చేయగలను, రీఫండ్‌లను నిర్వహించగలను మరియు సపోర్ట్ టిక్కెట్‌లను చూడగలను.",
-        tech_mahindra: "నేను మా బిజినెస్ యూనిట్లు, తాజా ఉద్యోగ అవకాశాలు మరియు మా నాయకత్వ బృందం గురించి సమాచారాన్ని అందించగలను.",
-        voxsphere: "నేను మా AI సేవల కేటలాగ్, ధరల ప్లాన్ వివరాలను వివరించగలను మరియు మీ కోసం డెమో స్లాట్‌ను షెడ్యూల్ చేయగలను.",
-        agile_it: "నేను క్లౌడ్ ఇన్‌ఫ్రాస్ట్రక్చర్ ప్రశ్నలు, డిజిటల్ ట్రాన్స్‌ఫర్మేషన్ సేవలు మరియు మేనేజ్డ్ ఐటి సపోర్ట్‌లో సహాయపడగలను.",
-        default: "నేను ఈరోజు మీ అన్ని ప్రశ్నలకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను."
+        hospital: "నమస్కారం! నేను ఆరోగ్య హాస్పిటల్ AI అసిస్టెంట్ కేలిక్స్. మా వద్ద ఉన్న 15 కంటే ఎక్కువ మంది డాక్టర్ల వివరాలు, ఫీజులు మరియు అపాయింట్‌మెంట్‌లను బుక్ చేయడంలో నేను మీకు సహాయపడగలను. మీకు ఎలా సహాయం చేయాలి?",
+        restaurant: "నమస్కారం! నేను స్పైస్ గార్డెన్ హోస్ట్ కేలిక్స్. మా రుచికరమైన మెనూ ఆర్డర్ల కోసం మరియు టేబుల్ బుకింగ్స్ కోసం నేను మీకు సహాయం చేస్తాను. ఈరోజు మీ ప్లాన్ ఏమిటి?",
+        ecommerce: "నమస్కారం! నేను క్విక్ కార్ట్ అసిస్టెంట్ కేలిక్స్. మీకు కావలసిన ఎలక్ట్రానిక్స్ ధరలు, స్టాక్ వివరాలు మరియు మీ ఆర్డర్లను ట్రాక్ చేయడంలో నేను మీకు సహాయపడతాను.",
+        tech_mahindra: "నమస్కారం! నేను మీ కెరీర్ గైడ్ కేలిక్స్. మా వద్ద ఉన్న ఉద్యోగ అవకాశాలు మరియు ఇంటర్వ్యూలను షెడ్యూల్ చేయడంలో నేను మీకు సహాయపడగలను.",
+        voxsphere: "నమస్కారం! నేను కేలిక్స్. మా AI సర్వీసెస్ మరియు ధరల వివరాల కోసం నేను మీకు సహాయం చేస్తాను. మీకు డెమో స్లాట్ కావాలా?",
+        agile_it: "నమస్కారం! నేను ఎజైల్-ఐటీ నుండి కేలిక్స్. మీ టెక్నికల్ ఇంటర్వ్యూలు మరియు ఐటీ సర్వీసుల కోసం నేను మీకు సహాయం చేయగలను.",
+        default: "నమస్కారం! నేను కేలిక్స్, మీ ప్రొఫెషనల్ AI అసిస్టెంట్. నేను మీకు ఎలా సహాయపడగలను?"
       },
       'hi-IN': {
-        hospital: "मैं डॉक्टरों की उपलब्धता, परामर्श या फॉलो-अप अपॉइंटमेंट बुक करने और विभाग की संपर्क जानकारी प्रदान करने में आपकी सहायता कर सकता हूँ।",
-        restaurant: "मैं मेनू की कीमतों, वेज या नॉन-वेज विकल्पों की जाँच करने और आपकी यात्रा के लिए टेबल बुक करने में आपकी मदद कर सकता हूँ।",
-        ecommerce: "मैं आपके ऑर्डर ट्रैक कर सकता हूँ, स्टॉक की जाँच कर सकता हूँ, रिफंड प्रबंधित कर सकता हूँ और सपोर्ट टिकट संभाल सकता हूँ।",
-        tech_mahindra: "मैं हमारी व्यावसायिक इकाइयों के बारे में जानकारी दे सकता हूँ, नवीनतम नौकरियों के अवसर साझा कर सकता हूँ और हमारी नेतृत्व टीम के बारे में बता सकता हूँ।",
-        voxsphere: "मैं हमारे AI सेवा कैटलॉग को समझा सकता हूँ, मूल्य निर्धारण योजना का विवरण दे सकता हूँ और आपके लिए एक डेमो स्लॉट शेड्यूल कर सकता हूँ।",
-        agile_it: "मैं क्लाउड इंफ्रास्ट्रक्चर प्रश्नों, डिजिटल परिवर्तन सेवाओं और प्रबंधित आईटी सहायता में मदद कर सकता हूँ।",
-        default: "मैं आज आपके सभी सवालों के समाधान के लिए यहाँ हूँ।"
+        hospital: "नमस्ते! मैं आरोग्य अस्पताल का एआई सहायक कॉलिक्स हूँ। मैं आपको हमारे डॉक्टरों की सूची, फीस और अपॉइंटमेंट बुक करने में मदद कर सकता हूँ। मैं आपकी क्या मदद करूँ?",
+        restaurant: "नमस्ते! मैं स्पाइस गार्डन का होस्ट कॉलिक्स हूँ। मैं आपको मेनू, विशेष कंबोस और टेबल बुक करने में मदद कर सकता हूँ। आज आपकी क्या योजना है?",
+        ecommerce: "नमस्ते! मैं क्विक कार्ट से कॉलिक्स हूँ। मैं आपको उत्पादों की कीमत, उपलब्धता और आपके ऑर्डर ट्रैक करने में मदद कर सकता हूँ।",
+        tech_mahindra: "नमस्ते! मैं आपका करियर सलाहकार कॉलिक्स हूँ। मैं आपको नौकरियों के अवसर और इंटरव्यू शेड्यूल करने में मदद कर सकता हूँ।",
+        voxsphere: "नमस्ते! मैं कॉलिक्स हूँ। मैं हमारी एआई सेवाओं और डेमो स्लॉट बुक करने में आपकी मदद कर सकता हूँ।",
+        agile_it: "नमस्ते! मैं एजाइल-आईटी से कॉलिक्स हूँ। मैं आपकी तकनीकी इंटरव्यू और सेवाओं में मदद कर सकता हूँ।",
+        default: "नमस्ते! मैं कॉलिक्स हूँ, आपका एआई सहायक। मैं आज आपकी क्या मदद कर सकता हूँ?"
       }
     };
 
@@ -713,7 +730,13 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
       setIsThinking(false);
 
       // 2. Clean response for Display & TTS using common utility
-      const finalDisplay = cleanInternalCommands(rawResponse) || (curLang.code.includes('te') ? "సరే, నేను దాన్ని ప్రాసెస్ చేస్తున్నాను." : "Okay, processing that...");
+      const getProcMsg = (lang) => {
+        if (lang.includes('te')) return "సరే, మీ వివరాలను సేవ్ చేస్తున్నాను, దయచేసి ఒక క్షణం ఆగండి...";
+        if (lang.includes('hi')) return "ठीक है, मैं आपकी जानकारी सहेज रहा हूँ, कृपया एक क्षण प्रतीक्षा करें...";
+        return "One moment, I am saving those details for you...";
+      };
+
+      const finalDisplay = cleanInternalCommands(rawResponse) || getProcMsg(curLang.code);
       addMessage('agent', finalDisplay);
 
       const shouldTerminate = rawResponse.toUpperCase().includes('HANG_UP');
@@ -1094,9 +1117,9 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
         {callState === 'connected' && (
           <div className="h-full flex flex-col md:flex-row bg-white">
             {/* Left: Visual Agent */}
-            <div className="md:w-1/2 flex flex-col items-center justify-center p-8 bg-slate-50 border-r border-slate-200 relative">
+            <div className="md:w-1/2 flex flex-col items-center justify-center p-4 md:p-8 bg-slate-50 border-b md:border-b-0 md:border-r border-slate-200 relative shrink-0">
               <div className="relative">
-                {/* Decorative Capsule Background - adjusted for smaller size */}
+                {/* Decorative Capsule Background */}
                 <div className="absolute inset-0 -m-4 bg-gradient-to-b from-slate-100/50 to-white/30 rounded-[80px] blur-xl -z-10 border border-slate-200/50"></div>
 
                 <motion.div
@@ -1109,32 +1132,27 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
                         : "0 15px 35px rgba(0, 0, 0, 0.1)"
                   }}
                   transition={{ duration: 1.5, repeat: Infinity }}
-                  className={`w-48 h-48 md:w-56 md:h-56 aspect-square rounded-full overflow-hidden border-[6px] transition-all duration-500 flex items-center justify-center p-1.5 bg-white ${isSpeaking ? 'border-green-400' : isListening ? 'border-blue-600' : 'border-slate-100'
+                  className={`w-32 h-32 md:w-56 md:h-56 aspect-square rounded-full overflow-hidden border-[4px] md:border-[6px] transition-all duration-500 flex items-center justify-center p-1.5 bg-white ${isSpeaking ? 'border-green-400' : isListening ? 'border-blue-600' : 'border-slate-100'
                     }`}
                 >
                   <img src={agentAvatar} className="w-full h-full object-cover rounded-full shadow-inner" alt="Callix Agent" />
                 </motion.div>
               </div>
 
-              <div className="mt-10 text-center flex flex-col items-center">
-                <h3 className="text-4xl font-black text-slate-900 tracking-tight">Callix</h3>
-                <p className="text-blue-700 font-extrabold uppercase tracking-[0.4em] text-[10px] mt-2 bg-blue-50 px-4 py-1 rounded-full border border-blue-100">
+              <div className="mt-4 md:mt-10 text-center flex flex-col items-center">
+                <h3 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tight">Callix</h3>
+                <p className="text-blue-700 font-extrabold uppercase tracking-[0.2em] md:tracking-[0.4em] text-[8px] md:text-[10px] mt-2 bg-blue-50 px-4 py-1 rounded-full border border-blue-100">
                   {selectedCompany?.name || 'VIRTUAL ASSISTANT'}
                 </p>
 
                 {/* Real-time Indicator & Waveform */}
-                <div className="flex flex-col items-center gap-4 mt-6">
-                  {/* <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 rounded-full border border-green-500/20">
-                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                    <span className="text-[10px] font-black text-green-600 uppercase tracking-widest">Deepgram 100% Native Active</span>
-                  </div> */}
-
+                <div className="flex flex-col items-center gap-2 md:gap-4 mt-4 md:mt-6">
                   {isListening && !isSpeaking && (
-                    <div className="flex items-center gap-1 h-8">
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                    <div className="flex items-center gap-1 h-6 md:h-8">
+                      {[1, 2, 3, 4, 5].map(i => (
                         <motion.div
                           key={i}
-                          animate={{ height: [8, Math.random() * 24 + 8, 8] }}
+                          animate={{ height: [4, Math.random() * 16 + 4, 4] }}
                           transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
                           className="w-1 bg-blue-500 rounded-full"
                         />
@@ -1144,30 +1162,24 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
 
                   <div className="flex flex-col items-center gap-1">
                     <div className="flex flex-col items-center gap-2">
-                      <div className={`px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase flex items-center space-x-2 border transition-all duration-300 ${isSpeaking ? 'bg-green-100 text-green-700 border-green-200' : isThinking ? 'bg-purple-100 text-purple-700 border-purple-200' : isTranscribing ? 'bg-orange-100 text-orange-700 border-orange-200' : isListening ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`} style={{ transform: `scale(${isListening && !isSpeaking ? pulseScale : 1})` }}>
+                      <div className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[8px] md:text-[10px] font-black tracking-widest uppercase flex items-center space-x-2 border transition-all duration-300 ${isSpeaking ? 'bg-green-100 text-green-700 border-green-200' : isThinking ? 'bg-purple-100 text-purple-700 border-purple-200' : isTranscribing ? 'bg-orange-100 text-orange-700 border-orange-200' : isListening ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`} style={{ transform: `scale(${isListening && !isSpeaking ? pulseScale : 1})` }}>
                         <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSpeaking ? 'bg-green-500' : isThinking ? 'bg-purple-500' : isTranscribing ? 'bg-orange-500' : isListening ? 'bg-blue-500' : 'bg-slate-400'}`}></div>
-                        <span>{isSpeaking ? 'Agent Speaking' : isThinking ? 'AI Thinking...' : isTranscribing ? 'Transcribing...' : isListening ? 'Listening' : 'Ready'}</span>
+                        <span>{isSpeaking ? 'Speaking' : isThinking ? 'Thinking' : isTranscribing ? 'Transcribing' : isListening ? 'Listening' : 'Ready'}</span>
                       </div>
-                      {isUserTalking && !isSpeaking && (
-                        <span className="text-[10px] font-bold text-blue-500 animate-bounce">⚡ You are speaking...</span>
-                      )}
                     </div>
-                    {/* {useProSTT && (
-                      <span className="text-[8px] text-blue-400 font-bold uppercase tracking-widest">✨ Pro AI STT Active (Deepgram)</span>
-                    )} */}
                   </div>
                 </div>
 
-                <div className="mt-8 flex items-center space-x-4">
-                  <button onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"} className={`p-4 rounded-full shadow-lg transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}>
-                    {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
+                <div className="mt-4 md:mt-8 flex items-center space-x-3 md:space-x-4">
+                  <button onClick={toggleMute} className={`p-3 md:p-4 rounded-full shadow-lg transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white text-slate-700 hover:bg-slate-100'}`}>
+                    {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
                   </button>
                   {isSpeaking && (
-                    <button onClick={stopAudio} title="Stop Audio" className="p-4 bg-orange-500 text-white rounded-full shadow-lg hover:bg-orange-600 transition-all transform hover:scale-110 animate-bounce">
-                      <VolumeX size={24} />
+                    <button onClick={stopAudio} className="p-3 md:p-4 bg-orange-500 text-white rounded-full shadow-lg hover:bg-orange-600 animate-bounce">
+                      <VolumeX size={20} />
                     </button>
                   )}
-                  <button onClick={endCall} title="End Call" className="p-4 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 transition-all transform hover:scale-110"><PhoneOff size={24} /></button>
+                  <button onClick={endCall} className="p-3 md:p-4 bg-red-600 text-white rounded-full shadow-lg hover:bg-red-700 transform hover:scale-110"><PhoneOff size={20} /></button>
                 </div>
               </div>
             </div>
