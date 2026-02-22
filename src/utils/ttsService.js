@@ -19,9 +19,12 @@ export const ttsService = {
         try {
             this.stop(); // Stop any previous audio
 
-            // Map short codes back to names if the server expects them, 
-            // or keep them short if it's a modern AI server (like Piper/XTTS)
-            const langMap = { 'te': 'Telugu', 'hi': 'Hindi', 'en': 'English' };
+            // Comprehensive language mapping for different backend expectations
+            const langMap = {
+                'te': 'Telugu', 'te-IN': 'Telugu',
+                'hi': 'Hindi', 'hi-IN': 'Hindi',
+                'en': 'English', 'en-IN': 'English', 'en-US': 'English'
+            };
             const fullLanguage = langMap[language] || language;
 
             // FORCE FEMALE - Never let a male ID through

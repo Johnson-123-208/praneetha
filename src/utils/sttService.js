@@ -21,9 +21,9 @@ class STTService {
         try {
             // MATCHING DIAGNOSTIC TOOL CONFIG EXACTLY
             const params = new URLSearchParams({
-                model: 'nova-3',
+                model: 'nova-2',
                 language: lang,
-                smart_format: 'false',
+                smart_format: 'true',
                 punctuate: 'true'
             });
 
@@ -33,18 +33,23 @@ class STTService {
                 method: 'POST',
                 headers: {
                     'Authorization': `Token ${this.deepgramApiKey}`,
-                    'Content-Type': 'audio/webm;codecs=opus',
+                    'Content-Type': 'audio/webm', // Explicitly help Deepgram detect the format
                 },
                 body: audioBlob
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
+                console.error(`❌ Deepgram API Error (${response.status}):`, errorText);
                 throw new Error(`Deepgram API ${response.status}: ${errorText}`);
             }
 
             const data = await response.json();
             const transcript = data.results?.channels[0]?.alternatives[0]?.transcript;
+
+            if (!transcript) {
+                console.warn("⚠️ Deepgram returned empty transcript. Possible silence or noise issues.");
+            }
 
             return transcript || "";
         } catch (error) {

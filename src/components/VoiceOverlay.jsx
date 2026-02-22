@@ -143,7 +143,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
             console.log("📡 Transcribing with Deepgram...");
             setIsTranscribing(true);
             const text = await sttService.transcribe(audioBlob, curLang.code);
-            console.log(`🎤 Raw Result: "${text}"`);
+            console.log(`🎤 Deepgram Response: "${text}" (Bytes: ${audioBlob.size})`);
             setIsTranscribing(false);
 
             if (text && text.trim().length > 1) {
@@ -214,6 +214,11 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
             const volume = currentDataArray.reduce((num, i) => num + i) / currentDataArray.length;
             setPulseScale(1 + (volume / 255) * 0.4);
             setIsUserTalking(volume > 10);
+
+            // Debug volume trace
+            if (volume > 5 && Math.random() < 0.05) {
+              console.log(`🎙️ Mic Volume Trace: ${volume.toFixed(2)}`);
+            }
           }
         }
         requestAnimationFrame(checkVolume);
@@ -752,78 +757,85 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
 
             const langPrefix = targetLangCode.split('-')[0];
 
-            // 1. EXTENDED BLACKLIST for Male voices
+            // 1. EXTENDED BLACKLIST for Male voices - explicitly blocking 'Mohan' and others
             const isMale = (v) => {
               const n = v.name.toLowerCase();
-              return /male|guy|man|boy|david|mark|ravi|stefan|pavel|deepak|george|paul|richard|thomas|james|robert|marcus|frank|markus|peter|michael|stefen|herman/i.test(n);
+              return /male|guy|man|boy|david|mark|ravi|stefan|pavel|deepak|george|paul|richard|thomas|james|robert|marcus|frank|markus|peter|michael|stefen|herman|mohan|kannan|hemant|madhur|prabhat|kiran|rajesh|suresh|abhishek/i.test(n);
             };
 
-            // 2. WHITELIST: Specifically look for these high-quality female voices
+            // 2. WHITELIST: High-quality female voices for identity consistency
             const femaleKeywords = ['heera', 'neerja', 'shruti', 'kalpana', 'vani', 'sangeeta', 'swara', 'swarata', 'ananya', 'aarti', 'priya', 'female', 'woman', 'zira', 'samantha', 'google hindi', 'google telugu'];
 
             const isFemale = (v) => {
               const n = v.name.toLowerCase();
               if (isMale(v)) return false;
-              // If it's in the whitelist or doesn't have male keywords, assume female
-              return femaleKeywords.some(key => n.includes(key)) || (!/male|guy|man|boy|pavel/i.test(n));
+              // If it's in our known female keywords, it's definitely female
+              if (femaleKeywords.some(key => n.includes(key))) return true;
+              // Otherwise, only accept if it doesn't sound male and isn't a known male name (Safety Valve)
+              return !/male|guy|man|boy|pavel|mohan|kannan/i.test(n);
             };
 
             const allFemale = voices.filter(v => isFemale(v));
             if (allFemale.length === 0) return voices[0];
 
-            // 3. THE "ONE VOICE" POLICY: Prioritize Heera for that consistent Callix persona
-            const heera = allFemale.find(v => v.name.includes('Heera'));
-            const neerja = allFemale.find(v => v.name.includes('Neerja'));
-            const anyIndianFemale = allFemale.find(v => v.lang.includes('IN'));
+            // 3. SELECTION LOGIC
+            const preferred = ['heera', 'neerja', 'shruti', 'vani'];
+            let chosen = null;
 
-            // A. Try native female voice for the language
-            let chosen = allFemale.find(v => v.lang.startsWith(langPrefix));
+            // A. TRY NATIVE FEMALE FIRST (Find ANY female voice matching the selected language)
+            chosen = allFemale.find(v => v.lang.startsWith(langPrefix));
 
-            // B. Fallback to the "Master Voice" (Heera/Neerja) to ensure female identity
-            if (!chosen || !chosen.lang.startsWith(langPrefix)) {
-              chosen = heera || neerja || anyIndianFemale || allFemale[0];
+            // B. PROXIMITY CHECK: If multiple native voices, prioritize high-quality ones (Online/Natural)
+            if (chosen) {
+              const highQualityNative = allFemale.find(v => v.lang.startsWith(langPrefix) && (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google')));
+              if (highQualityNative) chosen = highQualityNative;
+            }
+
+            // C. MASTER IDENTITY FAILOVER (Only if no native female voice exists on the system)
+            if (!chosen) {
+              console.log(`ℹ️ No native Female ${targetLangCode} voice found. Using Master Identity Fallback.`);
+              for (const key of preferred) {
+                chosen = allFemale.find(v => v.name.toLowerCase().includes(key) && v.lang.includes('IN'));
+                if (chosen) break;
+              }
             }
 
             return chosen || allFemale[0];
           };
 
           window.speechSynthesis.cancel();
-          const voice = getBestVoice();
-          const allVoices = window.speechSynthesis.getVoices();
+          setTimeout(() => {
+            const voice = getBestVoice();
+            const allVoices = window.speechSynthesis.getVoices();
 
-          if (allVoices.length > 0) {
-            console.log(`🌐 Total Voices Found: ${allVoices.length}`);
-            if (voice) {
-              console.log(`🔊 Chosen Voice: ${voice.name} (${voice.lang}) for ${targetLangCode}`);
-              // If we didn't find a native voice, log what we DO have to help optimize
-              if (!voice.lang.startsWith(targetLangCode.split('-')[0])) {
-                console.warn(`⚠️ No native ${targetLangCode} voice found. Available Indian voices:`,
-                  allVoices.filter(v => v.lang.includes('IN')).map(v => `${v.name} (${v.lang})`));
+            if (allVoices.length > 0) {
+              console.log(`🌐 Total Voices Found: ${allVoices.length}`);
+              if (voice) {
+                console.log(`🔊 [Selection] Chosen Voice: ${voice.name} (${voice.lang}) for ${targetLangCode}`);
               }
             }
-          }
-          if (!voice) {
-            console.warn("⚠️ No suitable voice found for", targetLangCode);
-            finishSpeech();
-            return;
-          }
+            if (!voice) {
+              console.warn("⚠️ No suitable voice found for", targetLangCode);
+              finishSpeech();
+              return;
+            }
 
-          console.log(`🔊 [Browser TTS] Using Voice: ${voice.name} (${voice.lang})`);
+            console.log(`🔊 [Browser TTS] Using Voice: ${voice.name} (${voice.lang})`);
 
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.voice = voice;
-          // CRITICAL: Force the utterance lang to match the voice lang exactly.
-          // This prevents the browser from switching to a male system default for the target text.
-          utterance.lang = voice.lang;
-          utterance.pitch = 1.05; // Slightly feminine pitch boost
-          utterance.rate = 1.0;
-          utterance.onend = finishSpeech;
-          utterance.onerror = (e) => {
-            console.error("🔥 Browser TTS Error:", e);
-            finishSpeech();
-          };
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.voice = voice;
+            // CRITICAL: Force utterance lang to voice lang to prevent system defaults
+            utterance.lang = voice.lang;
+            utterance.pitch = 1.1;
+            utterance.rate = 1.0;
+            utterance.onend = finishSpeech;
+            utterance.onerror = (e) => {
+              console.error("🔥 Browser TTS Error:", e);
+              finishSpeech();
+            };
 
-          window.speechSynthesis.speak(utterance);
+            window.speechSynthesis.speak(utterance);
+          }, 50);
         });
     });
   };
