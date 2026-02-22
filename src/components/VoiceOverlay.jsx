@@ -221,7 +221,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
             currentAnalyser.getByteFrequencyData(currentDataArray);
             const volume = currentDataArray.reduce((num, i) => num + i) / currentDataArray.length;
             setPulseScale(1 + (volume / 255) * 0.4);
-            setIsUserTalking(volume > 10); // Standard threshold to avoid room noise interference
+            // console.log(`🎙️ Mic Volume Trace: ${volume.toFixed(2)}`); // Debug trace
+            setIsUserTalking(volume > 15); // Increased to 15 to avoid false triggers from ambient room noise seen in logs
 
             // Debug volume trace
             if (volume > 5 && Math.random() < 0.05) {
@@ -762,104 +763,67 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
             const voices = window.speechSynthesis.getVoices();
             if (voices.length === 0) return null;
 
-            const langPrefix = targetLangCode.split('-')[0];
-
-            // 1. EXTENDED BLACKLIST for Male voices - explicitly blocking 'Mohan' and others
-            const isMale = (v) => {
-              const n = v.name.toLowerCase();
-              return /male|guy|man|boy|david|mark|ravi|stefan|pavel|deepak|george|paul|richard|thomas|james|robert|marcus|frank|markus|peter|michael|stefen|herman|mohan|kannan|hemant|madhur|prabhat|kiran|rajesh|suresh|abhishek/i.test(n);
-            };
-
-            // 2. WHITELIST: High-quality female voices for identity consistency
-            const femaleKeywords = ['heera', 'neerja', 'shruti', 'kalpana', 'vani', 'sangeeta', 'swara', 'swarata', 'ananya', 'aarti', 'priya', 'female', 'woman', 'zira', 'samantha', 'google hindi', 'google telugu', 'telugu', 'hindi', 'india', 'natural', 'online'];
-
-            const isFemale = (v) => {
-              const n = v.name.toLowerCase();
-              if (isMale(v)) return false;
-              // If it's in our known female keywords, it's definitely female
-              if (femaleKeywords.some(key => n.includes(key))) return true;
-              // Otherwise, only accept if it doesn't sound male and isn't a known male name (Safety Valve)
-              return !/male|guy|man|boy|pavel|mohan|kannan/i.test(n);
-            };
-
-            const allFemale = voices.filter(v => isFemale(v));
-            if (allFemale.length === 0) return voices[0];
-
-            // 3. SELECTION LOGIC
-            const preferred = ['heera', 'neerja', 'shruti', 'vani'];
+            const target = targetLangCode.toLowerCase();
             let chosen = null;
 
-            const isMatch = (v) => {
-              const vLang = v.lang.toLowerCase();
-              const vName = v.name.toLowerCase();
-              // inclusive check as requested for 'te', 'hi', etc.
-              if (vLang.includes(langPrefix)) return true;
-              if (langPrefix === 'te' && (vLang.includes('te') || vName.includes('telugu'))) return true;
-              return false;
-            };
+            // 1. HARD-LOCK FOR TELUGU
+            if (target.includes('te')) {
+              chosen = voices.find(v =>
+                v.lang.toLowerCase().includes('te') ||
+                v.name.toLowerCase().includes('telugu') ||
+                v.name.includes('తెలుగు')
+              );
+              // Fallback to Hindi if Telugu is missing (Phonetic match)
+              if (!chosen) {
+                console.warn(`🔍 AUDIT: Native Telugu not found in ${voices.length} voices. Listing all available...`);
+                voices.forEach(v => console.log(`   └─ [${v.lang}] ${v.name}`));
 
-            // SMART POLYGLOT VOICE SELECTION
-            const isNativeTe = (v) => v.lang.toLowerCase().includes('te') || v.name.toLowerCase().includes('telugu') || v.name.includes('తెలుగు');
-            const isNativeHi = (v) => v.lang.toLowerCase().includes('hi') || v.name.toLowerCase().includes('hindi') || v.name.includes('हिंदी');
-            const isNativeEn = (v) => v.lang.toLowerCase().includes('en-in') || v.name.toLowerCase().includes('india') || v.name.toLowerCase().includes('heera');
-
-            // 1. PERFECT MATCH: Look for native language
-            if (targetLangCode === 'te-IN') chosen = voices.find(isNativeTe);
-            else if (targetLangCode === 'hi-IN') chosen = voices.find(isNativeHi);
-            else chosen = voices.find(isNativeEn);
-
-            // 2. SMART POLYGLOT FALLBACK: If Telugu is missing, use Hindi (Polyglot) as it sounds much better than English
-            if (!chosen && targetLangCode === 'te-IN') {
-              chosen = voices.find(isNativeHi);
-              if (chosen) console.log("🇮🇳 [Polyglot] Native Telugu missing. Using Hindi engine for phonetic similarity:", chosen.name);
+                chosen = voices.find(v => v.lang.toLowerCase().includes('hi') || v.name.toLowerCase().includes('hindi'));
+                if (chosen) console.log("🇮🇳 [Polyglot] Native Telugu missing. Hard-locking to Hindi engine for phonetics:", chosen.name);
+              }
+            }
+            // 2. HARD-LOCK FOR HINDI
+            else if (target.includes('hi')) {
+              chosen = voices.find(v => v.lang.toLowerCase().includes('hi') || v.name.toLowerCase().includes('hindi') || v.name.includes('हिंदी'));
+            }
+            // 3. HARD-LOCK FOR ENGLISH (INDIA)
+            else {
+              chosen = voices.find(v => v.lang.toLowerCase().includes('en-in') || v.name.toLowerCase().includes('india')) || voices.find(v => v.lang.toLowerCase().includes('en'));
             }
 
-            // 3. LAST RESORT: Master Identity
-            if (!chosen) {
-              console.log(`ℹ️ No native or polyglot voice found for ${targetLangCode}. Available:`, Array.from(new Set(voices.map(v => v.lang))));
-              chosen = allFemale.find(v => v.lang.includes('IN')) || allFemale[0];
-            }
-
+            // 4. PREFER FEMALE/NATURAL IF MULTIPLE FOUND
             if (chosen) {
-              console.log(`🔊 [Selection] Locked onto: ${chosen.name} (${chosen.lang})`);
+              const highQuality = voices.find(v =>
+                v.lang.toLowerCase().includes(target.split('-')[0]) &&
+                (v.name.includes('Natural') || v.name.includes('Online'))
+              );
+              if (highQuality) chosen = highQuality;
             }
 
-            return chosen || allFemale[0];
+            return chosen || voices[0];
           };
 
           window.speechSynthesis.cancel();
           setTimeout(() => {
             const voice = getBestVoice();
-            const allVoices = window.speechSynthesis.getVoices();
-
-            if (allVoices.length > 0) {
-              console.log(`🌐 Total Voices Found: ${allVoices.length}`);
-              if (voice) {
-                console.log(`🔊 [Selection] Chosen Voice: ${voice.name} (${voice.lang}) for ${targetLangCode}`);
-              }
-            }
-            if (!voice) {
+            if (voice) {
+              console.log(`🔊 [Selection] Locked onto: ${voice.name} (${voice.lang}) for ${targetLangCode}`);
+              const utterance = new SpeechSynthesisUtterance(text);
+              utterance.voice = voice;
+              utterance.lang = voice.lang;
+              utterance.pitch = 1.1;
+              utterance.rate = 1.0;
+              utterance.onend = finishSpeech;
+              utterance.onerror = (e) => {
+                console.error("🔥 Browser TTS Error:", e);
+                finishSpeech();
+              };
+              window.speechSynthesis.speak(utterance);
+            } else {
               console.warn("⚠️ No suitable voice found for", targetLangCode);
               finishSpeech();
-              return;
             }
-
-            console.log(`🔊 [Browser TTS] Using Voice: ${voice.name} (${voice.lang})`);
-
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.voice = voice;
-            // CRITICAL: Force utterance lang to voice lang to prevent system defaults
-            utterance.lang = voice.lang;
-            utterance.pitch = 1.1;
-            utterance.rate = 1.0;
-            utterance.onend = finishSpeech;
-            utterance.onerror = (e) => {
-              console.error("🔥 Browser TTS Error:", e);
-              finishSpeech();
-            };
-
-            window.speechSynthesis.speak(utterance);
-          }, 50);
+          }, 100);
         });
     });
   };
