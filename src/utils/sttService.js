@@ -22,10 +22,10 @@ class STTService {
             // MATCHING DIAGNOSTIC TOOL CONFIG EXACTLY
             const params = new URLSearchParams({
                 model: 'nova-3',
-                language: lang === 'en' ? 'en-IN' : lang, // Better locale mapping
+                language: lang === 'en' ? 'en-IN' : lang,
                 smart_format: 'true',
                 punctuate: 'true',
-                interaction_type: 'voicemail' // Helps with short utterances
+                interaction_type: 'vapi' // Specifically tuned for voice agents
             });
 
             const url = `https://api.deepgram.com/v1/listen?${params.toString()}`;

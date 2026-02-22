@@ -17,26 +17,29 @@ export const ttsService = {
         if (!this.API_URL) throw new Error("No TTS Server");
 
         try {
-            this.stop(); // Stop any previous audio
+            this.stop(); // Clean up previous buffers
 
-            // Comprehensive language mapping for different backend expectations
+            // Robust language mapping
             const langMap = {
-                'te': 'Telugu', 'te-IN': 'Telugu',
-                'hi': 'Hindi', 'hi-IN': 'Hindi',
-                'en': 'English', 'en-IN': 'English', 'en-US': 'English'
+                'te': 'Telugu', 'te-in': 'Telugu',
+                'hi': 'Hindi', 'hi-in': 'Hindi',
+                'en': 'English', 'en-in': 'English', 'en-us': 'English',
+                'ta': 'Tamil', 'ta-in': 'Tamil'
             };
-            const fullLanguage = langMap[language] || language;
+            const inputLang = language.toLowerCase();
+            const fullLanguage = langMap[inputLang] || (inputLang.charAt(0).toUpperCase() + inputLang.slice(1));
 
-            // FORCE FEMALE - Never let a male ID through
+            // FORCE FEMALE Identity
             const speakerId = 'female';
 
-            console.log(`📡 [TTS Server Request] Lang: ${fullLanguage}, Speaker: ${speakerId}, Text: "${text.substring(0, 30)}..."`);
+            console.log(`📡 [TTS] Calling Server: ${this.API_URL} (${fullLanguage})`);
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 seconds timeout
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for remote servers
 
             const response = await fetch(this.API_URL, {
                 method: 'POST',
+                mode: 'cors', // Explicitly allow cross-origin for production
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -50,7 +53,7 @@ export const ttsService = {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                throw new Error(`Server status ${response.status}`);
+                throw new Error(`TTS Server Error: ${response.status}`);
             }
 
             const audioBlob = await response.blob();
@@ -59,33 +62,39 @@ export const ttsService = {
 
             return new Promise((resolve, reject) => {
                 this.currentAudio.onended = () => {
-                    URL.revokeObjectURL(audioUrl);
-                    this.currentAudio = null;
+                    const url = this.currentAudio.src;
+                    this.stop();
+                    if (url.startsWith('blob:')) URL.revokeObjectURL(url);
                     resolve();
                 };
                 this.currentAudio.onerror = (e) => {
-                    console.error('Audio Playback Error:', e);
-                    this.currentAudio = null;
+                    console.error('❌ TTS Playback Error:', e);
+                    this.stop();
                     reject(e);
                 };
                 this.currentAudio.play().catch(reject);
             });
         } catch (error) {
-            // Silently swallow connection errors if server is down (normal for standalone mode)
-            if (error.name !== 'AbortError') {
-                console.log('💡 [TTS] Local Pro Server not detected. Using high-quality Browser Voice.');
+            if (error.name !== 'AbortError' && this.API_URL) {
+                console.warn('⚠️ TTS Server check failed, falling back to browser voices.');
             }
-            throw error; // Fallback to Browser TTS in VoiceOverlay.jsx
+            throw error; // Triggers browser fallback in VoiceOverlay.jsx
         }
     },
 
     /**
-     * Stops current audio playback
+     * Stops and completely clears current audio playback/memory
      */
     stop() {
         if (this.currentAudio) {
-            this.currentAudio.pause();
-            this.currentAudio.currentTime = 0;
+            try {
+                this.currentAudio.pause();
+                this.currentAudio.src = ""; // Force clear buffer
+                this.currentAudio.load();
+                if (this.currentAudio.srcObject) {
+                    this.currentAudio.srcObject = null;
+                }
+            } catch (e) { }
             this.currentAudio = null;
         }
     }

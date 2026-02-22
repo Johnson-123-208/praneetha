@@ -48,7 +48,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     'en': 'English', 'en-IN': 'English',
     'hi': 'Hindi', 'hi-IN': 'Hindi',
     'te': 'Telugu', 'te-IN': 'Telugu',
-    'ta': 'Tamil', 'ta-IN': 'Tamil',
+    'ta': '', 'ta-IN': 'Tamil',
     'kn': 'Kannada', 'kn-IN': 'Kannada'
   };
 
@@ -118,7 +118,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: false
+          autoGainControl: true // Enabled for better sensitivity on mobile/remote
         }
       });
 
@@ -221,7 +221,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
             currentAnalyser.getByteFrequencyData(currentDataArray);
             const volume = currentDataArray.reduce((num, i) => num + i) / currentDataArray.length;
             setPulseScale(1 + (volume / 255) * 0.4);
-            setIsUserTalking(volume > 10);
+            setIsUserTalking(volume > 3); // Ultra-sensitive threshold for low-volume mics
 
             // Debug volume trace
             if (volume > 5 && Math.random() < 0.05) {
@@ -788,21 +788,36 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
             const preferred = ['heera', 'neerja', 'shruti', 'vani'];
             let chosen = null;
 
+            const isMatch = (v) => {
+              const vLang = v.lang.toLowerCase();
+              const vName = v.name.toLowerCase();
+              if (vLang.startsWith(langPrefix)) return true;
+              if (langPrefix === 'te' && (vLang.includes('te') || vName.includes('telugu'))) return true;
+              if (langPrefix === 'hi' && (vLang.includes('hi') || vName.includes('hindi'))) return true;
+              return false;
+            };
+
             // A. TRY NATIVE FEMALE FIRST (Find ANY female voice matching the selected language)
-            chosen = allFemale.find(v => v.lang.startsWith(langPrefix));
+            chosen = allFemale.find(v => isMatch(v));
 
             // B. PROXIMITY CHECK: If multiple native voices, prioritize high-quality ones (Online/Natural)
             if (chosen) {
-              const highQualityNative = allFemale.find(v => v.lang.startsWith(langPrefix) && (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google')));
+              const highQualityNative = allFemale.find(v => isMatch(v) && (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google')));
               if (highQualityNative) chosen = highQualityNative;
             }
 
-            // C. MASTER IDENTITY FAILOVER (Only if no native female voice exists on the system)
+            // C. MASTER IDENTITY FAILOVER
             if (!chosen) {
-              console.log(`ℹ️ No native Female ${targetLangCode} voice found. Using Master Identity Fallback.`);
-              for (const key of preferred) {
-                chosen = allFemale.find(v => v.name.toLowerCase().includes(key) && v.lang.includes('IN'));
-                if (chosen) break;
+              const nativeFallback = voices.find(v => isMatch(v));
+              if (nativeFallback) {
+                console.log(`ℹ️ Found Native ${targetLangCode} voice but it was marked as Male. Overriding for utility.`);
+                chosen = nativeFallback;
+              } else {
+                console.log(`ℹ️ No native ${targetLangCode} voice found in ${voices.length} voices. Available langs:`, Array.from(new Set(voices.map(v => v.lang))));
+                for (const key of preferred) {
+                  chosen = allFemale.find(v => v.name.toLowerCase().includes(key) && v.lang.includes('IN'));
+                  if (chosen) break;
+                }
               }
             }
 

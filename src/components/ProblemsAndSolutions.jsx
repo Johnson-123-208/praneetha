@@ -10,8 +10,8 @@ const ProblemsAndSolutions = () => {
             icon: Globe,
             problem: "Limited Language Support",
             problemDesc: "Most AI agents only work in English",
-            solution: "7 Languages Supported",
-            solutionDesc: "English, Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi",
+            solution: "Multiple Languages Supported",
+            solutionDesc: "English, Hindi, Telugu",
             color: "from-blue-500 to-cyan-500"
         },
         {
