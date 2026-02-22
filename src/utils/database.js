@@ -7,7 +7,7 @@
  * is always readable by the dashboard.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api' : 'http://localhost:5000/api');
 
 // --- Static Fallback Data (Matches Backend Seed) ---
 const MOCK_COMPANIES = [

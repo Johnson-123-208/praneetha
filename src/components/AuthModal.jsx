@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mail, Lock, User } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api' : 'http://localhost:5000/api');
 
 const AuthModal = ({ isOpen, onClose, onSuccess, mode = 'signin' }) => {
     const [authMode, setAuthMode] = useState(mode);
@@ -179,6 +179,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess, mode = 'signin' }) => {
                                 className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-purple-500 outline-none"
                                 placeholder="••••••••"
                                 minLength={6}
+                                autoComplete="current-password"
                             />
                         </div>
 

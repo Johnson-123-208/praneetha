@@ -3,7 +3,7 @@
  * Automatically falls back to LocalStorage if the Backend API is unavailable.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api' : 'http://localhost:5000/api');
 
 // --- Local Storage Helper (Unified with database.js) ---
 const getLocal = (key) => {

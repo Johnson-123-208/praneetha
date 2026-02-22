@@ -16,7 +16,7 @@ export const scrapeWebsiteData = async (url) => {
         }
 
         // Use backend scraping service to bypass CORS
-        const SCRAPING_SERVICE_URL = 'http://localhost:3001/api/scrape';
+        const SCRAPING_SERVICE_URL = import.meta.env.VITE_SCRAPER_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api/scrape' : 'http://localhost:3001/api/scrape');
 
         console.log(`Sending scraping request to backend for: ${url}`);
 

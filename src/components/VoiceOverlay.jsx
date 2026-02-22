@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mic, MicOff, Phone, PhoneOff, Globe, User, MessageSquare, VolumeX } from 'lucide-react';
-import { chatWithGroq, transcribeAudio, isGroqInitialized } from '../utils/groq';
+import { chatWithGroq, transcribeAudio, isGroqInitialized, cleanInternalCommands } from '../utils/groq.js';
 import { detectLanguage } from '../utils/languageDetection';
 import { crmIntegration } from '../utils/crmIntegration';
 import { ttsService } from '../utils/ttsService';
@@ -34,6 +34,9 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const ringingAudioRef = useRef(null);
   const chatEndRef = useRef(null);
   const sttCleanupRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const dataArrayRef = useRef(null);
 
   const languageLookup = {
     'en-IN': 'en',
@@ -169,13 +172,28 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         }
       };
 
+      // Setup Web Audio API for volume detection (Visual Pulse)
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      const audioContext = audioContextRef.current;
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      dataArrayRef.current = dataArray;
+
       // Start the manual cycle
       mediaRecorder.start();
       setIsListening(true);
       console.log("⏺️ STT Recording Started");
 
-      // SMART FLUSH: 8-second safety window with silence detection
-      // STABILIZED FLUSHER: Fixed 5-second chunks (Industry Standard)
+      // SMART FLUSH: 5-second chunks (Industry Standard)
       const interval = setInterval(() => {
         const { isSpeaking, isMuted, callState, isOpen } = stateRef.current;
         if (mediaRecorderRef.current?.state === 'recording' && !isSpeaking && !isMuted && callState === 'connected' && isOpen) {
@@ -186,13 +204,17 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
 
       const checkVolume = () => {
         const { isOpen: curIsOpen, callState: curCallState } = stateRef.current;
-        if (!curIsOpen || curCallState !== 'connected') return;
+        if (!curIsOpen || curCallState !== 'connected' || !analyserRef.current) return;
 
         if (mediaRecorder.state === 'recording') {
-          analyser.getByteFrequencyData(dataArray);
-          const volume = dataArray.reduce((a, b) => a + b) / dataArray.length;
-          setPulseScale(1 + (volume / 255) * 0.4);
-          setIsUserTalking(volume > 10);
+          const currentAnalyser = analyserRef.current;
+          const currentDataArray = dataArrayRef.current;
+          if (currentAnalyser && currentDataArray) {
+            currentAnalyser.getByteFrequencyData(currentDataArray);
+            const volume = currentDataArray.reduce((num, i) => num + i) / currentDataArray.length;
+            setPulseScale(1 + (volume / 255) * 0.4);
+            setIsUserTalking(volume > 10);
+          }
         }
         requestAnimationFrame(checkVolume);
       };
@@ -201,7 +223,11 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       sttCleanupRef.current = () => {
         try {
           clearInterval(interval);
-          audioContext.close();
+          if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+            audioContextRef.current.close();
+            audioContextRef.current = null;
+          }
+          analyserRef.current = null;
           stream.getTracks().forEach(track => track.stop());
         } catch (e) { }
       };
@@ -629,7 +655,7 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
               ...commonData,
               status: 'completed',
               rating: rating,
-              comment: "Voice Rating"
+              comment: cleanInternalCommands(text) // Save CLEANED comment
             });
             console.log(`✅ Feedback Saved: ${rating} stars`);
           }
@@ -642,14 +668,13 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
 
       setIsThinking(false);
 
-      // 2. Clean response for Display & TTS
-      // (Note: chatWithGroq in groq.js already does most cleaning)
-      const finalDisplay = rawResponse.trim() || (curLang.code === 'te' ? "సరే, నేను దాన్ని ప్రాసెస్ చేస్తున్నాను." : "Okay, processing that...");
+      // 2. Clean response for Display & TTS using common utility
+      const finalDisplay = cleanInternalCommands(rawResponse) || (curLang.code === 'te' ? "సరే, నేను దాన్ని ప్రాసెస్ చేస్తున్నాను." : "Okay, processing that...");
       addMessage('agent', finalDisplay);
 
       const shouldTerminate = rawResponse.toUpperCase().includes('HANG_UP');
 
-      // Speak the response
+      // Speak the cleaned response
       await speak(finalDisplay, curLang.code, shouldTerminate);
 
       // Auto-hangup if keyword was present
@@ -723,33 +748,44 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
           // Fallback: Web Speech API
           const getBestVoice = () => {
             const langPrefix = targetLangCode.split('-')[0];
-            // 1. STRICTLY FEMALE ONLY - Must contain female keywords
-            const isFemale = (name) => /female|woman|samantha|zira|neerja|swarata|shruti|kalpana|vani|kavita|pallavi|hema|ananya|aarti|priya|lekha|madhur|sudha|heera|sangeeta/i.test(name) && !/male|guy|man|david|mark|ravi/i.test(name);
+            // 1. STRICTLY FEMALE ONLY - Must contain female keywords or NOT contain male keywords
+            const isFemale = (name) => {
+              const n = name.toLowerCase();
+              if (/male|guy|man|david|mark|ravi|stefan|pavel|deepak/i.test(n)) return false;
+              // If it's a known female name or has "Female" in it, it's definitely female
+              if (/female|woman|samantha|zira|neerja|swarata|shruti|kalpana|vani|kavita|pallavi|hema|ananya|aarti|priya|lekha|madhur|sudha|heera|sangeeta|google|natural/i.test(n)) return true;
+              // Default to true for unknown name patterns if no male keyword is present
+              return true;
+            };
 
             // 1. Try to find a native Indian voice for the SPECIFIC language (STRICTLY FEMALE)
             let v = availableVoices.find(v => v.lang.startsWith(langPrefix) && isFemale(v.name));
 
             // 2. Specific Telugu/Hindi keyword matches for generic voices
-            if (!v && langPrefix === 'te') v = availableVoices.find(v => (v.name.includes('Shruti') || v.name.includes('Vani')) && isFemale(v.name));
-            if (!v && langPrefix === 'hi') v = availableVoices.find(v => (v.name.includes('Hema') || v.name.includes('Kalpana')) && isFemale(v.name));
+            if (!v && langPrefix === 'te') v = availableVoices.find(v => (v.name.includes('Telugu') || v.name.includes('Shruti') || v.name.includes('Vani')) && isFemale(v.name));
+            if (!v && langPrefix === 'hi') v = availableVoices.find(v => (v.name.includes('Hindi') || v.name.includes('Hema') || v.name.includes('Kalpana')) && isFemale(v.name));
 
-            // 3. If no native language, try Generic Indian English FEMALE (Neerja/Sangeeta)
+            // 3. Fallback: Any voice matching the language exactly (ignoring gender if needed)
+            if (!v) v = availableVoices.find(v => v.lang.startsWith(langPrefix));
+
+            // 4. If no native language, try Generic Indian English FEMALE (Neerja/Sangeeta)
             if (!v) v = availableVoices.find(v => v.lang.includes('IN') && isFemale(v.name));
 
-            // 3. Fallback: Any Female English (India/UK/Global) - AVOID US if possible
+            // 5. Fallback: Any Female English (India/UK/Global)
             if (!v) v = availableVoices.find(v => !v.lang.includes('US') && isFemale(v.name));
 
-            // 4. Final Shield: Any female voice at all
-            if (!v) v = availableVoices.find(v => isFemale(v.name));
-
-            // 5. Ultimate Fallback: Just something that isn't known to be male
-            if (!v) v = availableVoices.find(v => !/male|guy|man|david|mark|ravi/i.test(v.name)) || availableVoices[0];
+            // 6. Last Ditch: Any voice at all
+            if (!v) v = availableVoices[0];
 
             return v;
           };
 
           window.speechSynthesis.cancel();
           const voice = getBestVoice();
+          if (availableVoices.length > 0) {
+            console.log(`🌐 Total Voices Found: ${availableVoices.length}`);
+            console.log(`🔊 Chosen Voice: ${voice?.name || 'None'} for ${targetLangCode}`);
+          }
           if (!voice) {
             console.warn("⚠️ No suitable voice found for", targetLangCode);
             finishSpeech();

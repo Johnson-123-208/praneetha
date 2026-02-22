@@ -3,6 +3,19 @@ import { processQuestionLocally, detectAction, extractAppointmentDetails, extrac
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_AUDIO_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
+
+// Cleanup utility for internal markers (Exposed for UI & Internal use)
+export const cleanInternalCommands = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/^(Callix|Agent|Assistant|System):\s*/i, '')
+    .replace(/\b(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_RATING|COLLECT_FEEDBACK|COLLECT_)\b.*$/gim, '')
+    .replace(/\b(TRACE_ORDER|HANG_UP)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+
 let apiKey = null;
 
 /**
@@ -110,20 +123,6 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
     // Check if the response indicates a function call need
     const functionMatch = detectFunctionCall(assistantMessage, companyContext);
 
-    // Cleanup utility for internal markers
-    const cleanInternalCommands = (text) => {
-      return text
-        .replace(/^(Callix|Agent|Assistant|System):\s*/i, '')
-        .replace(/\bBOOK_APPOINTMENT\b.*$/gim, '')
-        .replace(/\bBOOK_TABLE\b.*$/gim, '')
-        .replace(/\bBOOK_ORDER\b.*$/gim, '')
-        .replace(/\bCOLLECT_RATING\b.*$/gim, '')
-        .replace(/\bCOLLECT_FEEDBACK\b.*$/gim, '')
-        .replace(/\bTRACE_ORDER\b/gi, '')
-        .replace(/\bHANG_UP\b/gi, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-    };
 
     if (functionMatch) {
       const result = await executeFunctionCall(functionMatch);
@@ -152,11 +151,10 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
       });
 
       const followUpData = await followUpResponse.json();
-      const finalResponse = followUpData.choices[0]?.message?.content || assistantMessage;
-      return cleanInternalCommands(finalResponse);
+      return followUpData.choices[0]?.message?.content || assistantMessage;
     }
 
-    return cleanInternalCommands(assistantMessage);
+    return assistantMessage;
   } catch (error) {
     console.error('Error chatting with Groq:', error);
     throw error;

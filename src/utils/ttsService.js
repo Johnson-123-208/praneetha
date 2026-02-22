@@ -3,7 +3,7 @@
  */
 export const ttsService = {
     // Update this to your local server IP/Port
-    API_URL: 'http://localhost:8000/tts',
+    API_URL: import.meta.env.VITE_TTS_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:8000/tts' : null),
     currentAudio: null,
 
     /**
@@ -14,6 +14,7 @@ export const ttsService = {
      */
     async speak(text, language, gender = 'female') {
         if (!text) return;
+        if (!this.API_URL) throw new Error("No TTS Server");
 
         try {
             this.stop(); // Stop any previous audio
@@ -29,7 +30,7 @@ export const ttsService = {
             console.log(`📡 [TTS Server Request] Lang: ${fullLanguage}, Speaker: ${speakerId}, Text: "${text.substring(0, 30)}..."`);
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5 seconds timeout
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 seconds timeout
 
             const response = await fetch(this.API_URL, {
                 method: 'POST',
