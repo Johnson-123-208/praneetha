@@ -747,48 +747,44 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
         .catch(() => {
           // Fallback: Web Speech API
           const getBestVoice = () => {
-            const langPrefix = targetLangCode.split('-')[0];
-            // 1. STRICTLY FEMALE ONLY - Must contain female keywords or NOT contain male keywords
-            const isFemale = (name) => {
-              const n = name.toLowerCase();
-              if (/male|guy|man|david|mark|ravi|stefan|pavel|deepak/i.test(n)) return false;
-              // If it's a known female name or has "Female" in it, it's definitely female
-              if (/female|woman|samantha|zira|neerja|swarata|shruti|kalpana|vani|kavita|pallavi|hema|ananya|aarti|priya|lekha|madhur|sudha|heera|sangeeta|google|natural/i.test(n)) return true;
-              return true;
-            };
-
             const voices = window.speechSynthesis.getVoices();
             if (voices.length === 0) return null;
 
-            // 1. Try to find a native Indian voice for the SPECIFIC language (STRICTLY FEMALE)
-            // Handle both 'te' and 'tel' for Telugu
-            const isMatch = (v) => {
-              const vLang = v.lang.toLowerCase();
-              if (vLang.startsWith(langPrefix)) return true;
-              if (langPrefix === 'te' && vLang.startsWith('tel')) return true;
-              if (langPrefix === 'hi' && vLang.startsWith('hin')) return true;
-              return false;
+            const langPrefix = targetLangCode.split('-')[0];
+
+            // 1. EXTENDED BLACKLIST for Male voices
+            const isMale = (v) => {
+              const n = v.name.toLowerCase();
+              return /male|guy|man|boy|david|mark|ravi|stefan|pavel|deepak|george|paul|richard|thomas|james|robert|marcus|frank|markus|peter|michael|stefen|herman/i.test(n);
             };
 
-            let v = voices.find(v => isMatch(v) && isFemale(v.name));
+            // 2. WHITELIST: Specifically look for these high-quality female voices
+            const femaleKeywords = ['heera', 'neerja', 'shruti', 'kalpana', 'vani', 'sangeeta', 'swara', 'swarata', 'ananya', 'aarti', 'priya', 'female', 'woman', 'zira', 'samantha', 'google hindi', 'google telugu'];
 
-            // 2. Specific keyword matches for Telugu/Hindi if language code didn't match (STRICTLY FEMALE)
-            if (!v && langPrefix === 'te') v = voices.find(v => (v.name.includes('Telugu') || v.name.includes('Shruti') || v.name.includes('Vani')) && isFemale(v.name));
-            if (!v && langPrefix === 'hi') v = voices.find(v => (v.name.includes('Hindi') || v.name.includes('Hema') || v.name.includes('Kalpana')) && isFemale(v.name));
+            const isFemale = (v) => {
+              const n = v.name.toLowerCase();
+              if (isMale(v)) return false;
+              // If it's in the whitelist or doesn't have male keywords, assume female
+              return femaleKeywords.some(key => n.includes(key)) || (!/male|guy|man|boy|pavel/i.test(n));
+            };
 
-            // 3. Fallback: Any voice matching the language exactly
-            if (!v) v = voices.find(v => isMatch(v));
+            const allFemale = voices.filter(v => isFemale(v));
+            if (allFemale.length === 0) return voices[0];
 
-            // 4. If no native language, try Generic Indian English FEMALE (Heera/Neerja/Sangeeta)
-            if (!v) v = voices.find(v => v.lang.includes('IN') && isFemale(v.name));
+            // 3. THE "ONE VOICE" POLICY: Prioritize Heera for that consistent Callix persona
+            const heera = allFemale.find(v => v.name.includes('Heera'));
+            const neerja = allFemale.find(v => v.name.includes('Neerja'));
+            const anyIndianFemale = allFemale.find(v => v.lang.includes('IN'));
 
-            // 5. Fallback: Any Female English
-            if (!v) v = voices.find(v => !v.lang.includes('US') && isFemale(v.name));
+            // A. Try native female voice for the language
+            let chosen = allFemale.find(v => v.lang.startsWith(langPrefix));
 
-            // 6. Last Ditch: Any matching language, then first available
-            if (!v) v = voices.find(v => isMatch(v)) || voices[0];
+            // B. Fallback to the "Master Voice" (Heera/Neerja) to ensure female identity
+            if (!chosen || !chosen.lang.startsWith(langPrefix)) {
+              chosen = heera || neerja || anyIndianFemale || allFemale[0];
+            }
 
-            return v;
+            return chosen || allFemale[0];
           };
 
           window.speechSynthesis.cancel();
@@ -816,14 +812,14 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
 
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.voice = voice;
-          // Set lang to the target language (e.g. te-IN) even if voice is en-IN
-          // This often triggers the browser's language-specific engine if the voice is multilingual
-          utterance.lang = targetLangCode;
-          utterance.pitch = 1.1;
+          // CRITICAL: Force the utterance lang to match the voice lang exactly.
+          // This prevents the browser from switching to a male system default for the target text.
+          utterance.lang = voice.lang;
+          utterance.pitch = 1.05; // Slightly feminine pitch boost
           utterance.rate = 1.0;
           utterance.onend = finishSpeech;
           utterance.onerror = (e) => {
-            console.error("Browser TTS Error:", e);
+            console.error("🔥 Browser TTS Error:", e);
             finishSpeech();
           };
 
