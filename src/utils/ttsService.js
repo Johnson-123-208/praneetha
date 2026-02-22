@@ -19,14 +19,14 @@ export const ttsService = {
         try {
             this.stop(); // Clean up previous buffers
 
-            // Robust language mapping
+            // Robust language mapping for XTTS (prefers ISO codes)
             const langMap = {
-                'te': 'Telugu', 'te-in': 'Telugu', 'te-IN': 'Telugu',
-                'hi': 'Hindi', 'hi-in': 'Hindi', 'hi-IN': 'Hindi',
-                'en': 'English', 'en-in': 'English', 'en-us': 'English',
-                'ta': 'Tamil', 'ta-in': 'Tamil'
+                'te-in': 'te', 'te-IN': 'te', 'te': 'te',
+                'hi-in': 'hi', 'hi-IN': 'hi', 'hi': 'hi',
+                'en-in': 'en', 'en-us': 'en', 'en': 'en',
+                'ta-in': 'ta', 'ta': 'ta'
             };
-            const fullLanguage = langMap[language] || (language.charAt(0).toUpperCase() + language.slice(1));
+            const fullLanguage = langMap[language] || language;
 
             // LOG SCRIPT CHECK: XTTS fails if text contains mixed scripts
             const hasEnglishMatch = text.match(/[a-zA-Z]/g);

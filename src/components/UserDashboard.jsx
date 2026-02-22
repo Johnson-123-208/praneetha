@@ -9,7 +9,7 @@ const UserDashboard = ({ user, onClose }) => {
     const [bookings, setBookings] = useState([]);
     const [feedback, setFeedback] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('appointments');
+    const [activeTab, setActiveTab] = useState('records');
 
     useEffect(() => {
         if (user) {
@@ -115,25 +115,11 @@ const UserDashboard = ({ user, onClose }) => {
                         <div className="lg:col-span-3 border-r border-slate-200 bg-slate-50/50">
                             <nav className="p-4 space-y-1">
                                 <TabButton
-                                    active={activeTab === 'appointments'}
-                                    onClick={() => setActiveTab('appointments')}
+                                    active={activeTab === 'records'}
+                                    onClick={() => setActiveTab('records')}
                                     icon={<Calendar size={18} />}
-                                    label="Appointments"
-                                    count={appointments.length - bookings.length}
-                                />
-                                <TabButton
-                                    active={activeTab === 'bookings'}
-                                    onClick={() => setActiveTab('bookings')}
-                                    icon={<Utensils size={18} />}
-                                    label="Table Bookings"
-                                    count={bookings.length}
-                                />
-                                <TabButton
-                                    active={activeTab === 'orders'}
-                                    onClick={() => setActiveTab('orders')}
-                                    icon={<ShoppingBag size={18} />}
-                                    label="Orders"
-                                    count={orders.length}
+                                    label="Previous Records"
+                                    count={appointments.length + orders.length}
                                 />
                                 <TabButton
                                     active={activeTab === 'feedback'}
@@ -153,109 +139,70 @@ const UserDashboard = ({ user, onClose }) => {
                                 animate={{ opacity: 1, y: 0 }}
                                 className="p-6 md:p-8"
                             >
-                                {activeTab === 'appointments' && (
+                                {activeTab === 'records' && (
                                     <div>
-                                        <h2 className="text-xl font-bold text-slate-900 mb-6">Your Appointments</h2>
-                                        {appointments.filter(a => a.type !== 'table').length === 0 ? (
-                                            <EmptyState icon={<Calendar size={40} />} message="No upcoming appointments" />
+                                        <h2 className="text-xl font-bold text-slate-900 mb-6">Your Previous Records</h2>
+                                        {[...appointments, ...orders].length === 0 ? (
+                                            <EmptyState icon={<Package size={40} />} message="No records found" />
                                         ) : (
                                             <div className="space-y-3">
-                                                {appointments.filter(a => a.type !== 'table').map((appointment) => (
-                                                    <div key={appointment._id} className="group p-4 rounded-xl border border-slate-200 flex items-center justify-between hover:border-purple-300 hover:shadow-sm transition-all bg-white">
-                                                        <div className="flex items-center space-x-4">
-                                                            <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center group-hover:bg-purple-50 transition-colors">
-                                                                {appointment.type === 'doctor' ? <Stethoscope size={20} className="text-blue-500" /> : <Calendar size={20} className="text-purple-500" />}
-                                                            </div>
-                                                            <div>
-                                                                <h3 className="font-bold text-slate-900 text-sm">{appointment.entity_name}</h3>
-                                                                <div className="flex items-center space-x-2 mt-1">
-                                                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${getStatusStyle(appointment.status)}`}>{appointment.status}</span>
-                                                                    <span className="text-[10px] text-slate-400 font-medium">Ref: {appointment._id.slice(-6).toUpperCase()}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-right flex flex-col items-end">
-                                                            <div className="flex items-center text-slate-900 font-bold text-sm">
-                                                                <Calendar size={14} className="mr-1.5 text-slate-400" />
-                                                                {formatDate(appointment.date)}
-                                                            </div>
-                                                            <div className="flex items-center text-slate-500 text-xs mt-1">
-                                                                <Clock size={12} className="mr-1 text-slate-400" />
-                                                                {formatTime(appointment.time)}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                                {/* Combine and sort by date/ID */}
+                                                {[...appointments, ...orders].sort((a, b) => (b.created_at || b._id) > (a.created_at || a._id) ? 1 : -1).map((record) => {
+                                                    const isOrder = !!record.item;
+                                                    const isBooking = record.type === 'table';
 
-                                {activeTab === 'bookings' && (
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-900 mb-6">Table Bookings</h2>
-                                        {bookings.length === 0 ? (
-                                            <EmptyState icon={<Utensils size={40} />} message="No table reservations" />
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {bookings.map((booking) => (
-                                                    <div key={booking._id} className="group p-4 rounded-xl border border-slate-200 flex items-center justify-between hover:border-orange-300 hover:shadow-sm transition-all bg-white">
-                                                        <div className="flex items-center space-x-4">
-                                                            <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center group-hover:bg-orange-50 transition-colors">
-                                                                <Utensils size={20} className="text-orange-500" />
-                                                            </div>
-                                                            <div>
-                                                                <h3 className="font-bold text-slate-900 text-sm">{booking.entity_name}</h3>
-                                                                <div className="flex items-center space-x-2 mt-1">
-                                                                    <span className="text-[10px] text-slate-500 font-bold bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">Party of {booking.user_info?.party_size || 1}</span>
-                                                                    <span className="text-[10px] text-slate-400 font-medium tracking-tight">Booking confirmed</span>
+                                                    return (
+                                                        <div key={record._id} className="group p-4 rounded-xl border border-slate-200 flex items-center justify-between hover:border-purple-300 hover:shadow-sm transition-all bg-white font-sans">
+                                                            <div className="flex items-center space-x-4">
+                                                                <div className={`w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center transition-colors ${isOrder ? 'group-hover:bg-green-50' :
+                                                                        isBooking ? 'group-hover:bg-orange-50' :
+                                                                            record.type === 'doctor' ? 'group-hover:bg-blue-50' :
+                                                                                record.type === 'interview' ? 'group-hover:bg-indigo-50' :
+                                                                                    'group-hover:bg-purple-50'
+                                                                    }`}>
+                                                                    {isOrder ? <ShoppingBag size={20} className="text-green-500" /> :
+                                                                        isBooking ? <Utensils size={20} className="text-orange-500" /> :
+                                                                            record.type === 'doctor' ? <Stethoscope size={20} className="text-blue-500" /> :
+                                                                                record.type === 'interview' ? <User size={20} className="text-indigo-500" /> :
+                                                                                    <Calendar size={20} className="text-purple-500" />}
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="font-bold text-slate-900 text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[280px]">
+                                                                        {isOrder ? (record.item) :
+                                                                            record.type === 'doctor' ? `Dr. ${record.person_name} (${record.entity_name})` :
+                                                                                record.type === 'interview' ? `Interview: ${record.person_name} @ ${record.entity_name}` :
+                                                                                    record.entity_name}
+                                                                    </h3>
+                                                                    <div className="flex items-center space-x-2 mt-1">
+                                                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${getStatusStyle(record.status)}`}>
+                                                                            {isBooking ? 'Booked' : record.type === 'interview' ? 'Interview' : record.status}
+                                                                        </span>
+                                                                        <span className="text-[10px] text-slate-400 font-medium tracking-tight">ID: {record._id.slice(-6).toUpperCase()}</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                        <div className="text-right flex flex-col items-end">
-                                                            <div className="flex items-center text-slate-900 font-bold text-sm">
-                                                                <Calendar size={14} className="mr-1.5 text-slate-400" />
-                                                                {formatDate(booking.date)}
-                                                            </div>
-                                                            <div className="flex items-center text-slate-500 text-xs mt-1">
-                                                                <Clock size={12} className="mr-1 text-slate-400" />
-                                                                {formatTime(booking.time)}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {activeTab === 'orders' && (
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-900 mb-6">Your Orders</h2>
-                                        {orders.length === 0 ? (
-                                            <EmptyState icon={<ShoppingBag size={40} />} message="No orders placed" />
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {orders.map((order) => (
-                                                    <div key={order._id} className="group p-4 rounded-xl border border-slate-200 flex items-center justify-between hover:border-green-300 hover:shadow-sm transition-all bg-white">
-                                                        <div className="flex items-center space-x-4">
-                                                            <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center group-hover:bg-green-50 transition-colors">
-                                                                <ShoppingBag size={20} className="text-green-500" />
-                                                            </div>
-                                                            <div>
-                                                                <h3 className="font-bold text-slate-900 text-sm">{order.item}</h3>
-                                                                <div className="flex items-center space-x-2 mt-1">
-                                                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${getStatusStyle(order.status)}`}>{order.status}</span>
-                                                                    <span className="text-[10px] text-slate-400 font-medium">Qty: {order.quantity || 1}</span>
-                                                                </div>
+                                                            <div className="text-right flex flex-col items-end min-w-[100px]">
+                                                                {isOrder ? (
+                                                                    <>
+                                                                        <p className="text-sm font-bold text-slate-900 leading-tight">₹{record.total_price}</p>
+                                                                        <p className="text-[10px] text-slate-400 mt-1 font-medium">Qty: {record.quantity || 1}</p>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <div className="flex items-center text-slate-900 font-bold text-sm tracking-tight">
+                                                                            <Calendar size={14} className="mr-1.5 text-slate-400" />
+                                                                            {formatDate(record.date)}
+                                                                        </div>
+                                                                        <div className="flex items-center text-slate-500 text-xs mt-1">
+                                                                            <Clock size={12} className="mr-1 text-slate-400" />
+                                                                            {formatTime(record.time)}
+                                                                        </div>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
-                                                        <div className="text-right">
-                                                            <p className="text-base font-bold text-slate-900">₹{order.total_price}</p>
-                                                            <p className="text-[10px] text-slate-400 mt-1 font-medium italic">#{order.id?.slice(-8) || order._id?.slice(-8)}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
@@ -270,7 +217,7 @@ const UserDashboard = ({ user, onClose }) => {
                                             <div className="space-y-4">
                                                 {feedback.map((item) => (
                                                     <div key={item._id} className="group p-4 rounded-xl border border-slate-200 bg-white hover:border-amber-300 transition-all shadow-sm">
-                                                        <div className="flex items-start justify-between">
+                                                        <div className="flex items-center justify-between">
                                                             <div className="flex items-center space-x-3">
                                                                 <div className="w-8 h-8 rounded bg-slate-50 border border-slate-100 flex items-center justify-center text-xs group-hover:bg-amber-50 group-hover:border-amber-100 transition-colors">🏢</div>
                                                                 <div>
@@ -281,9 +228,6 @@ const UserDashboard = ({ user, onClose }) => {
                                                             <div className="flex items-center space-x-0.5">
                                                                 {[...Array(5)].map((_, i) => (<span key={i} className={`text-sm ${i < item.rating ? "text-amber-400" : "text-slate-200"}`}>★</span>))}
                                                             </div>
-                                                        </div>
-                                                        <div className="mt-2.5 pl-11">
-                                                            <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50/50 p-2.5 rounded-lg border border-slate-100/50 italic">"{item.comment}"</p>
                                                         </div>
                                                     </div>
                                                 ))}

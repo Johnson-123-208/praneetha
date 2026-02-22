@@ -790,36 +790,33 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
             let chosen = null;
 
             const isMatch = (v) => {
-              const vLang = v.lang.toLowerCase().replace('_', '-');
+              const vLang = v.lang.toLowerCase();
               const vName = v.name.toLowerCase();
+              // inclusive check as requested for 'te', 'hi', etc.
               if (vLang.includes(langPrefix)) return true;
               if (langPrefix === 'te' && (vLang.includes('te') || vName.includes('telugu'))) return true;
               return false;
             };
 
-            // ULTRA-SIMPLIFIED VOICE SELECTION
-            const searchTerms = {
-              'te-IN': ['telugu', 'shruti', 'తెలుగు'],
-              'hi-IN': ['hindi', 'swara', 'kalpana', 'हिंदी'],
-              'en-IN': ['india', 'heera', 'neerja', 'en-in']
-            };
+            // SMART POLYGLOT VOICE SELECTION
+            const isNativeTe = (v) => v.lang.toLowerCase().includes('te') || v.name.toLowerCase().includes('telugu') || v.name.includes('తెలుగు');
+            const isNativeHi = (v) => v.lang.toLowerCase().includes('hi') || v.name.toLowerCase().includes('hindi') || v.name.includes('हिंदी');
+            const isNativeEn = (v) => v.lang.toLowerCase().includes('en-in') || v.name.toLowerCase().includes('india') || v.name.toLowerCase().includes('heera');
 
-            const terms = searchTerms[targetLangCode] || ['female'];
+            // 1. PERFECT MATCH: Look for native language
+            if (targetLangCode === 'te-IN') chosen = voices.find(isNativeTe);
+            else if (targetLangCode === 'hi-IN') chosen = voices.find(isNativeHi);
+            else chosen = voices.find(isNativeEn);
 
-            // 1. Priority: Look for High Quality (Natural/Online) first
-            chosen = voices.find(v =>
-              terms.some(t => v.name.toLowerCase().includes(t)) &&
-              (v.name.includes('Natural') || v.name.includes('Online'))
-            );
-
-            // 2. Secondary: Look for any native voice
-            if (!chosen) {
-              chosen = voices.find(v => terms.some(t => v.name.toLowerCase().includes(t)));
+            // 2. SMART POLYGLOT FALLBACK: If Telugu is missing, use Hindi (Polyglot) as it sounds much better than English
+            if (!chosen && targetLangCode === 'te-IN') {
+              chosen = voices.find(isNativeHi);
+              if (chosen) console.log("🇮🇳 [Polyglot] Native Telugu missing. Using Hindi engine for phonetic similarity:", chosen.name);
             }
 
-            // 3. Last Resort: Any Female voice
+            // 3. LAST RESORT: Master Identity
             if (!chosen) {
-              console.log(`ℹ️ No native ${targetLangCode} voice found in browser. Falling back to default female.`);
+              console.log(`ℹ️ No native or polyglot voice found for ${targetLangCode}. Available:`, Array.from(new Set(voices.map(v => v.lang))));
               chosen = allFemale.find(v => v.lang.includes('IN')) || allFemale[0];
             }
 
