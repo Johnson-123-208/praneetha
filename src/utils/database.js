@@ -85,7 +85,12 @@ export const database = {
   // --- Company management ---
   getCompanies: async () => {
     try {
-      const res = await fetch(`${API_URL}/companies`).catch(() => null);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const res = await fetch(`${API_URL}/companies`, { signal: controller.signal }).catch(() => null);
+      clearTimeout(timeoutId);
+
       if (res && res.ok) return await res.json();
 
       const localCompanies = getLocal('companies');
@@ -97,7 +102,12 @@ export const database = {
 
   getCompany: async (id) => {
     try {
-      const res = await fetch(`${API_URL}/companies/${id}`).catch(() => null);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const res = await fetch(`${API_URL}/companies/${id}`, { signal: controller.signal }).catch(() => null);
+      clearTimeout(timeoutId);
+
       if (res && res.ok) return await res.json();
 
       const all = [...MOCK_COMPANIES, ...getLocal('companies')];
@@ -110,11 +120,16 @@ export const database = {
 
   saveCompany: async (companyData) => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const res = await fetch(`${API_URL}/companies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(companyData)
+        body: JSON.stringify(companyData),
+        signal: controller.signal
       }).catch(() => null);
+      clearTimeout(timeoutId);
 
       if (res && res.ok) return await res.json();
 
@@ -138,7 +153,13 @@ export const database = {
     try {
       let url = `${API_URL}/orders`;
       if (userEmail) url += `?user_email=${userEmail}`;
-      const res = await fetch(url).catch(() => null);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const res = await fetch(url, { signal: controller.signal }).catch(() => null);
+      clearTimeout(timeoutId);
+
       if (res && res.ok) return await res.json();
 
       const local = getLocal('orders');
@@ -163,11 +184,16 @@ export const database = {
     };
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const res = await fetch(`${API_URL}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newOrder)
+        body: JSON.stringify(newOrder),
+        signal: controller.signal
       }).catch(() => null);
+      clearTimeout(timeoutId);
 
       if (res && res.ok) return await res.json();
 
@@ -181,7 +207,12 @@ export const database = {
 
   getOrder: async (id) => {
     try {
-      const res = await fetch(`${API_URL}/orders/${id}`).catch(() => null);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const res = await fetch(`${API_URL}/orders/${id}`, { signal: controller.signal }).catch(() => null);
+      clearTimeout(timeoutId);
+
       if (res && res.ok) return await res.json();
       return getLocal('orders').find(o => o.id === id?.toUpperCase()) || null;
     } catch (error) {
@@ -196,7 +227,12 @@ export const database = {
       if (entityId) url += `entity_id=${entityId}&`;
       if (userEmail) url += `user_email=${userEmail}`;
 
-      const res = await fetch(url).catch(() => null);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const res = await fetch(url, { signal: controller.signal }).catch(() => null);
+      clearTimeout(timeoutId);
+
       if (res && res.ok) return await res.json();
 
       let local = getLocal('appointments');
@@ -224,11 +260,16 @@ export const database = {
     };
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const res = await fetch(`${API_URL}/appointments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newApp)
+        body: JSON.stringify(newApp),
+        signal: controller.signal
       }).catch(() => null);
+      clearTimeout(timeoutId);
 
       if (res && res.ok) return await res.json();
 
@@ -251,7 +292,12 @@ export const database = {
   // --- Doctor management ---
   getDoctors: async (hospitalId) => {
     try {
-      const res = await fetch(`${API_URL}/doctors?hospital_id=${hospitalId}`).catch(() => null);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const res = await fetch(`${API_URL}/doctors?hospital_id=${hospitalId}`, { signal: controller.signal }).catch(() => null);
+      clearTimeout(timeoutId);
+
       if (res && res.ok) return await res.json();
       return getLocal('doctors').filter(d => d.hospital_id === hospitalId);
     } catch (e) {
@@ -275,7 +321,13 @@ export const database = {
     try {
       let url = `${API_URL}/feedback`;
       if (userEmail) url += `?user_email=${encodeURIComponent(userEmail)}`;
-      const res = await fetch(url).catch(() => null);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      const res = await fetch(url, { signal: controller.signal }).catch(() => null);
+      clearTimeout(timeoutId);
+
       if (res && res.ok) return await res.json();
 
       const local = getLocal('feedback');
@@ -299,11 +351,17 @@ export const database = {
     };
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const res = await fetch(`${API_URL}/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newFb)
+        body: JSON.stringify(newFb),
+        signal: controller.signal
       }).catch(() => null);
+      clearTimeout(timeoutId);
+
       if (res && res.ok) return await res.json();
       saveLocal('feedback', newFb);
       return newFb;
