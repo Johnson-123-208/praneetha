@@ -367,31 +367,31 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         default: "I'm here to assist you with all your professional queries today."
       },
       'en-IN': {
-        hospital: "Namaste! I am Callix, your AI assistant for Aarogya Hospital. I am here to help you explore our registry of 15+ doctors, check consultation fees, and book your appointments instantly. How can I assist you today?",
-        restaurant: "Namaste! I am Callix, your host for Spice Garden. I can present our multi-cuisine menu, recommend combos, and reserve your table instantly. How can I help with your dining plans?",
-        ecommerce: "Hello! I am Callix from QuickKart. I can help you with product pricing, check stock availability for the latest electronics, and track your orders. What can I find for you?",
-        tech_mahindra: "Namaste! I am Callix, your career guide. I can help you explore open roles, explain our global work culture, and schedule your recruitment interview. How can I help your career today?",
-        voxsphere: "Hello! I am Callix. I can walk you through our AI service catalog, pricing plans, and book a personalized demo for you. How can I help your business grow?",
-        agile_it: "Namaste! I am Callix from Agile-IT. I'm here to assist with digital transformation queries and schedule your technical interviews. How can I help you?",
-        default: "Namaste! I am Callix, your professional AI assistant. How can I help you today?"
+        hospital: "I can help you explore our registry of 15+ doctors, check consultation fees, and book your appointments instantly.",
+        restaurant: "I can present our multi-cuisine menu, recommend combos, and reserve your table instantly.",
+        ecommerce: "I can help you with product pricing, check stock availability, and track your orders.",
+        tech_mahindra: "I can help you explore open roles, explain our global work culture, and schedule your recruitment interview.",
+        voxsphere: "I can walk you through our AI service catalog, pricing plans, and book a personalized demo for you.",
+        agile_it: "I'm here to assist with digital transformation queries and schedule your technical interviews.",
+        default: "I'm here to assist with all your professional queries today."
       },
       'te-IN': {
-        hospital: "నమస్కారం! నేను ఆరోగ్య హాస్పిటల్ AI అసిస్టెంట్ కేలిక్స్. మా వద్ద ఉన్న 15 కంటే ఎక్కువ మంది డాక్టర్ల వివరాలు, ఫీజులు మరియు అపాయింట్‌మెంట్‌లను బుక్ చేయడంలో నేను మీకు సహాయపడగలను. మీకు ఎలా సహాయం చేయాలి?",
-        restaurant: "నమస్కారం! నేను స్పైస్ గార్డెన్ హోస్ట్ కేలిక్స్. మా రుచికరమైన మెనూ ఆర్డర్ల కోసం మరియు టేబుల్ బుకింగ్స్ కోసం నేను మీకు సహాయం చేస్తాను. ఈరోజు మీ ప్లాన్ ఏమిటి?",
-        ecommerce: "నమస్కారం! నేను క్విక్ కార్ట్ అసిస్టెంట్ కేలిక్స్. మీకు కావలసిన ఎలక్ట్రానిక్స్ ధరలు, స్టాక్ వివరాలు మరియు మీ ఆర్డర్లను ట్రాక్ చేయడంలో నేను మీకు సహాయపడతాను.",
-        tech_mahindra: "నమస్కారం! నేను మీ కెరీర్ గైడ్ కేలిక్స్. మా వద్ద ఉన్న ఉద్యోగ అవకాశాలు మరియు ఇంటర్వ్యూలను షెడ్యూల్ చేయడంలో నేను మీకు సహాయపడగలను.",
-        voxsphere: "నమస్కారం! నేను కేలిక్స్. మా AI సర్వీసెస్ మరియు ధరల వివరాల కోసం నేను మీకు సహాయం చేస్తాను. మీకు డెమో స్లాట్ కావాలా?",
-        agile_it: "నమస్కారం! నేను ఎజైల్-ఐటీ నుండి కేలిక్స్. మీ టెక్నికల్ ఇంటర్వ్యూలు మరియు ఐటీ సర్వీసుల కోసం నేను మీకు సహాయం చేయగలను.",
-        default: "నమస్కారం! నేను కేలిక్స్, మీ ప్రొఫెషనల్ AI అసిస్టెంట్. నేను మీకు ఎలా సహాయపడగలను?"
+        hospital: "నేను మా డాక్టర్ల వివరాలు, ఫీజులు మరియు అపాయింట్‌మెంట్‌లను బుక్ చేయడంలో మీకు సహాయపడగలను.",
+        restaurant: "నేను మా రుచికరమైన మెనూ ఆర్డర్ల కోసం మరియు టేబుల్ బుకింగ్స్ కోసం మీకు సహాయం చేస్తాను.",
+        ecommerce: "నేను మీకు కావలసిన ప్రోడక్ట్స్ ధరలు, స్టాక్ వివరాలు మరియు ఆర్డర్లను ట్రాక్ చేయడంలో సహాయపడతాను.",
+        tech_mahindra: "నేను మా వద్ద ఉన్న ఉద్యోగ అవకాశాలు మరియు ఇంటర్వ్యూలను షెడ్యూల్ చేయడంలో మీకు సహాయపడగలను.",
+        voxsphere: "నేను మా AI సర్వీసెస్ మరియు ధరల వివరాల కోసం మీకు సహాయం చేస్తాను.",
+        agile_it: "నేను మీ టెక్నికల్ ఇంటర్వ్యూలు మరియు ఐటీ సర్వీసుల కోసం సహాయం చేయగలను.",
+        default: "నేను ఈరోజు మీ అన్ని ప్రశ్నలకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను."
       },
       'hi-IN': {
-        hospital: "नमस्ते! मैं आरोग्य अस्पताल का एआई सहायक कॉलिक्स हूँ। मैं आपको हमारे डॉक्टरों की सूची, फीस और अपॉइंटमेंट बुक करने में मदद कर सकता हूँ। मैं आपकी क्या मदद करूँ?",
-        restaurant: "नमस्ते! मैं स्पाइस गार्डन का होस्ट कॉलिक्स हूँ। मैं आपको मेनू, विशेष कंबोस और टेबल बुक करने में मदद कर सकता हूँ। आज आपकी क्या योजना है?",
-        ecommerce: "नमस्ते! मैं क्विक कार्ट से कॉलिक्स हूँ। मैं आपको उत्पादों की कीमत, उपलब्धता और आपके ऑर्डर ट्रैक करने में मदद कर सकता हूँ।",
-        tech_mahindra: "नमस्ते! मैं आपका करियर सलाहकार कॉलिक्स हूँ। मैं आपको नौकरियों के अवसर और इंटरव्यू शेड्यूल करने में मदद कर सकता हूँ।",
-        voxsphere: "नमस्ते! मैं कॉलिक्स हूँ। मैं हमारी एआई सेवाओं और डेमो स्लॉट बुक करने में आपकी मदद कर सकता हूँ।",
-        agile_it: "नमस्ते! मैं एजाइल-आईटी से कॉलिक्स हूँ। मैं आपकी तकनीकी इंटरव्यू और सेवाओं में मदद कर सकता हूँ।",
-        default: "नमस्ते! मैं कॉलिक्स हूँ, आपका एआई सहायक। मैं आज आपकी क्या मदद कर सकता हूँ?"
+        hospital: "मैं आपको डॉक्टरों की सूची, फीस और अपॉइंटमेंट बुक करने में मदद कर सकता हूँ।",
+        restaurant: "मैं आपको मेनू, विशेष कंबोस और टेबल बुक करने में मदद कर सकता हूँ।",
+        ecommerce: "मैं आपको उत्पादों की कीमत, उपलब्धता और आपके ऑर्डर ट्रैक करने में मदद कर सकता हूँ।",
+        tech_mahindra: "मैं आपको नौकरियों के अवसर और इंटरव्यू शेड्यूल करने में मदद कर सकता हूँ।",
+        voxsphere: "मैं हमारी एआई सेवाओं और डेमो स्लॉट बुक करने में आपकी मदद कर सकता हूँ।",
+        agile_it: "मैं आपकी तकनीकी इंटरव्यू और सेवाओं में मदद कर सकता हूँ।",
+        default: "मैं आज आपकी क्या मदद कर सकता हूँ?"
       }
     };
 
@@ -937,21 +937,21 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
       setConvoPhase('chatting');
       // Greet in selected language with name AND services
       if (selectedLanguage.code === 'te-IN') {
-        introMsg = `నమస్కారం! నేను ${selectedCompany?.name} కోసం మీ AI అసిస్టెంట్ కేలిక్స్. మళ్లీ మిమ్మల్ని కలవడం సంతోషంగా ఉంది, ${userName}! ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
+        introMsg = `నమస్కారం ${userName}! నేను ${selectedCompany?.name} AI అసిస్టెంట్ కేలిక్స్. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
       } else if (selectedLanguage.code === 'hi-IN') {
-        introMsg = `नमस्ते! मैं ${selectedCompany?.name} के लिए आपका AI सहायक सेलिक्स हूं। आपको फिर से देखकर खुशी हुई, ${userName}! ${serviceInfo} मैं आपकी कैसे मदद कर सकता हूं?`;
+        introMsg = `नमस्ते ${userName}! मैं ${selectedCompany?.name} का AI सहायक कॉलिक्स हूँ। ${serviceInfo} मैं आपकी क्या मदद कर सकता हूँ?`;
       } else {
-        introMsg = `Hi! I'm Callix, your AI assistant for ${selectedCompany?.name}. Great to see you again, ${userName}! ${serviceInfo} How can I assist you today?`;
+        introMsg = `Hello ${userName}! I'm Callix from ${selectedCompany?.name}. ${serviceInfo} How can I assist you today?`;
       }
     } else {
       setConvoPhase('onboarding');
       // Greet in selected language and ask for name only
       if (selectedLanguage.code === 'te-IN') {
-        introMsg = `నమస్కారం! నేను ${selectedCompany?.name} కోసం మీ AI అసిస్టెంట్ కేలిక్స్. మీ పేరు ఏమిటి?`;
+        introMsg = `నమస్కారం! నేను ${selectedCompany?.name} AI అసిస్టెంట్ కేలిక్స్. మీ పేరు ఏమిటి?`;
       } else if (selectedLanguage.code === 'hi-IN') {
-        introMsg = `नमस्ते! मैं ${selectedCompany?.name} के लिए आपका AI सहायक सेलिक्स हूं। आपका नाम क्या है?`;
+        introMsg = `नमस्ते! मैं ${selectedCompany?.name} का AI सहायक कॉलिक्स हूँ। आपका नाम क्या है?`;
       } else {
-        introMsg = `Hello! I'm Callix, your AI assistant from ${selectedCompany?.name}. May I know your name?`;
+        introMsg = `Hello! I'm Callix from ${selectedCompany?.name}. May I know your name?`;
       }
     }
 
