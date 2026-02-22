@@ -21,13 +21,18 @@ export const ttsService = {
 
             // Robust language mapping
             const langMap = {
-                'te': 'Telugu', 'te-in': 'Telugu',
-                'hi': 'Hindi', 'hi-in': 'Hindi',
+                'te': 'Telugu', 'te-in': 'Telugu', 'te-IN': 'Telugu',
+                'hi': 'Hindi', 'hi-in': 'Hindi', 'hi-IN': 'Hindi',
                 'en': 'English', 'en-in': 'English', 'en-us': 'English',
                 'ta': 'Tamil', 'ta-in': 'Tamil'
             };
-            const inputLang = language.toLowerCase();
-            const fullLanguage = langMap[inputLang] || (inputLang.charAt(0).toUpperCase() + inputLang.slice(1));
+            const fullLanguage = langMap[language] || (language.charAt(0).toUpperCase() + language.slice(1));
+
+            // LOG SCRIPT CHECK: XTTS fails if text contains mixed scripts
+            const hasEnglishMatch = text.match(/[a-zA-Z]/g);
+            if (hasEnglishMatch && (fullLanguage === 'Telugu' || fullLanguage === 'Hindi')) {
+                console.warn(`⚠️ Mixed Script Detected! Text has English letters but target is ${fullLanguage}. This may cause XTTS phoneme fallback.`);
+            }
 
             // FORCE FEMALE Identity
             const speakerId = 'female';

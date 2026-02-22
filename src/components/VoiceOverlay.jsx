@@ -39,9 +39,9 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const dataArrayRef = useRef(null);
 
   const languageLookup = {
-    'en-IN': 'en', 'en': 'en',
-    'hi-IN': 'hi', 'hi': 'hi',
-    'te-IN': 'te', 'te': 'te'
+    'en-IN': 'en-IN',
+    'hi-IN': 'hi-IN',
+    'te-IN': 'te-IN'
   };
 
   const languageNameMap = {
@@ -156,10 +156,12 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
 
             if (text && text.trim().length > 1) {
               console.log("✅ Final STT Output:", text);
-              await handleUserMessage(text, true); // CRITICAL: Wait for AI to finish thinking
+              await handleUserMessage(text, true);
             } else {
-              console.log("ℹ️ Transcript too short or empty. Skipping.");
-              setIsProcessing(false); // Clear if no message to handle
+              if (audioBlob.size > 2000) {
+                console.log("ℹ️ No speech detected in audio chunk (Potential silence).");
+              }
+              setIsProcessing(false);
             }
           } catch (e) {
             console.error('❌ STT Pipeline failed:', e);
@@ -169,15 +171,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
           }
         }
 
-        // CRITICAL: Only restart AFTER transcription/processing completes
-        if (callState === 'connected' && isOpen && !isSpeaking && !isMuted && curUseProSTT) {
-          setTimeout(() => {
-            if (mediaRecorderRef.current?.state === 'inactive') {
-              mediaRecorderRef.current.start();
-              console.log("⏺️ STT Recording Restarted");
-            }
-          }, 100);
-        }
+        // restart logic - REMOVED TO PREVENT RACE CONDITIONS
+        // Restarting is now ONLY handled in the speak() finish function.
       };
 
       // Setup Web Audio API for volume detection (Visual Pulse)
@@ -201,14 +196,14 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       setIsListening(true);
       console.log("⏺️ STT Recording Started");
 
-      // SMART FLUSH: 5-second chunks (Industry Standard)
+      // SMART FLUSH: 12-second chunks to allow long responses while remaining responsive
       const interval = setInterval(() => {
         const { isSpeaking, isMuted, callState, isOpen } = stateRef.current;
         if (mediaRecorderRef.current?.state === 'recording' && !isSpeaking && !isMuted && callState === 'connected' && isOpen) {
-          console.log("⏹️ Flushing 5s audio chunk...");
+          console.log("⏹️ Mid-call recording rotation (12s)...");
           mediaRecorderRef.current.stop();
         }
-      }, 5000);
+      }, 12000);
 
       const checkVolume = () => {
         const { isOpen: curIsOpen, callState: curCallState } = stateRef.current;
@@ -221,7 +216,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
             currentAnalyser.getByteFrequencyData(currentDataArray);
             const volume = currentDataArray.reduce((num, i) => num + i) / currentDataArray.length;
             setPulseScale(1 + (volume / 255) * 0.4);
-            setIsUserTalking(volume > 3); // Ultra-sensitive threshold for low-volume mics
+            setIsUserTalking(volume > 10); // Standard threshold to avoid room noise interference
 
             // Debug volume trace
             if (volume > 5 && Math.random() < 0.05) {
@@ -411,8 +406,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
           return costs[s2.length];
         };
 
-        if (similarity(message, lastAgentMsg.text) > 0.85) { // Less aggressive
-          console.log("🚫 Echo detected, ignoring message.");
+        if (similarity(message, lastAgentMsg.text) > 0.95) { // Ultra-tight threshold to prevent false positives
+          console.log(`🚫 Echo or duplicate detected (Similarity: ${similarity(message, lastAgentMsg.text)}), ignoring.`);
           setIsProcessing(false);
           return;
         }
@@ -744,8 +739,8 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
         }
       };
 
-      // use ttsLang computed above
-      console.log(`🗣️ Pro TTS Request: Lang="${ttsLang}", Text="${text.substring(0, 40)}..."`);
+      const hasTelugu = /[\u0C00-\u0C7F]/.test(text);
+      console.log(`🗣️ Pro TTS Request: Lang="${ttsLang}", Native Script: ${hasTelugu}, Text: "${text.substring(0, 40)}..."`);
 
       // Force Single Female Voice
       const femaleSpeaker = 'female';
@@ -789,11 +784,10 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
             let chosen = null;
 
             const isMatch = (v) => {
-              const vLang = v.lang.toLowerCase();
+              const vLang = v.lang.toLowerCase().replace('_', '-');
               const vName = v.name.toLowerCase();
-              if (vLang.startsWith(langPrefix)) return true;
+              if (vLang.includes(langPrefix)) return true;
               if (langPrefix === 'te' && (vLang.includes('te') || vName.includes('telugu'))) return true;
-              if (langPrefix === 'hi' && (vLang.includes('hi') || vName.includes('hindi'))) return true;
               return false;
             };
 
@@ -807,16 +801,26 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
             }
 
             // C. MASTER IDENTITY FAILOVER
+            // C. MASTER IDENTITY FAILOVER
             if (!chosen) {
               const nativeFallback = voices.find(v => isMatch(v));
               if (nativeFallback) {
-                console.log(`ℹ️ Found Native ${targetLangCode} voice but it was marked as Male. Overriding for utility.`);
+                console.log(`ℹ️ Found Native ${targetLangCode} (Telugu/Hindi) voice. Using it regardless of gender tag.`);
                 chosen = nativeFallback;
               } else {
-                console.log(`ℹ️ No native ${targetLangCode} voice found in ${voices.length} voices. Available langs:`, Array.from(new Set(voices.map(v => v.lang))));
-                for (const key of preferred) {
-                  chosen = allFemale.find(v => v.name.toLowerCase().includes(key) && v.lang.includes('IN'));
-                  if (chosen) break;
+                console.log(`ℹ️ No native ${targetLangCode} voice found. Available:`, Array.from(new Set(voices.map(v => v.lang))));
+
+                // Polyglot Fallback for Telugu: Use ANY Hindi voice if available
+                if (langPrefix === 'te') {
+                  chosen = voices.find(v => v.lang.startsWith('hi'));
+                  if (chosen) console.log("🇮🇳 Native Telugu missing. Defaulting to Hindi polyglot voice:", chosen.name);
+                }
+
+                if (!chosen) {
+                  for (const key of preferred) {
+                    chosen = allFemale.find(v => v.name.toLowerCase().includes(key) && v.lang.includes('IN'));
+                    if (chosen) break;
+                  }
                 }
               }
             }
