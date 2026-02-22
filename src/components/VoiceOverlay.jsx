@@ -555,12 +555,14 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
 
       // 1. Process System Commands (Side Effects)
       const processCommands = async (text) => {
-        const appointmentMatch = text.match(/BOOK_APPOINTMENT for (.*?) on (.*?) at (.*)/i);
-        const tableMatch = text.match(/BOOK_TABLE for (.*?) on (.*?) at (.*)/i);
+        const appointmentMatch = text.match(/BOOK_APPOINTMENT for (.*?) on (.*?) at ([^\n.\r]*)/i);
+        const tableMatch = text.match(/BOOK_TABLE for (.*?) on (.*?) at ([^\n.\r]*)/i);
         const orderMatch = text.match(/BOOK_ORDER (.*)/i);
         const ratingMatch = text.match(/COLLECT_RATING (\d+)/i);
 
         const currentCompanyId = selectedCompany?._id || selectedCompany?.id || 'manual';
+        const industry = selectedCompany?.industry?.toLowerCase() || '';
+
         const commonData = {
           entity_id: currentCompanyId,
           entity_name: selectedCompany?.name,
@@ -571,44 +573,65 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
         try {
           if (appointmentMatch) {
             console.log("📅 Syncing Appointment to Database...");
+            const personName = appointmentMatch[1].trim();
+            const dateStr = appointmentMatch[2].trim();
+            const timeStr = appointmentMatch[3].trim();
+
             await crmIntegration.syncAppointment({
               ...commonData,
-              type: 'doctor',
-              person_name: appointmentMatch[1],
-              date: appointmentMatch[2],
-              time: appointmentMatch[3]
+              type: industry.includes('health') || industry.includes('hosp') ? 'doctor' : 'interview',
+              person_name: personName,
+              date: dateStr,
+              time: timeStr,
+              status: 'scheduled'
             });
-            console.log("✅ Appointment Saved.");
-          } else if (tableMatch) {
+            console.log(`✅ Appointment Saved: ${personName} on ${dateStr} at ${timeStr}`);
+          }
+
+          if (tableMatch) {
             console.log("🍽️ Syncing Table Booking to Database...");
+            const peopleCount = tableMatch[1].trim();
+            const dateStr = tableMatch[2].trim();
+            const timeStr = tableMatch[3].trim();
+
             await crmIntegration.syncAppointment({
               ...commonData,
               type: 'table',
-              person_name: `Table for ${tableMatch[1]} (${latestName})`,
-              date: tableMatch[2],
-              time: tableMatch[3]
+              person_name: `Table for ${peopleCount} (${latestName})`,
+              date: dateStr,
+              time: timeStr,
+              status: 'scheduled',
+              user_info: { ...commonData.user_info, party_size: peopleCount }
             });
-            console.log("✅ Table Booking Saved.");
-          } else if (orderMatch) {
+            console.log(`✅ Table Booking Saved: ${peopleCount} people on ${dateStr} at ${timeStr}`);
+          }
+
+          if (orderMatch) {
+            const itemName = orderMatch[1].trim();
             console.log("🛍️ Syncing Order to Database...");
             await crmIntegration.syncOrder({
               id: `ORD-${Date.now()}`,
               company_id: currentCompanyId,
-              item: orderMatch[1],
+              item: itemName,
               quantity: 1,
+              status: 'completed',
               total_price: 999, // Suggested default/mock price
               customer_name: latestName,
               user_email: userEmail
             });
-            console.log("✅ Order Saved.");
-          } else if (ratingMatch) {
+            console.log(`✅ Order Saved: ${itemName}`);
+          }
+
+          if (ratingMatch) {
+            const rating = parseInt(ratingMatch[1]);
             console.log("⭐ Syncing Rating to Database...");
             await crmIntegration.syncFeedback({
               ...commonData,
-              rating: parseInt(ratingMatch[1]),
+              status: 'completed',
+              rating: rating,
               comment: "Voice Rating"
             });
-            console.log("✅ Feedback Saved.");
+            console.log(`✅ Feedback Saved: ${rating} stars`);
           }
         } catch (cmdErr) {
           console.warn("❌ CRM Sync Failed:", cmdErr);
@@ -620,18 +643,8 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
       setIsThinking(false);
 
       // 2. Clean response for Display & TTS
-      const cleanedResponse = rawResponse
-        .replace(/^(Callix|Agent|Assistant|System):\s*/i, '')
-        .replace(/\bBOOK_APPOINTMENT\b.*$/gim, '')
-        .replace(/\bBOOK_TABLE\b.*$/gim, '')
-        .replace(/\bBOOK_ORDER\b.*$/gim, '')
-        .replace(/\bCOLLECT_RATING\b.*$/gim, '')
-        .replace(/\bCOLLECT_FEEDBACK\b.*$/gim, '')
-        .replace(/\bTRACE_ORDER\b/gi, '')
-        .replace(/\bHANG_UP\b/gi, '')
-        .trim();
-
-      const finalDisplay = cleanedResponse || "సరే, నేను దాన్ని ప్రాసెస్ చేస్తున్నాను.";
+      // (Note: chatWithGroq in groq.js already does most cleaning)
+      const finalDisplay = rawResponse.trim() || (curLang.code === 'te' ? "సరే, నేను దాన్ని ప్రాసెస్ చేస్తున్నాను." : "Okay, processing that...");
       addMessage('agent', finalDisplay);
 
       const shouldTerminate = rawResponse.toUpperCase().includes('HANG_UP');
@@ -688,6 +701,7 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
           // Restart Pro STT if needed
           if (mediaRecorderRef.current?.state === 'inactive') {
             mediaRecorderRef.current.start();
+            setIsListening(true);
           }
         }
       };

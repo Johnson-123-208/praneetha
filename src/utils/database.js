@@ -188,7 +188,7 @@ export const database = {
 
       let local = getLocal('appointments');
       if (entityId) local = local.filter(a => a.entity_id === entityId);
-      if (userEmail) local = local.filter(a => a.user_email === userEmail);
+      if (userEmail) local = local.filter(a => a.user_email === userEmail || !a.user_email);
       return local;
     } catch (error) {
       return getLocal('appointments');

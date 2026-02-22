@@ -95,7 +95,7 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
         model: 'llama-3.3-70b-versatile',
         messages: messages,
         temperature: 0.7,
-        max_tokens: 300,
+        max_tokens: 1000,
       }),
     });
 
@@ -113,11 +113,12 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
     // Cleanup utility for internal markers
     const cleanInternalCommands = (text) => {
       return text
-        .replace(/\bBOOK_APPOINTMENT\b.*?(?=[.!?,]|$)/gi, '')
-        .replace(/\bBOOK_TABLE\b.*?(?=[.!?,]|$)/gi, '')
-        .replace(/\bBOOK_ORDER\b.*?(?=[.!?,]|$)/gi, '')
-        .replace(/\bCOLLECT_RATING\b.*?(?=[.!?,]|$)/gi, '')
-        .replace(/\bCOLLECT_FEEDBACK\b.*?(?=[.!?,]|$)/gi, '')
+        .replace(/^(Callix|Agent|Assistant|System):\s*/i, '')
+        .replace(/\bBOOK_APPOINTMENT\b.*$/gim, '')
+        .replace(/\bBOOK_TABLE\b.*$/gim, '')
+        .replace(/\bBOOK_ORDER\b.*$/gim, '')
+        .replace(/\bCOLLECT_RATING\b.*$/gim, '')
+        .replace(/\bCOLLECT_FEEDBACK\b.*$/gim, '')
         .replace(/\bTRACE_ORDER\b/gi, '')
         .replace(/\bHANG_UP\b/gi, '')
         .replace(/\s+/g, ' ')
@@ -146,7 +147,7 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
           model: 'llama-3.3-70b-versatile',
           messages: followUpMessages,
           temperature: 0.7,
-          max_tokens: 300,
+          max_tokens: 1000,
         }),
       });
 
