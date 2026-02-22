@@ -713,7 +713,7 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
       setIsThinking(false);
 
       // 2. Clean response for Display & TTS using common utility
-      const finalDisplay = cleanInternalCommands(rawResponse) || (curLang.code === 'te' ? "సరే, నేను దాన్ని ప్రాసెస్ చేస్తున్నాను." : "Okay, processing that...");
+      const finalDisplay = cleanInternalCommands(rawResponse) || (curLang.code.includes('te') ? "సరే, నేను దాన్ని ప్రాసెస్ చేస్తున్నాను." : "Okay, processing that...");
       addMessage('agent', finalDisplay);
 
       const shouldTerminate = rawResponse.toUpperCase().includes('HANG_UP');

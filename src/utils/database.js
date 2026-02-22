@@ -7,7 +7,7 @@
  * is always readable by the dashboard.
  */
 
-const getApiUrl = () => {
+export const getApiUrl = () => {
   let envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) {
     if (envUrl.endsWith('/')) envUrl = envUrl.slice(0, -1);

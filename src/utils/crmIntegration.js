@@ -1,9 +1,6 @@
-/**
- * CRM Integration Module (Independent Version)
- * Automatically falls back to LocalStorage if the Backend API is unavailable.
- */
+import { getApiUrl } from './database.js';
 
-const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '/api' : 'http://localhost:5000/api');
+const API_URL = getApiUrl();
 
 // --- Local Storage Helper (Unified with database.js) ---
 const getLocal = (key) => {
