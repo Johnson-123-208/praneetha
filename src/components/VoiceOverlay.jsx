@@ -754,37 +754,57 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
               if (/male|guy|man|david|mark|ravi|stefan|pavel|deepak/i.test(n)) return false;
               // If it's a known female name or has "Female" in it, it's definitely female
               if (/female|woman|samantha|zira|neerja|swarata|shruti|kalpana|vani|kavita|pallavi|hema|ananya|aarti|priya|lekha|madhur|sudha|heera|sangeeta|google|natural/i.test(n)) return true;
-              // Default to true for unknown name patterns if no male keyword is present
               return true;
             };
 
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length === 0) return null;
+
             // 1. Try to find a native Indian voice for the SPECIFIC language (STRICTLY FEMALE)
-            let v = availableVoices.find(v => v.lang.startsWith(langPrefix) && isFemale(v.name));
+            // Handle both 'te' and 'tel' for Telugu
+            const isMatch = (v) => {
+              const vLang = v.lang.toLowerCase();
+              if (vLang.startsWith(langPrefix)) return true;
+              if (langPrefix === 'te' && vLang.startsWith('tel')) return true;
+              if (langPrefix === 'hi' && vLang.startsWith('hin')) return true;
+              return false;
+            };
 
-            // 2. Specific Telugu/Hindi keyword matches for generic voices
-            if (!v && langPrefix === 'te') v = availableVoices.find(v => (v.name.includes('Telugu') || v.name.includes('Shruti') || v.name.includes('Vani')) && isFemale(v.name));
-            if (!v && langPrefix === 'hi') v = availableVoices.find(v => (v.name.includes('Hindi') || v.name.includes('Hema') || v.name.includes('Kalpana')) && isFemale(v.name));
+            let v = voices.find(v => isMatch(v) && isFemale(v.name));
 
-            // 3. Fallback: Any voice matching the language exactly (ignoring gender if needed)
-            if (!v) v = availableVoices.find(v => v.lang.startsWith(langPrefix));
+            // 2. Specific keyword matches for Telugu/Hindi if language code didn't match (STRICTLY FEMALE)
+            if (!v && langPrefix === 'te') v = voices.find(v => (v.name.includes('Telugu') || v.name.includes('Shruti') || v.name.includes('Vani')) && isFemale(v.name));
+            if (!v && langPrefix === 'hi') v = voices.find(v => (v.name.includes('Hindi') || v.name.includes('Hema') || v.name.includes('Kalpana')) && isFemale(v.name));
 
-            // 4. If no native language, try Generic Indian English FEMALE (Neerja/Sangeeta)
-            if (!v) v = availableVoices.find(v => v.lang.includes('IN') && isFemale(v.name));
+            // 3. Fallback: Any voice matching the language exactly
+            if (!v) v = voices.find(v => isMatch(v));
 
-            // 5. Fallback: Any Female English (India/UK/Global)
-            if (!v) v = availableVoices.find(v => !v.lang.includes('US') && isFemale(v.name));
+            // 4. If no native language, try Generic Indian English FEMALE (Heera/Neerja/Sangeeta)
+            if (!v) v = voices.find(v => v.lang.includes('IN') && isFemale(v.name));
 
-            // 6. Last Ditch: Any voice at all
-            if (!v) v = availableVoices[0];
+            // 5. Fallback: Any Female English
+            if (!v) v = voices.find(v => !v.lang.includes('US') && isFemale(v.name));
+
+            // 6. Last Ditch: Any matching language, then first available
+            if (!v) v = voices.find(v => isMatch(v)) || voices[0];
 
             return v;
           };
 
           window.speechSynthesis.cancel();
           const voice = getBestVoice();
-          if (availableVoices.length > 0) {
-            console.log(`🌐 Total Voices Found: ${availableVoices.length}`);
-            console.log(`🔊 Chosen Voice: ${voice?.name || 'None'} for ${targetLangCode}`);
+          const allVoices = window.speechSynthesis.getVoices();
+
+          if (allVoices.length > 0) {
+            console.log(`🌐 Total Voices Found: ${allVoices.length}`);
+            if (voice) {
+              console.log(`🔊 Chosen Voice: ${voice.name} (${voice.lang}) for ${targetLangCode}`);
+              // If we didn't find a native voice, log what we DO have to help optimize
+              if (!voice.lang.startsWith(targetLangCode.split('-')[0])) {
+                console.warn(`⚠️ No native ${targetLangCode} voice found. Available Indian voices:`,
+                  allVoices.filter(v => v.lang.includes('IN')).map(v => `${v.name} (${v.lang})`));
+              }
+            }
           }
           if (!voice) {
             console.warn("⚠️ No suitable voice found for", targetLangCode);
@@ -796,7 +816,9 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
 
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.voice = voice;
-          utterance.lang = voice.lang; // CRITICAL: Must match voice to avoid silence
+          // Set lang to the target language (e.g. te-IN) even if voice is en-IN
+          // This often triggers the browser's language-specific engine if the voice is multilingual
+          utterance.lang = targetLangCode;
           utterance.pitch = 1.1;
           utterance.rate = 1.0;
           utterance.onend = finishSpeech;
