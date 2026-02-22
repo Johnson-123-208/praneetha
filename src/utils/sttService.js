@@ -19,13 +19,13 @@ class STTService {
         const lang = languageCode.split('-')[0];
 
         try {
-            // MATCHING DIAGNOSTIC TOOL CONFIG EXACTLY
+            // OPTIMIZED FOR CONVERSATIONAL INTELLIGENCE
             const params = new URLSearchParams({
                 model: 'nova-3',
                 language: lang === 'en' ? 'en-IN' : lang,
                 smart_format: 'true',
                 punctuate: 'true',
-                interaction_type: 'vapi' // Specifically tuned for voice agents
+                filler_words: 'true' // Helpful for capturing natural speech patterns
             });
 
             const url = `https://api.deepgram.com/v1/listen?${params.toString()}`;

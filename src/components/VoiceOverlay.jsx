@@ -39,6 +39,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const dataArrayRef = useRef(null);
   const flushIntervalRef = useRef(null);
   const restartFlushRef = useRef(null);
+  const speechDetectedRef = useRef(false);
+  const silenceTimerRef = useRef(null);
 
   const languageLookup = {
     'en-IN': 'en-IN',
@@ -141,43 +143,51 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
 
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        audioChunksRef.current = []; // Clear immediately to start fresh
+        const hadSpeech = speechDetectedRef.current;
 
-        const { selectedLanguage: curLang, isSpeaking, isMuted, callState, isOpen, useProSTT: curUseProSTT } = stateRef.current;
+        audioChunksRef.current = []; // Clear immediately
+        speechDetectedRef.current = false; // Reset for next session
 
-        // Lowered threshold to 1000 bytes to capture EVEN tiny words (like names) instantly
-        if (audioBlob.size > 1000 && !isSpeaking && !isMuted) {
-          console.log(`🎙️ Sending COMPLETE WebM to DEEPGRAM: ${audioBlob.size} bytes`);
-          setIsProcessing(true);
-          try {
-            console.log("📡 Transcribing with Deepgram...");
-            setIsTranscribing(true);
-            const text = await sttService.transcribe(audioBlob, curLang.code);
-            console.log(`🎤 Deepgram Response: "${text}" (Bytes: ${audioBlob.size})`);
-            setIsTranscribing(false);
+        const { selectedLanguage: curLang, isSpeaking, isMuted, callState, isOpen } = stateRef.current;
 
-            if (text && text.trim().length > 1) {
-              console.log("✅ Final STT Output:", text);
-              await handleUserMessage(text, true);
-            } else {
-              if (audioBlob.size > 2000) {
-                // Quietly ignore silence
-              }
-              setIsProcessing(false);
-            }
-          } catch (e) {
-            console.error('❌ STT Pipeline failed:', e);
-          } finally {
-            setIsTranscribing(false);
-            setIsProcessing(false);
-          }
+        // Skip if no speech detected or too small or call ended
+        if (!hadSpeech || audioBlob.size < 2000 || isMuted || isSpeaking || callState !== 'connected' || !isOpen) {
+          if (hadSpeech && audioBlob.size < 2000) console.log("🤏 Audio too short, skipping.");
+          setIsProcessing(false);
+          return;
         }
 
-        // restart logic - REMOVED TO PREVENT RACE CONDITIONS
-        // Restarting is now ONLY handled in the speak() finish function.
+        console.log(`🎙️ Sending Speech Chunk (${audioBlob.size} bytes) to Deepgram...`);
+        setIsProcessing(true);
+        try {
+          setIsTranscribing(true);
+          const text = await sttService.transcribe(audioBlob, curLang.code);
+          console.log(`🎤 Deepgram Response: "${text}"`);
+          setIsTranscribing(false);
+
+          if (text && text.trim().length > 1) {
+            await handleUserMessage(text, true);
+          } else {
+            setIsProcessing(false);
+          }
+        } catch (e) {
+          console.error('❌ STT Pipeline failed:', e);
+        } finally {
+          setIsTranscribing(false);
+          setIsProcessing(false);
+
+          // Restart recording if we're still in a state to listen
+          const { isSpeaking: finalIsSpeaking, isMuted: finalIsMuted, callState: finalCallState, isOpen: finalIsOpen } = stateRef.current;
+          if (finalCallState === 'connected' && finalIsOpen && !finalIsSpeaking && !finalIsMuted) {
+            if (mediaRecorderRef.current?.state === 'inactive') {
+              mediaRecorderRef.current.start();
+              setIsListening(true);
+            }
+          }
+        }
       };
 
-      // Setup Web Audio API for volume detection (Visual Pulse)
+      // Setup Web Audio API for volume detection
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
       }
@@ -193,40 +203,59 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       const dataArray = new Uint8Array(bufferLength);
       dataArrayRef.current = dataArray;
 
-      // SMART FLUSH: 12-second chunks to allow long responses while remaining responsive
+      // SAFETY ROTATION: Only used as a hard limit for very long monologues
       restartFlushRef.current = () => {
         if (flushIntervalRef.current) clearInterval(flushIntervalRef.current);
         flushIntervalRef.current = setInterval(() => {
           const { isSpeaking, isMuted, callState, isOpen } = stateRef.current;
           if (mediaRecorderRef.current?.state === 'recording' && !isSpeaking && !isMuted && callState === 'connected' && isOpen) {
-            console.log("⏹️ Mid-call recording rotation (12s)...");
-            mediaRecorderRef.current.stop();
+            // Only rotate if we've actually been talking for a long time
+            if (speechDetectedRef.current) {
+              console.log("⏹️ Hard-limit rotation (20s monologue)...");
+              mediaRecorderRef.current.stop();
+            }
           }
-        }, 12000);
+        }, 20000);
       };
 
       mediaRecorder.start();
       restartFlushRef.current();
       setIsListening(true);
-      console.log("⏺️ STT Recording Started");
+      console.log("⏺️ STT Listener Active");
 
       const checkVolume = () => {
-        const { isOpen: curIsOpen, callState: curCallState } = stateRef.current;
+        const { isOpen: curIsOpen, callState: curCallState, isSpeaking: curIsSpeaking } = stateRef.current;
         if (!curIsOpen || curCallState !== 'connected' || !analyserRef.current) return;
 
-        if (mediaRecorder.state === 'recording') {
+        if (mediaRecorder.state === 'recording' && !curIsSpeaking) {
           const currentAnalyser = analyserRef.current;
           const currentDataArray = dataArrayRef.current;
           if (currentAnalyser && currentDataArray) {
             currentAnalyser.getByteFrequencyData(currentDataArray);
             const volume = currentDataArray.reduce((num, i) => num + i) / currentDataArray.length;
             setPulseScale(1 + (volume / 255) * 0.4);
-            // console.log(`🎙️ Mic Volume Trace: ${volume.toFixed(2)}`); // Debug trace
-            setIsUserTalking(volume > 15); // Increased to 15 to avoid false triggers from ambient room noise seen in logs
 
-            // Debug volume trace
-            if (volume > 5 && Math.random() < 0.05) {
-              console.log(`🎙️ Mic Volume Trace: ${volume.toFixed(2)}`);
+            const isTalking = volume > 15;
+            setIsUserTalking(isTalking);
+
+            if (isTalking) {
+              speechDetectedRef.current = true;
+              // Clear silence timer if user starts talking again
+              if (silenceTimerRef.current) {
+                clearTimeout(silenceTimerRef.current);
+                silenceTimerRef.current = null;
+              }
+            } else if (speechDetectedRef.current) {
+              // User was talking but stopped. Start 1.5s silence timer to cut the chunk.
+              if (!silenceTimerRef.current) {
+                silenceTimerRef.current = setTimeout(() => {
+                  console.log("🤫 Silence detected after speech. Processing...");
+                  if (mediaRecorderRef.current?.state === 'recording') {
+                    mediaRecorderRef.current.stop();
+                  }
+                  silenceTimerRef.current = null;
+                }, 1500);
+              }
             }
           }
         }
@@ -237,6 +266,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       sttCleanupRef.current = () => {
         try {
           if (flushIntervalRef.current) clearInterval(flushIntervalRef.current);
+          if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
           if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
             audioContextRef.current.close();
             audioContextRef.current = null;
@@ -764,40 +794,43 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
             if (voices.length === 0) return null;
 
             const target = targetLangCode.toLowerCase();
+            const isMale = (v) => /male|guy|man|boy|mohan|kannan|ravi|david|mark|deepak|stefan/i.test(v.name.toLowerCase());
+            const isFemale = (v) => !isMale(v);
+
             let chosen = null;
 
             // 1. HARD-LOCK FOR TELUGU
             if (target.includes('te')) {
+              // Priority 1: Female Telugu
               chosen = voices.find(v =>
-                v.lang.toLowerCase().includes('te') ||
-                v.name.toLowerCase().includes('telugu') ||
-                v.name.includes('తెలుగు')
+                (v.lang.toLowerCase().includes('te') || v.name.toLowerCase().includes('telugu')) && isFemale(v)
               );
-              // Fallback to Hindi if Telugu is missing (Phonetic match)
-              if (!chosen) {
-                console.warn(`🔍 AUDIT: Native Telugu not found in ${voices.length} voices. Listing all available...`);
-                voices.forEach(v => console.log(`   └─ [${v.lang}] ${v.name}`));
 
-                chosen = voices.find(v => v.lang.toLowerCase().includes('hi') || v.name.toLowerCase().includes('hindi'));
-                if (chosen) console.log("🇮🇳 [Polyglot] Native Telugu missing. Hard-locking to Hindi engine for phonetics:", chosen.name);
+              // Priority 2: Any Telugu (including Mohan if that's all there is)
+              if (!chosen) {
+                chosen = voices.find(v => v.lang.toLowerCase().includes('te') || v.name.toLowerCase().includes('telugu'));
+              }
+
+              // Priority 3: Female Hindi (Polyglot Fallback)
+              if (!chosen || (chosen && isMale(chosen))) {
+                const femaleHindi = voices.find(v => (v.lang.toLowerCase().includes('hi') || v.name.toLowerCase().includes('hindi')) && isFemale(v));
+                if (femaleHindi) {
+                  console.log("🇮🇳 [Gender-Fix] Preferring Female Hindi over Male Telugu for identity compatibility.");
+                  chosen = femaleHindi;
+                }
               }
             }
             // 2. HARD-LOCK FOR HINDI
             else if (target.includes('hi')) {
-              chosen = voices.find(v => v.lang.toLowerCase().includes('hi') || v.name.toLowerCase().includes('hindi') || v.name.includes('हिंदी'));
+              chosen = voices.find(v => (v.lang.toLowerCase().includes('hi') || v.name.toLowerCase().includes('hindi')) && isFemale(v)) ||
+                voices.find(v => v.lang.toLowerCase().includes('hi') || v.name.toLowerCase().includes('hindi'));
             }
             // 3. HARD-LOCK FOR ENGLISH (INDIA)
             else {
-              chosen = voices.find(v => v.lang.toLowerCase().includes('en-in') || v.name.toLowerCase().includes('india')) || voices.find(v => v.lang.toLowerCase().includes('en'));
-            }
-
-            // 4. PREFER FEMALE/NATURAL IF MULTIPLE FOUND
-            if (chosen) {
-              const highQuality = voices.find(v =>
-                v.lang.toLowerCase().includes(target.split('-')[0]) &&
-                (v.name.includes('Natural') || v.name.includes('Online'))
-              );
-              if (highQuality) chosen = highQuality;
+              chosen = voices.find(v => (v.lang.toLowerCase().includes('en-in') || v.name.toLowerCase().includes('india')) && isFemale(v)) ||
+                voices.find(v => v.lang.toLowerCase().includes('en-in') || v.name.toLowerCase().includes('india')) ||
+                voices.find(v => v.lang.toLowerCase().includes('en') && isFemale(v)) ||
+                voices[0];
             }
 
             return chosen || voices[0];
