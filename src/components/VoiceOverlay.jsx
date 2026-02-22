@@ -797,38 +797,34 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
               return false;
             };
 
-            // A. TRY NATIVE FEMALE FIRST (Find ANY female voice matching the selected language)
-            chosen = allFemale.find(v => isMatch(v));
+            // ULTRA-SIMPLIFIED VOICE SELECTION
+            const searchTerms = {
+              'te-IN': ['telugu', 'shruti', 'తెలుగు'],
+              'hi-IN': ['hindi', 'swara', 'kalpana', 'हिंदी'],
+              'en-IN': ['india', 'heera', 'neerja', 'en-in']
+            };
 
-            // B. PROXIMITY CHECK: If multiple native voices, prioritize high-quality ones (Online/Natural)
-            if (chosen) {
-              const highQualityNative = allFemale.find(v => isMatch(v) && (v.name.includes('Natural') || v.name.includes('Online') || v.name.includes('Google')));
-              if (highQualityNative) chosen = highQualityNative;
+            const terms = searchTerms[targetLangCode] || ['female'];
+
+            // 1. Priority: Look for High Quality (Natural/Online) first
+            chosen = voices.find(v =>
+              terms.some(t => v.name.toLowerCase().includes(t)) &&
+              (v.name.includes('Natural') || v.name.includes('Online'))
+            );
+
+            // 2. Secondary: Look for any native voice
+            if (!chosen) {
+              chosen = voices.find(v => terms.some(t => v.name.toLowerCase().includes(t)));
             }
 
-            // C. MASTER IDENTITY FAILOVER
+            // 3. Last Resort: Any Female voice
             if (!chosen) {
-              // 1. Check for ANY voice containing "Telugu" in the name (Resort to name-search)
-              const nameMatch = voices.find(v => v.name.toLowerCase().includes('telugu') || v.name.includes('తెలుగు'));
-              if (nameMatch) {
-                console.log("🔍 Found Telugu voice by name-search fallback:", nameMatch.name);
-                chosen = nameMatch;
-              }
+              console.log(`ℹ️ No native ${targetLangCode} voice found in browser. Falling back to default female.`);
+              chosen = allFemale.find(v => v.lang.includes('IN')) || allFemale[0];
+            }
 
-              if (!chosen) {
-                const nativeFallback = voices.find(v => isMatch(v));
-                if (nativeFallback) {
-                  console.log(`ℹ️ Found Native ${targetLangCode} voice (ignoring gender filter).`);
-                  chosen = nativeFallback;
-                } else {
-                  console.log(`ℹ️ No native ${targetLangCode} voice found. Available:`, Array.from(new Set(voices.map(v => v.lang))));
-                  // Final identity fallback (Heera/Neerja)
-                  for (const key of preferred) {
-                    chosen = allFemale.find(v => v.name.toLowerCase().includes(key) && v.lang.includes('IN'));
-                    if (chosen) break;
-                  }
-                }
-              }
+            if (chosen) {
+              console.log(`🔊 [Selection] Locked onto: ${chosen.name} (${chosen.lang})`);
             }
 
             return chosen || allFemale[0];
