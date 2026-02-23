@@ -364,31 +364,31 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     const name = selectedCompany?.name?.toLowerCase() || '';
     const sMap = {
       'en-IN': {
-        hospital: "I can help with doctor appointments and consultation details.",
-        restaurant: "I can help with our menu and table reservations.",
-        ecommerce: "I can help with product pricing and order tracking.",
-        tech_mahindra: "I can help with job roles and interview scheduling.",
-        voxsphere: "I can walk you through our AI services and demo bookings.",
-        agile_it: "I can help with digital transformation and technical interviews.",
+        hospital: "I'm here to help with your appointments and doctor details.",
+        restaurant: "I can help with our menu, specials, and table bookings.",
+        ecommerce: "I can assist with product pricing and order tracking.",
+        tech_mahindra: "I can guide you through our open roles and interviews.",
+        voxsphere: "I can walk you through our AI solutions and book a demo.",
+        agile_it: "I'm here to help with career queries and technical interviews.",
         default: "I'm here to assist you today."
       },
       'te-IN': {
-        hospital: "నేను మా డాక్టర్ల వివరాలు, ఫీజులు మరియు అపాయింట్‌మెంట్‌లను బుక్ చేయడంలో మీకు సహాయపడగలను.",
-        restaurant: "నేను మా రుచికరమైన మెనూ ఆర్డర్ల కోసం మరియు టేబుల్ బుకింగ్స్ కోసం మీకు సహాయం చేస్తాను.",
-        ecommerce: "నేను మీకు కావలసిన ప్రోడక్ట్స్ ధరలు, స్టాక్ వివరాలు మరియు ఆర్డర్లను ట్రాక్ చేయడంలో సహాయపడతాను.",
-        tech_mahindra: "నేను మా వద్ద ఉన్న ఉద్యోగ అవకాశాలు మరియు ఇంటర్వ్యూలను షెడ్యూల్ చేయడంలో మీకు సహాయపడగలను.",
-        voxsphere: "నేను మా AI సర్వీసెస్ మరియు ధరల వివరాల కోసం మీకు సహాయం చేస్తాను.",
-        agile_it: "నేను మీ టెక్నికల్ ఇంటర్వ్యూలు మరియు ఐటీ సర్వీసుల కోసం సహాయం చేయగలను.",
-        default: "నేను ఈరోజు మీ అన్ని ప్రశ్నలకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను."
+        hospital: "నేను మీ డాక్టర్ అపాయింట్‌మెంట్‌లు మరియు విచారణలో సహాయపడగలను.",
+        restaurant: "నేను మా రుచికరమైన మెనూ మరియు టేబుల్ బుకింగ్‌లలో మీకు సహాయం చేస్తాను.",
+        ecommerce: "నేను మీకు కావలసిన ప్రోడక్ట్స్ ధరలు మరియు ఆర్డర్లను ట్రాక్ చేయడంలో సహాయపడతాను.",
+        tech_mahindra: "నేను మా వద్ద ఉన్న ఉద్యోగ అవకాశాలు మరియు ఇంటర్వ్యూలలో మీకు సహాయపడగలను.",
+        voxsphere: "నేను మా AI సర్వీసెస్ మరియు డెమో బుకింగ్‌లలో మీకు సహాయం చేస్తాను.",
+        agile_it: "నేను మీ టెక్నికల్ ఇంటర్వ్యూలు మరియు కెరీర్ ప్రశ్నలకు సహాయం చేయగలను.",
+        default: "నేను ఈరోజు మీకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను."
       },
       'hi-IN': {
-        hospital: "मैं आपको डॉक्टरों की सूची, फीस और अपॉइंटमेंट बुक करने में मदद कर सकता हूँ।",
-        restaurant: "मैं आपको मेनू, विशेष कंबोस और टेबल बुक करने में मदद कर सकता हूँ।",
-        ecommerce: "मैं आपको उत्पादों की कीमत, उपलब्धता और आपके ऑर्डर ट्रैक करने में मदद कर सकता हूँ।",
-        tech_mahindra: "मैं आपको नौकरियों के अवसर और इंटरव्यू शेड्यूल करने में मदद कर सकता हूँ।",
-        voxsphere: "मैं हमारी एआई सेवाओं और डेमो स्लॉट बुक करने में आपकी मदद कर सकता हूँ।",
-        agile_it: "मैं आपकी तकनीकी इंटरव्यू और सेवाओं में मदद कर सकता हूँ।",
-        default: "मैं आज आपकी क्या मदद कर सकता हूँ?"
+        hospital: "मैं आपके डॉक्टर अपॉइंटमेंट और पूछताछ में आपकी मदद कर सकता हूँ।",
+        restaurant: "मैं हमारे मेनू और टेबल बुकिंग में आपकी मदद कर सकता हूँ।",
+        ecommerce: "मैं उत्पादों की कीमत और ऑर्डर ट्रैक करने में आपकी मदद कर सकता हूँ।",
+        tech_mahindra: "मैं नौकरियों के अवसर और इंटरव्यू में आपकी मदद कर सकता हूँ।",
+        voxsphere: "मैं हमारी एआई सेवाओं और डेमो बुक करने में आपकी मदद कर सकता हूँ।",
+        agile_it: "मैं आपकी तकनीकी इंटरव्यू और करियर के सवालों में मदद कर सकता हूँ।",
+        default: "मैं आज आपकी मदद करने के लिए यहाँ हूँ।"
       }
     };
 
@@ -613,11 +613,12 @@ USER CONTEXT: Name is ${latestName}.
 LANGUAGE: Response MUST be in ${curLang.name} using ${curLang.name} script.
 
 STRICT CONVERSATIONAL FLOW & RULES:
-1. GREETING: If this is the VERY FIRST message of the conversation, you MUST greet the user warmly in their language.
-2. NO REPETITION: After the first message, do NOT say "Hello", "Hi", "Namaskaram", or use the user's name again. Get straight to the answer.
-3. NO INTRODUCTION: Do NOT introduce yourself or the company again.
-4. BREVITY: Keep responses extremely concise (1-2 sentences) for normal turns. ONLY provide detailed info if requested.
-5. ACTION CONFIRMATION: Once an action is done, say: "Your [Action] is confirmed. Is there anything else?"
+1. GREETING & INTRODUCTIONS (MAX PRIORITY): If the user says their name or greets you (e.g., "Namaskaram", "Hi", "My name is..."), you MUST greet them back warmly in their language.
+2. FIRST MESSAGE: If this is the VERY FIRST message of the conversation, always start with a friendly greeting like "Namaskaram" or "Hello".
+3. NO REPETITION: After the initial greeting turn, do NOT repeat greetings or the user's name in subsequent turns.
+4. NO INTRODUCTION: Do NOT introduce yourself or the company name in every turn.
+5. BREVITY: Keep responses extremely concise (1-2 sentences) for normal turns. ONLY provide detailed info (like menus) if requested.
+6. ACTION CONFIRMATION: Once an action is done (booking/order), say: "Your [Action] is confirmed. Is there anything else?"
 5. DATES: Use the CURRENT DATE provided above to calculate "Tomorrow". Output date as "YYYY-MM-DD" in [COMMAND].
 6. CLOSING FLOW: If user says "No" or "Nothing", ask: "Understood. Please give me a quick rating from 1 to 5 stars for my service?"
 7. EXIT: Once they give a rating, say: "Thank you! Have a wonderful day. Goodbye!" and output [HANG_UP].
