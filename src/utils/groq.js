@@ -22,6 +22,7 @@ let apiKey = null;
  * Transcribes audio blob using Groq Whisper Large v3
  */
 export const transcribeAudio = async (audioBlob, languageCode = 'en') => {
+  console.log("🌀 Groq Transcribe V2 (Task removed)");
   if (!apiKey) throw new Error('Groq API key not configured');
 
   try {
@@ -33,7 +34,6 @@ export const transcribeAudio = async (audioBlob, languageCode = 'en') => {
     // Convert 'te-IN' to 'te', 'hi-IN' to 'hi'
     const lang = languageCode.split('-')[0];
     formData.append('language', lang);
-    formData.append('task', 'transcribe');
     formData.append('response_format', 'verbose_json');
 
     const response = await fetch(GROQ_AUDIO_URL, {
@@ -283,7 +283,7 @@ const detectFunctionCall = (message, companyContext) => {
     if (upperMessage.includes('DOCTOR') || upperMessage.includes('SPECIALIST')) queryType = 'doctors';
     else if (upperMessage.includes('MENU') || upperMessage.includes('FOOD') || upperMessage.includes('DISH')) queryType = 'menu';
     else if (upperMessage.includes('VACANCY') || upperMessage.includes('JOB')) queryType = 'vacancies';
-    
+
     return {
       name: 'query_entity_database',
       args: {

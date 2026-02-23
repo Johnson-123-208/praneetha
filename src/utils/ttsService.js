@@ -10,31 +10,31 @@ export const ttsService = {
     currentAudio: null,
 
     /**
-     * Professional Voice Synthesis using Azure, XTTS, or Browser Fallback
+     * Professional Voice Synthesis using Local XTTS v2 (Primary) or Azure AI (Fallback)
      */
     async speak(text, language, gender = 'female') {
         if (!text) return;
 
-        // 1. TRY AZURE AI SPEECH (Professional Cloud Quality)
-        if (this.AZURE_KEY) {
-            try {
-                return await this.speakAzure(text, language);
-            } catch (e) {
-                console.warn("⚠️ Azure TTS failed, searching for fallbacks...");
-            }
-        }
-
-        // 2. TRY XTTS v2 (Local AI Server)
+        // 1. TRY XTTS v2 (Local AI Server) - Now Primary for low latency/privacy
         if (this.XTTS_URL) {
             try {
                 return await this.speakXTTS(text, language);
             } catch (e) {
-                console.warn("⚠️ XTTS Server failed or missing.");
+                console.warn("🏠 XTTS Server offline. Checking Azure...");
             }
         }
 
-        // 3. IF ALL AI FAILS: Throw to trigger Browser Fallback in VoiceOverlay.jsx
-        throw new Error("Cloud/Local AI TTS unavailable. Using browser fallback.");
+        // 2. TRY AZURE AI SPEECH (Professional Cloud Quality Fallback)
+        if (this.AZURE_KEY) {
+            try {
+                return await this.speakAzure(text, language);
+            } catch (e) {
+                console.warn("⚠️ Azure TTS failed.");
+            }
+        }
+
+        // 3. IF ALL AI FAILS: Throw to trigger Browser Fallback
+        throw new Error("Local/Cloud AI TTS unavailable. Using browser fallback.");
     },
 
     /**

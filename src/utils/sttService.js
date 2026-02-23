@@ -7,10 +7,35 @@ class STTService {
     constructor() {
         this.azureKey = import.meta.env.VITE_AZURE_SPEECH_KEY || localStorage.getItem('azure_speech_key');
         this.azureRegion = import.meta.env.VITE_AZURE_SPEECH_REGION || 'centralindia';
+        this.localSTTUrl = 'http://localhost:8001/stt'; // Standard local Whisper endpoint
     }
 
     async transcribe(audioBlob, languageCode = 'te-IN') {
-        if (!this.azureKey) throw new Error("STT Error: Azure Key Missing.");
+        // 1. TRY LOCAL STT (Primary for privacy/speed)
+        try {
+            console.log("🏠 [Local STT] Attempting transcription via Whisper...");
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'audio.webm');
+            formData.append('language', languageCode.split('-')[0]);
+
+            const localRes = await fetch(this.localSTTUrl, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (localRes.ok) {
+                const data = await localRes.json();
+                if (data.text) {
+                    console.log(`✅ Local STT Success: "${data.text}"`);
+                    return data.text;
+                }
+            }
+        } catch (e) {
+            console.warn("🏠 Local STT Server offline. Checking Azure...");
+        }
+
+        // 2. FALLBACK TO AZURE AI SPEECH
+        if (!this.azureKey) throw new Error("STT Error: No local or cloud service available.");
 
         // Azure handles specific language codes
         const lang = languageCode.includes('-') ? languageCode : (languageCode === 'te' ? 'te-IN' : languageCode === 'hi' ? 'hi-IN' : 'en-IN');
@@ -25,7 +50,7 @@ class STTService {
                 method: 'POST',
                 headers: {
                     'Ocp-Apim-Subscription-Key': this.azureKey,
-                    'Content-Type': audioBlob.type || 'audio/ogg;codecs=opus',
+                    'Content-Type': 'audio/webm; codec=opus; bitrate=128000',
                     'Accept': 'application/json'
                 },
                 body: audioBlob
