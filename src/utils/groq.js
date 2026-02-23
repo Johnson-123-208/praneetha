@@ -109,8 +109,9 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
             {
               role: 'system', content: `ACTION RESULT: ${JSON.stringify(result)}. 
             
-            Confirm this result to the user naturally in 1 short sentence. 
-            LANGUAGE: Use the same language as the user (Telugu/English/Hindi).
+            Confirm this result to the user naturally in 1 SHORT, COMPLETE sentence. 
+            CRITICAL: You MUST use the same language as the user's last message (Telugu/English/Hindi).
+            NEVER respond in English if the user is speaking Telugu.
             FOLLOW-UP: ${followUpText}`
             }
           ],

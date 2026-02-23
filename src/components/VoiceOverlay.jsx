@@ -488,13 +488,10 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
 
           if (words.length > 0) {
             // Usually the last word in "My name is X" or "Naa peru X" is the name.
-            // But if it's just "Johnson", it's the first word.
-            // Priority: Last word that starts with a Capital letter (English) 
-            // OR simply the LAST word (for Telugu/Native script)
             const capWords = words.filter(w => w[0] === w[0].toUpperCase() && /[a-zA-Z]/.test(w[0]) && w.length > 1);
             if (capWords.length > 0) {
               extractedName = capWords[capWords.length - 1];
-            } else if (words.length > 0) {
+            } else {
               extractedName = words[words.length - 1]; // Fallback to last word (Great for Telugu)
             }
           }
@@ -503,8 +500,6 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         // Update name and transition phase
         setUserName(extractedName);
         setConvoPhase('chatting');
-
-        // Update Ref immediately so following logic sees it
         stateRef.current.userName = extractedName;
         stateRef.current.convoPhase = 'chatting';
 
@@ -618,10 +613,11 @@ USER CONTEXT: Name is ${latestName}.
 LANGUAGE: Response MUST be in ${curLang.name} using ${curLang.name} script.
 
 STRICT CONVERSATIONAL FLOW & RULES:
-1. NO GREETINGS: Do NOT say "Hello", "Hi", "Namaskaram", "నమస్కారం" or use the user's name if the conversation has already started. Get straight to the answer.
-2. NO INTRODUCTION: Do NOT introduce yourself or the company again.
-3. BREVITY: Keep responses extremely concise (1-2 sentences) for normal turns. ONLY provide detailed info if the user asks for a "menu", "list of doctors", "role details", or "prices".
-4. ACTION CONFIRMATION: Once an action is done, say: "Your [Action] is confirmed. Is there anything else?"
+1. GREETING: If this is the VERY FIRST message of the conversation, you MUST greet the user warmly in their language.
+2. NO REPETITION: After the first message, do NOT say "Hello", "Hi", "Namaskaram", or use the user's name again. Get straight to the answer.
+3. NO INTRODUCTION: Do NOT introduce yourself or the company again.
+4. BREVITY: Keep responses extremely concise (1-2 sentences) for normal turns. ONLY provide detailed info if requested.
+5. ACTION CONFIRMATION: Once an action is done, say: "Your [Action] is confirmed. Is there anything else?"
 5. DATES: Use the CURRENT DATE provided above to calculate "Tomorrow". Output date as "YYYY-MM-DD" in [COMMAND].
 6. CLOSING FLOW: If user says "No" or "Nothing", ask: "Understood. Please give me a quick rating from 1 to 5 stars for my service?"
 7. EXIT: Once they give a rating, say: "Thank you! Have a wonderful day. Goodbye!" and output [HANG_UP].
@@ -953,8 +949,9 @@ ${languageInstruction}
     }
 
     setCallState('connected');
-    setConvoPhase('chatting');
-    stateRef.current.convoPhase = 'chatting';
+    const nextPhase = stateRef.current.userName ? 'chatting' : 'onboarding';
+    setConvoPhase(nextPhase);
+    stateRef.current.convoPhase = nextPhase;
 
     // Start listening immediately - user speaks first
     setTimeout(() => {
