@@ -168,7 +168,9 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 
 // Detect if a function call is needed based on the response
 const detectFunctionCall = (message, companyContext) => {
-  const upperMessage = message.toUpperCase();
+  // Normalize message to handle variants like [BOOK_APPOINTMENT]
+  const normalizedMessage = message.replace(/\[(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_RATING|COLLECT_FEEDBACK|HANG_UP)\]/gi, '$1');
+  const upperMessage = normalizedMessage.toUpperCase();
 
   // ONLY trigger on explicit Command Keywords or clear intent
 
@@ -177,18 +179,22 @@ const detectFunctionCall = (message, companyContext) => {
     const isHospital = companyContext?.industry?.toLowerCase().includes('health') ||
       companyContext?.name?.toLowerCase().includes('hospital');
 
+    // Explicitly detect if it's an interview based on the command text
+    let appType = isHospital ? 'doctor' : 'demo';
+    if (upperMessage.includes('INTERVIEW')) appType = 'interview';
+
     return {
       name: 'book_appointment',
       args: {
         entityId: companyContext?.id,
         entityName: companyContext?.name,
-        type: isHospital ? 'doctor' : 'demo',
-        personName: details.personName || (isHospital ? 'Medical Staff' : 'Callix Professional'),
+        type: appType,
+        personName: details.personName || (isHospital ? 'Medical Staff' : (appType === 'interview' ? 'Candidate' : 'Callix Professional')),
         date: details.date || new Date().toISOString().split('T')[0],
         time: details.time || '10:00',
         userEmail: companyContext?.userEmail,
         userName: companyContext?.userName,
-        userInfo: { ...details, specialization: isHospital ? 'Consultation' : 'Business' }
+        userInfo: { ...details, specialization: appType === 'interview' ? 'Interview' : (isHospital ? 'Consultation' : 'Business') }
       }
     };
   }

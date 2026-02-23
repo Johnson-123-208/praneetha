@@ -236,7 +236,9 @@ export const extractAppointmentDetails = (question) => {
 
   // Extract person type
   let type = 'general';
-  if (lowerQuestion.includes('doctor') || lowerQuestion.includes('dr.')) {
+  if (lowerQuestion.includes('interview')) {
+    type = 'interview';
+  } else if (lowerQuestion.includes('doctor') || lowerQuestion.includes('dr.')) {
     type = 'doctor';
   } else if (lowerQuestion.includes('ceo')) {
     type = 'ceo';
@@ -244,12 +246,20 @@ export const extractAppointmentDetails = (question) => {
     type = 'executive';
   }
 
-  // Extract person name
+  // Extract person name / Role
   let personName = null;
-  const namePattern = /(?:dr\.|doctor|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i;
-  const nameMatch = question.match(namePattern);
-  if (nameMatch) {
-    personName = nameMatch[1];
+  const namePatterns = [
+    /(?:dr\.|doctor|with|for)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)(?:\s+interview)?/i,
+    /for\s+([a-zA-Z\s\-]+)interview/i,
+    /([a-zA-Z\s\-]+)interview/i
+  ];
+
+  for (const pattern of namePatterns) {
+    const match = question.match(pattern);
+    if (match) {
+      personName = match[1].trim();
+      break;
+    }
   }
 
   // Extract people count (for table bookings)

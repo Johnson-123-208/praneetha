@@ -4,7 +4,8 @@ import { Calendar, Clock, User, Loader, Package, ShoppingBag, Stethoscope, Chevr
 import { database } from '../utils/database';
 
 const UserDashboard = ({ user, onClose }) => {
-    const [appointments, setAppointments] = useState([]); // Doctor/Interviews
+    const [appointments, setAppointments] = useState([]); // Doctor/General
+    const [schedules, setSchedules] = useState([]); // Interviews
     const [orders, setOrders] = useState([]);
     const [bookings, setBookings] = useState([]); // Tables
     const [feedback, setFeedback] = useState([]);
@@ -22,8 +23,9 @@ const UserDashboard = ({ user, onClose }) => {
         if (!arr || arr.length === 0) return [];
         const seen = new Set();
         return arr.filter(item => {
-            // Create a unique key based on core fields to prevent 3x duplication
-            const key = `${item.entity_name}-${item.date || item.created_at}-${item.time || item.item}-${item.type || 'none'}`;
+            // Normalize date for better deduplication (ignore time/seconds in the key)
+            const dateVal = item.date || (item.created_at ? new Date(item.created_at).toLocaleDateString() : 'no-date');
+            const key = `${item.entity_name}-${dateVal}-${item.item || item.type || 'none'}`;
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
@@ -41,13 +43,13 @@ const UserDashboard = ({ user, onClose }) => {
                 database.getFeedback(user.email)
             ]);
 
-            // Filter out 'table' type from appointments and put in bookings
             const allApps = appointmentsData || [];
 
-            setAppointments(deduplicate(allApps.filter(a => a.type !== 'table')));
+            setAppointments(deduplicate(allApps.filter(a => a.type !== 'table' && a.type !== 'interview')));
+            setSchedules(deduplicate(allApps.filter(a => a.type === 'interview')));
             setBookings(deduplicate(allApps.filter(a => a.type === 'table')));
             setOrders(deduplicate(ordersData || []));
-            setFeedback(feedbackData || []);
+            setFeedback(deduplicate(feedbackData || []));
         } catch (error) {
             console.error('Error loading user data:', error);
         } finally {
@@ -112,9 +114,10 @@ const UserDashboard = ({ user, onClose }) => {
 
     const currentData =
         activeTab === 'appointments' ? appointments :
-            activeTab === 'bookings' ? bookings :
-                activeTab === 'orders' ? orders :
-                    feedback;
+            activeTab === 'schedules' ? schedules :
+                activeTab === 'bookings' ? bookings :
+                    activeTab === 'orders' ? orders :
+                        feedback;
 
     return (
         <div className="min-h-screen bg-[#F8FAFC] relative">
@@ -151,6 +154,13 @@ const UserDashboard = ({ user, onClose }) => {
                                     icon={<Calendar size={18} />}
                                     label="Appointments"
                                     count={appointments.length}
+                                />
+                                <TabButton
+                                    active={activeTab === 'schedules'}
+                                    onClick={() => setActiveTab('schedules')}
+                                    icon={<Briefcase size={18} />}
+                                    label="Schedules"
+                                    count={schedules.length}
                                 />
                                 <TabButton
                                     active={activeTab === 'bookings'}
@@ -191,8 +201,9 @@ const UserDashboard = ({ user, onClose }) => {
                                         <h2 className="text-2xl font-bold text-slate-900 capitalize">
                                             {activeTab === 'orders' ? 'Order History' :
                                                 activeTab === 'bookings' ? 'Restaurant Bookings' :
-                                                    activeTab === 'appointments' ? 'Medical & Business Schedules' :
-                                                        'Feedback & Ratings'}
+                                                    activeTab === 'appointments' ? 'Medical Consulting' :
+                                                        activeTab === 'schedules' ? 'Interview Schedules' :
+                                                            'Feedback & Ratings'}
                                         </h2>
                                         <div className="text-sm text-slate-400 font-medium bg-slate-50 px-3 py-1 rounded-full">
                                             {currentData.length} records found
@@ -204,8 +215,9 @@ const UserDashboard = ({ user, onClose }) => {
                                             icon={
                                                 activeTab === 'orders' ? <Package size={48} /> :
                                                     activeTab === 'bookings' ? <Utensils size={48} /> :
-                                                        activeTab === 'appointments' ? <Calendar size={48} /> :
-                                                            <Star size={48} />
+                                                        activeTab === 'schedules' ? <Briefcase size={48} /> :
+                                                            activeTab === 'appointments' ? <Calendar size={48} /> :
+                                                                <Star size={48} />
                                             }
                                             message={`No ${activeTab} found yet`}
                                         />
@@ -215,8 +227,8 @@ const UserDashboard = ({ user, onClose }) => {
                                                 <RecordCard
                                                     key={record._id}
                                                     record={record}
-                                                    type={activeTab === 'feedback' ? 'feedback' : (activeTab === 'orders' ? 'order' : 'appointment')}
-                                                    onDelete={() => handleDelete(activeTab === 'feedback' ? 'feedback' : (activeTab === 'orders' ? 'order' : (activeTab === 'bookings' ? 'booking' : 'appointment')), record._id)}
+                                                    type={activeTab === 'feedback' ? 'feedback' : (activeTab === 'orders' ? 'order' : (activeTab === 'schedules' ? 'interview' : 'appointment'))}
+                                                    onDelete={() => handleDelete(activeTab === 'feedback' ? 'feedback' : (activeTab === 'orders' ? 'order' : (activeTab === 'bookings' ? 'booking' : (activeTab === 'schedules' ? 'interview' : 'appointment'))), record._id)}
                                                     isDeleting={deletingId === record._id}
                                                     formatDate={formatDate}
                                                     getStatusStyle={getStatusStyle}
@@ -249,10 +261,10 @@ const RecordCard = ({ record, type, onDelete, isDeleting, formatDate, getStatusS
             <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center space-x-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors shadow-sm ${isOrder ? 'bg-green-50 text-green-600' :
-                            isBooking ? 'bg-orange-50 text-orange-600' :
-                                record.type === 'doctor' ? 'bg-blue-50 text-blue-600' :
-                                    isFeedback ? 'bg-amber-50 text-amber-600' :
-                                        'bg-purple-50 text-purple-600'
+                        isBooking ? 'bg-orange-50 text-orange-600' :
+                            record.type === 'doctor' ? 'bg-blue-50 text-blue-600' :
+                                isFeedback ? 'bg-amber-50 text-amber-600' :
+                                    'bg-purple-50 text-purple-600'
                         }`}>
                         {isOrder ? <ShoppingBag size={24} /> :
                             isBooking ? <Utensils size={24} /> :
@@ -266,10 +278,10 @@ const RecordCard = ({ record, type, onDelete, isDeleting, formatDate, getStatusS
                             {isOrder ? (record.item) :
                                 isFeedback ? (record.entity_name) :
                                     record.type === 'doctor' ? `Dr. ${record.person_name}` :
-                                        record.type === 'interview' ? `Interview with ${record.person_name}` :
+                                        record.type === 'interview' ? `Interview: ${record.person_name}` :
                                             record.entity_name}
                         </h3>
-                        {record.type === 'doctor' && (
+                        {(record.type === 'doctor' || record.type === 'interview') && (
                             <p className="text-xs text-slate-500 font-medium mt-0.5">{record.entity_name}</p>
                         )}
                         <div className="flex items-center space-x-3 mt-2">
@@ -300,7 +312,6 @@ const RecordCard = ({ record, type, onDelete, isDeleting, formatDate, getStatusS
                             </>
                         ) : isFeedback ? (
                             <>
-                                <p className="text-xs text-slate-500 font-medium italic truncate max-w-[200px]">{record.comment || 'No comment'}</p>
                                 <p className="text-[10px] text-slate-400 mt-1">{formatDate(record.created_at)}</p>
                             </>
                         ) : (
@@ -335,8 +346,8 @@ const TabButton = ({ active, onClick, icon, label, count }) => (
     <button
         onClick={onClick}
         className={`w-full flex items-center space-x-3 px-4 py-3.5 rounded-2xl transition-all duration-300 font-bold text-sm relative group ${active
-                ? 'bg-purple-600 text-white shadow-lg shadow-purple-200 translate-x-1'
-                : 'text-slate-500 hover:bg-white hover:text-purple-600 hover:shadow-sm'
+            ? 'bg-purple-600 text-white shadow-lg shadow-purple-200 translate-x-1'
+            : 'text-slate-500 hover:bg-white hover:text-purple-600 hover:shadow-sm'
             }`}
     >
         <span className={`${active ? 'text-white' : 'text-slate-400 group-hover:text-purple-500'} transition-colors`}>{icon}</span>
