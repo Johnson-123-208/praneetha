@@ -17,7 +17,7 @@ class STTService {
 
         try {
             // Azure STT REST API for short audio (max 60s)
-            const url = `https://${this.azureRegion}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=${lang}`;
+            const url = `https://${this.azureRegion}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=${lang}&format=detailed`;
 
             console.log(`☁️ [Azure STT] Transcribing in: ${lang}`);
 
@@ -38,16 +38,24 @@ class STTService {
             }
 
             const data = await response.json();
-            
-            // Azure returns DisplayText in the response
-            const transcript = data.DisplayText || data.RecognitionStatus === 'Success' ? data.DisplayText : "";
+
+            // Azure returns DisplayText or specialized NBest list in 'detailed' format
+            let transcript = data.DisplayText || "";
+
+            // If primary DisplayText is missing but we have NBest (common in detailed format)
+            if (!transcript && data.NBest && data.NBest.length > 0) {
+                transcript = data.NBest[0].Display || data.NBest[0].Lexical || "";
+            }
 
             if (!transcript) {
                 console.warn("⚠️ Azure STT returned empty transcript. Possible silence or noise issues.");
-                if (data.RecognitionStatus) console.log(`Recognition Status: ${data.RecognitionStatus}`);
+                console.log(`Recognition Status: ${data.RecognitionStatus || 'Unknown'}`);
+                if (data.RecognitionStatus === 'InitialSilenceTimeout') {
+                    console.log("ℹ️ No speech detected before timeout.");
+                }
             }
 
-            return transcript || "";
+            return transcript;
         } catch (error) {
             console.error("❌ Azure STT Failure:", error.message);
             throw error;

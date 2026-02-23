@@ -178,8 +178,23 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         setIsProcessing(true);
         try {
           setIsTranscribing(true);
-          const text = await sttService.transcribe(audioBlob, curLang.code);
+          let text = await sttService.transcribe(audioBlob, curLang.code);
           console.log(`🎤 Azure Response: "${text}"`);
+
+          // FALLBACK: If Azure returns empty but speech was clearly detected, try Groq Whisper
+          if (!text || text.trim().length <= 1) {
+            console.log("☁️ [Azure STT] Result empty. Attempting backup via Groq Whisper...");
+            try {
+              const groqText = await transcribeAudio(audioBlob, curLang.code);
+              if (groqText && groqText.trim().length > 1) {
+                console.log(`🎤 Groq Backup Success: "${groqText}"`);
+                text = groqText;
+              }
+            } catch (fallbackErr) {
+              console.warn("❌ Groq fallback failed:", fallbackErr);
+            }
+          }
+
           setIsTranscribing(false);
 
           if (text && text.trim().length > 1) {
@@ -271,7 +286,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
                     mediaRecorderRef.current.stop();
                   }
                   silenceTimerRef.current = null;
-                }, 1000);
+                }, 1500);
               }
             }
           }
