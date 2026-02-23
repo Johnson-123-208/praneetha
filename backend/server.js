@@ -20,18 +20,25 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000 // 5 seconds timeout
-})
+if (process.env.MONGODB_URI) {
+    mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000 // 5 seconds timeout
+    })
     .then(() => console.log('✅ Connected to MongoDB'))
     .catch((err) => {
         console.error('❌ MongoDB Connection Error:', err.message);
         console.log('⚠️ Running in fallback mode without database connection.');
     });
+} else {
+    console.warn('⚠️ MONGODB_URI not found in environment variables. Backend will run in Demo/Mock mode.');
+}
 
 // --- Auth Routes ---
 app.post('/api/auth/signup', async (req, res) => {
     try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(200).json({ message: 'Demo mode: User registration simulated.', user: { email: req.body.email, full_name: req.body.full_name || 'Guest' } });
+        }
         const { email, password, full_name, phone, preferred_language } = req.body;
         const existingUser = await User.findOne({ email });
         if (existingUser) return res.status(400).json({ error: 'User already exists' });
@@ -46,6 +53,16 @@ app.post('/api/auth/signup', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
     try {
+        if (mongoose.connection.readyState !== 1) {
+            // Fallback for demo when DB is not connected
+            return res.status(200).json({ 
+                user: { 
+                    email: req.body.email, 
+                    full_name: 'Demo User', 
+                    isDemo: true 
+                } 
+            });
+        }
         const { email, password } = req.body;
         const user = await User.findOne({ email, password });
         if (!user) return res.status(401).json({ error: 'Invalid credentials' });

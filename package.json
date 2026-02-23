@@ -10,7 +10,6 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
     "clsx": "^2.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
