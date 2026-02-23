@@ -38,18 +38,41 @@ const queryDatabase = async (entityId, question) => {
   // Check doctors (for hospitals)
   if (lowerQuestion.includes('doctor') || lowerQuestion.includes('physician') || lowerQuestion.includes('specialist')) {
     const doctors = await database.getDoctors(entityId);
-    if (doctors.length === 0) {
+    
+    // Fallback: search in entity context for DOCTORS: [...]
+    const context = entity.nlp_context || entity.context_summary || '';
+    const doctorsMatch = context.match(/DOCTORS: \[([^\]]+)\]/i);
+    const doctorList = doctorsMatch ? doctorsMatch[1] : '';
+
+    if (doctors.length === 0 && !doctorList) {
       return `Currently, we have several doctors at ${entity.name} including specialists in Cardiology and Pediatrics. Would you like to schedule an appointment?`;
     }
 
     const specialization = extractSpecialization(lowerQuestion);
-    const filtered = specialization ? doctors.filter(d =>
-      d.specialization?.toLowerCase().includes(specialization) ||
-      d.name?.toLowerCase().includes(specialization)
-    ) : doctors;
+    let resultText = '';
 
-    const list = filtered.map(d => `- ${d.name} (${d.specialization})`).join('\n');
-    return `We have ${filtered.length} doctor(s) available:\n${list}`;
+    if (doctors.length > 0) {
+      const filtered = specialization ? doctors.filter(d =>
+        d.specialization?.toLowerCase().includes(specialization) ||
+        d.name?.toLowerCase().includes(specialization)
+      ) : doctors;
+      resultText = filtered.map(d => `- ${d.name} (${d.specialization})`).join('\n');
+    } else if (doctorList) {
+      resultText = doctorList.split(',').map(d => `- ${d.trim()}`).join('\n');
+    }
+
+    return `We have the following doctors available at ${entity.name}:\n${resultText}\nWould you like to book an appointment with any of them?`;
+  }
+
+  // Check Menu (for restaurants)
+  if (lowerQuestion.includes('menu') || lowerQuestion.includes('food') || lowerQuestion.includes('item') || lowerQuestion.includes('dish') || lowerQuestion.includes('eat')) {
+    const context = entity.nlp_context || entity.context_summary || '';
+    const menuMatch = context.match(/MENU: \[([^\]]+)\]/i);
+    
+    if (menuMatch) {
+      return `Our menu at ${entity.name} includes:\n${menuMatch[1].split('],').join(']\n')}\nWould you like to book a table or order something?`;
+    }
+    return `We offer a variety of cuisines at ${entity.name}. You can check our full menu on the dashboard or I can recommend some dishes like Biryani or Paneer Lababdar.`;
   }
 
   // Check appointments

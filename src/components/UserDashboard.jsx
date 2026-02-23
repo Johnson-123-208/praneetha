@@ -25,7 +25,8 @@ const UserDashboard = ({ user, onClose }) => {
         return arr.filter(item => {
             // Normalize date for better deduplication (ignore time/seconds in the key)
             const dateVal = item.date || (item.created_at ? new Date(item.created_at).toLocaleDateString() : 'no-date');
-            const key = `${item.entity_name}-${dateVal}-${item.item || item.type || 'none'}`;
+            const timeVal = item.time || 'no-time';
+            const key = `${item.entity_name}-${dateVal}-${timeVal}-${item.item || item.type || 'none'}`;
             if (seen.has(key)) return false;
             seen.add(key);
             return true;

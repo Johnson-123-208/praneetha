@@ -36,7 +36,7 @@ const MOCK_COMPANIES = [
     logo: "🏥",
     gender: "female",
     context_summary: "Tier-1 Healthcare Facility with 50+ Doctors, 15+ specialized departments, and 24/7 Emergency Care.",
-    nlp_context: "DATABASE: [Departments: Cardiology, Neurology, Pediatrics, Orthopedics, Oncology, Dental]. DOCTORS: [Dr. Sharm: Cardiology (Mon-Fri, 10-4), Dr. Verma: Neurology (Tue-Sat, 9-2), Dr. Iyer: Pediatrics (Daily, 5-8)]. FEES: [Consultation: ₹500, Emergency: ₹1500, Specialist Senior: ₹1000]. ROOMS: [General: ₹2000/day, Private: ₹5000/day, ICU: ₹12000/day]. FACILITIES: 24/7 Trauma, In-house Pharmacy, Radiology. Action: 'BOOK_APPOINTMENT for [Doctor] on [Date] at [Time]'.",
+    nlp_context: "DATABASE: [Departments: Cardiology, Neurology, Pediatrics, Orthopedics, Oncology, Dental, Gastroenterology, Dermatology]. DOCTORS: [Dr. Sharm: Cardiology (10am-4pm), Dr. Verma: Neurology (9am-2pm), Dr. Iyer: Pediatrics (5pm-8pm), Dr. Reddy: Orthopedics (11am-3pm), Dr. Kapoor: Oncology (8am-12pm)]. AVAILABILITY: [10:00, 11:00, 12:00, 14:00, 15:00, 16:00]. FEES: [Consultation: ₹500, Specialist Senior: ₹1000]. Action: 'BOOK_APPOINTMENT for [Doctor] on [Date] at [Time]'. NOTE: For doctors, we must check their shift timing.",
     contact_email: "appointments@aarogya.com",
     contact_phone: "+91-98765-43000"
   },
@@ -47,7 +47,7 @@ const MOCK_COMPANIES = [
     logo: "🥗",
     gender: "female",
     context_summary: "Luxury Multi-cuisine Hotel with Indian, Continental, and Oriental menus. Seats up to 300 guests.",
-    nlp_context: "MENU: [Veg: Paneer Lababdar (₹380), Dal Makhani (₹320), Malai Kofta (₹350)]. [Non-Veg: Butter Chicken (₹480), Hyderabadi Mutton Biryani (₹550), Fish Curry (₹420)]. [Desserts: Gulab Jamun (₹120), Rasmalai (₹150)]. COMBOS: 'Couple Combo' (₹1800), 'Family Feast' (₹3500). TABLE OPTIONS: [Standard, Garden View, Private Cabin (₹500 extra)]. Action: 'BOOK_TABLE for [People] on [Date] at [Time]'.",
+    nlp_context: "MENU: [Veg: Paneer Lababdar (₹380), Dal Makhani (₹320), Malai Kofta (₹350)]. [Non-Veg: Butter Chicken (₹480), Hyderabadi Mutton Biryani (₹550), Fish Curry (₹420)]. [Recommended: Chef's Special Thali (₹799), Tandoori Platter (₹1200)]. [Desserts: Gulab Jamun (₹120), Rasmalai (₹150)]. BOOKINGS: Table bookings are available as per guest's preferred time. Action: 'BOOK_TABLE for [People] on [Date] at [Time]'.",
     contact_email: "tables@spicegarden.com",
     contact_phone: "+91-88888-55555"
   },
@@ -58,7 +58,7 @@ const MOCK_COMPANIES = [
     logo: "💻",
     gender: "female",
     context_summary: "Fortune 500 IT Giant with 40+ open roles in AI, Cloud, and Software Engineering. Remote-First Culture.",
-    nlp_context: "HR PORTAL: [Roles: Senior React Dev (Hybrid), Node.js Lead (Remote), AI Researcher (On-site), UI/UX Specialist]. SALARY: [Entry: 8-12 LPA, Senior: 25-45 LPA]. CULTURE: 4-day work week, learning stipends, health insurance. PROCESS: Screening -> Technical -> HR. Action: 'BOOK_APPOINTMENT for Interview on [Date] at [Time]'.",
+    nlp_context: "ROLES: [Frontend: React Dev, Vue Expert]. [Backend: Node.js Lead, Python Architect]. [AI: ML Researcher, Data Scientist]. MANAGERS: [Mr. Satya: Engineering Head (Mon-Wed), Ms. Priya: HR Director (Thu-Fri)]. INTERVIEW_SLOTS: [Morning: 10:00-12:00, Afternoon: 14:00-16:00]. Action: 'BOOK_APPOINTMENT for Interview on [Date] at [Time]'.",
     contact_email: "careers@agile-it.com",
     contact_phone: "+1-555-TECH-HIRE"
   },
@@ -69,7 +69,7 @@ const MOCK_COMPANIES = [
     logo: "🛒",
     gender: "female",
     context_summary: "Premier Electronics Store featuring 100+ products from Apple, Sony, Samsung, and more.",
-    nlp_context: "CATALOG: [Phones: iPhone 15 Pro (₹1,34,900), S24 Ultra (₹1,29,900), OnePlus 12 (₹64,900)]. [Laptops: Macbook Pro M3 (₹1,69,900), Dell XPS (₹1,45,000), ROG Zephyrus (₹1,89,000)]. [Audio: Sony XM5 (₹29,900), AirPods Pro (₹24,900)]. SHIPPING: Free for orders above ₹5000, Express (1-day) at ₹250. Action: 'BOOK_ORDER [Item]' or 'TRACE_ORDER'.",
+    nlp_context: "CATALOG: [Phones: iPhone 15 Pro (₹1,34,900), S24 Ultra (₹1,29,900), OnePlus 12 (₹64,900)]. [Audio: Sony XM5 (₹29,900), AirPods Pro (₹24,900)]. [Computing: MacBook Pro M3 (₹1,69,900), Dell XPS (₹1,45,000)]. DEMO_AVAILABILITY: Weekdays 11am-7pm. CONTACT: Support is available 24/7 for order tracking. Action: 'BOOK_ORDER [Item]' or 'TRACE_ORDER'.",
     contact_email: "support@quickkart.com",
     contact_phone: "+1-800-KART-PRO"
   }
@@ -503,5 +503,62 @@ export const tools = {
     const order = await database.getOrder(id);
     if (!order) return { error: 'Order not found' };
     return { orderId: order.id, status: order.status, item: order.item };
+  },
+
+  check_vacancies: async (params) => {
+    const { companyId, position } = params;
+    const company = await database.getCompany(companyId);
+    if (!company) return { error: 'Company not found' };
+    
+    // Extract vacancies from nlp_context if possible
+    const context = company.nlp_context || company.context_summary || '';
+    const rolesMatch = context.match(/\[Roles: ([^\]]+)\]/);
+    const roles = rolesMatch ? rolesMatch[1] : 'Various positions';
+    
+    return {
+      companyName: company.name,
+      vacancies: roles,
+      message: `Current openings at ${company.name}: ${roles}`
+    };
+  },
+
+  query_entity_database: async (params) => {
+    const { entityId, query } = params;
+    const entity = await database.getCompany(entityId);
+    if (!entity) return { error: 'Entity not found' };
+
+    const context = entity.nlp_context || entity.context_summary || '';
+    const lowerQuery = query?.toLowerCase() || '';
+
+    // Handle Doctor Queries
+    if (lowerQuery.includes('doctor') || lowerQuery.includes('specialist') || lowerQuery.includes('physician')) {
+      const doctorsMatch = context.match(/DOCTORS: \[([^\]]+)\]/);
+      if (doctorsMatch) {
+        return { result: doctorsMatch[1], type: 'doctors', entityName: entity.name };
+      }
+    }
+
+    // Handle Menu Queries
+    if (lowerQuery.includes('menu') || lowerQuery.includes('food') || lowerQuery.includes('item') || lowerQuery.includes('dish')) {
+      const menuMatch = context.match(/MENU: \[([^\]]+)\]/);
+      if (menuMatch) {
+        return { result: menuMatch[1], type: 'menu', entityName: entity.name };
+      }
+    }
+
+    // Handle Vacancy Queries
+    if (lowerQuery.includes('vacancy') || lowerQuery.includes('job') || lowerQuery.includes('hiring')) {
+      const rolesMatch = context.match(/(?:HR PORTAL|Roles): \[([^\]]+)\]/);
+      if (rolesMatch) {
+        return { result: rolesMatch[1], type: 'vacancies', entityName: entity.name };
+      }
+    }
+
+    return { 
+      result: context, 
+      type: 'general', 
+      entityName: entity.name,
+      message: `Information about ${entity.name}: ${context}`
+    };
   }
 };

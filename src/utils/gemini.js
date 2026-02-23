@@ -15,7 +15,7 @@ export const initializeGemini = (apiKey) => {
     genAI = new GoogleGenerativeAI(apiKey);
     // Note: Gemini Live API model name as specified
     model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+      model: 'gemini-1.5-flash',
     });
     return true;
   } catch (error) {
@@ -45,9 +45,9 @@ IMPORTANT LANGUAGE PROTOCOL:
 
 CAPABILITIES:
 1. Answer general questions on any topic (knowledge, information, advice)
-2. Query company/hospital databases for information
+2. Query company/hospital databases for information (Doctors, Menus, Vacancies, etc.)
 3. Check job vacancies and positions
-4. Book appointments with doctors, CEOs, executives, etc.
+4. Book appointments with doctors, CEOs, executives, table bookings, etc.
 5. Collect feedback from users
 6. Check available appointment slots
 
@@ -55,23 +55,32 @@ ${companyContext ? `CURRENT ENTITY CONTEXT: ${companyContext.name || 'Unknown'}
 Industry: ${companyContext.industry || 'Unknown'}
 Context: ${companyContext.contextSummary || companyContext.nlpContext || 'No specific context provided.'}` : ''}
 
-DATABASE OPERATIONS AVAILABLE:
+DATABASE OPERATIONS & WORKFLOWS:
 - check_vacancies: Check job vacancies for positions
-- book_appointment: Book appointments (doctors, CEOs, executives)
+- book_appointment: Book appointments (doctors, CEOs, executives, table bookings)
 - collect_feedback: Collect user feedback and ratings
 - get_available_slots: Check available appointment time slots
-- query_entity_database: Query any entity's database information
+- query_entity_database: Query any entity's database for specific info (e.g., 'What is on the menu?', 'List available doctors')
 - get_company_directory: Get list of all companies
 - get_company_insights: Get company details
 - book_order: Create orders for companies
 - trace_order: Check order status
+
+WORKFLOW RULES:
+1. When a user asks for a MENU or FOOD recommendations, use 'query_entity_database' with query='menu'.
+2. When a user asks for DOCTORS or specialists, use 'query_entity_database' with query='doctors'.
+3. AFTER BOOKING AN APPOINTMENT:
+   - Confirm the booking clearly: "I have booked your appointment for [Doctor/Person] on [Date] at [Time]."
+   - Ask if they need anything else: "Is there anything else I can help you with?"
+   - AFTER they respond (or as part of the closing), ask for feedback: "We value your experience. Could you please provide some feedback or a rating for this interaction?"
+4. If a user asks for suggestions, look at the entity context and provide relevant items from the 'MENU' or 'DOCTORS' or 'Roles'.
 
 When users ask about:
 - Job vacancies → Use check_vacancies
 - Booking appointments → Use book_appointment or get_available_slots
 - Feedback → Use collect_feedback
 - General questions → Answer directly using your knowledge
-- Database queries → Use appropriate query function`;
+- Database queries (Menu, Doctors) → Use query_entity_database`;
 
     const chat = model.startChat({
       history: history.map(msg => ({

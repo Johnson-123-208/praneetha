@@ -85,7 +85,18 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
     let systemMessage = customSystemMessage || `You are an AI calling agent.
     ${companyContext ? `CURRENT ENTITY CONTEXT: ${companyContext.name}
     Industry: ${companyContext.industry}
-    Context: ${companyContext.nlpContext}` : ''}`;
+    Context: ${companyContext.nlpContext}` : ''}
+    
+    CAPABILITIES:
+    1. Query info (Doctors, Menus, Vacancies) -> Use [QUERY_ENTITY_DATABASE]
+    2. Book appointments/tables -> Use [BOOK_APPOINTMENT] or [BOOK_TABLE]
+    3. Orders -> Use [BOOK_ORDER]
+    4. Feedback -> Use [COLLECT_FEEDBACK]
+    
+    WORKFLOW RULES:
+    - If asked for doctors, use [QUERY_ENTITY_DATABASE] with query="doctors".
+    - If asked for menu, use [QUERY_ENTITY_DATABASE] with query="menu".
+    - AFTER booking, say "I have booked your appointment" and ask for feedback after confirming if they need anything else.`;
 
     // Convert history to Groq format
     const messages = [
@@ -265,6 +276,21 @@ const detectFunctionCall = (message, companyContext) => {
 
   if (upperMessage.includes('TRACE_ORDER')) {
     return { name: 'trace_order', args: { userEmail: companyContext?.userEmail } };
+  }
+
+  if (upperMessage.includes('QUERY_ENTITY_DATABASE')) {
+    let queryType = 'general';
+    if (upperMessage.includes('DOCTOR') || upperMessage.includes('SPECIALIST')) queryType = 'doctors';
+    else if (upperMessage.includes('MENU') || upperMessage.includes('FOOD') || upperMessage.includes('DISH')) queryType = 'menu';
+    else if (upperMessage.includes('VACANCY') || upperMessage.includes('JOB')) queryType = 'vacancies';
+    
+    return {
+      name: 'query_entity_database',
+      args: {
+        entityId: companyContext?.id,
+        query: queryType
+      }
+    };
   }
 
   return null;

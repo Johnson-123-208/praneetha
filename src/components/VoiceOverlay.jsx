@@ -271,7 +271,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
                     mediaRecorderRef.current.stop();
                   }
                   silenceTimerRef.current = null;
-                }, 1500);
+                }, 1000);
               }
             }
           }
