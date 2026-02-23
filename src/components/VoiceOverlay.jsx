@@ -132,7 +132,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     }
   }, [user]);
 
-  // Pro STT Logic (MediaRecorder + Deepgram Nova-3) - STOP-WAIT-RESTART PATTERN
+  // Pro STT Logic (MediaRecorder + Azure AI Speech) - STOP-WAIT-RESTART PATTERN
   const startProSTT = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -174,12 +174,12 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
           return;
         }
 
-        console.log(`🎙️ Sending Speech Chunk (${audioBlob.size} bytes) to Deepgram...`);
+        console.log(`🎙️ Sending Speech Chunk (${audioBlob.size} bytes) to Azure...`);
         setIsProcessing(true);
         try {
           setIsTranscribing(true);
           const text = await sttService.transcribe(audioBlob, curLang.code);
-          console.log(`🎤 Deepgram Response: "${text}"`);
+          console.log(`🎤 Azure Response: "${text}"`);
           setIsTranscribing(false);
 
           if (text && text.trim().length > 1) {
@@ -307,7 +307,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     }
 
     if (callState === 'connected' && isOpen) {
-      console.log(`🚀 [STT] Activating Deepgram Nova-3 for ${selectedLanguage.name}...`);
+      console.log(`🚀 [STT] Activating Azure AI Speech for ${selectedLanguage.name}...`);
       startProSTT();
     }
 

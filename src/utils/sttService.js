@@ -1,66 +1,64 @@
 /**
- * Professional STT Service - EXCLUSIVE DEEPGRAM NOVA-3
+ * Professional STT Service - AZURE AI SPEECH
  * Forces high-accuracy transcription for Telugu, Hindi, and English.
  */
 
 class STTService {
     constructor() {
-        this.deepgramApiKey = localStorage.getItem('deepgram_api_key') || import.meta.env.VITE_DEEPGRAM_API_KEY;
-        this.activeProvider = "DEEPGRAM";
-
-        if (!this.deepgramApiKey) {
-            console.error("❌ DEEPGRAM API KEY MISSING!");
-        }
+        this.azureKey = import.meta.env.VITE_AZURE_SPEECH_KEY || localStorage.getItem('azure_speech_key');
+        this.azureRegion = import.meta.env.VITE_AZURE_SPEECH_REGION || 'centralindia';
     }
 
-    async transcribe(audioBlob, languageCode = 'te') {
-        if (!this.deepgramApiKey) throw new Error("STT Error: No Key.");
+    async transcribe(audioBlob, languageCode = 'te-IN') {
+        if (!this.azureKey) throw new Error("STT Error: Azure Key Missing.");
 
-        const lang = languageCode.split('-')[0];
+        // Azure handles specific language codes
+        const lang = languageCode.includes('-') ? languageCode : (languageCode === 'te' ? 'te-IN' : languageCode === 'hi' ? 'hi-IN' : 'en-IN');
 
         try {
-            // OPTIMIZED FOR CONVERSATIONAL INTELLIGENCE
-            const params = new URLSearchParams({
-                model: 'nova-3',
-                language: lang === 'en' ? 'en-IN' : lang,
-                smart_format: 'true',
-                punctuate: 'true',
-                filler_words: 'true' // Helpful for capturing natural speech patterns
-            });
+            // Azure STT REST API for short audio (max 60s)
+            const url = `https://${this.azureRegion}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=${lang}`;
 
-            const url = `https://api.deepgram.com/v1/listen?${params.toString()}`;
+            console.log(`☁️ [Azure STT] Transcribing in: ${lang}`);
 
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Token ${this.deepgramApiKey}`,
+                    'Ocp-Apim-Subscription-Key': this.azureKey,
+                    'Content-Type': audioBlob.type || 'audio/webm;codecs=opus',
+                    'Accept': 'application/json'
                 },
                 body: audioBlob
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`❌ Deepgram API Error (${response.status}):`, errorText);
-                throw new Error(`Deepgram API ${response.status}: ${errorText}`);
+                console.error(`❌ Azure STT API Error (${response.status}):`, errorText);
+                throw new Error(`Azure STT API ${response.status}: ${errorText}`);
             }
 
             const data = await response.json();
-            const transcript = data.results?.channels[0]?.alternatives[0]?.transcript;
+            
+            // Azure returns DisplayText in the response
+            const transcript = data.DisplayText || data.RecognitionStatus === 'Success' ? data.DisplayText : "";
 
             if (!transcript) {
-                console.warn("⚠️ Deepgram returned empty transcript. Possible silence or noise issues.");
+                console.warn("⚠️ Azure STT returned empty transcript. Possible silence or noise issues.");
+                if (data.RecognitionStatus) console.log(`Recognition Status: ${data.RecognitionStatus}`);
             }
 
             return transcript || "";
         } catch (error) {
-            console.error("❌ STT Failure:", error.message);
+            console.error("❌ Azure STT Failure:", error.message);
             throw error;
         }
     }
 
-    setApiKey(key) {
-        this.deepgramApiKey = key;
-        localStorage.setItem('deepgram_api_key', key);
+    setApiKey(key, region) {
+        this.azureKey = key;
+        this.azureRegion = region || this.azureRegion;
+        localStorage.setItem('azure_speech_key', key);
+        if (region) localStorage.setItem('azure_speech_region', region);
     }
 }
 
