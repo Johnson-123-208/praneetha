@@ -363,20 +363,11 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const getServiceInfo = (langCode = 'en-IN') => {
     const name = selectedCompany?.name?.toLowerCase() || '';
     const sMap = {
-      'en-US': {
-        hospital: "I can help you explore our registry of 15+ doctors, check their consultation fees, specialty availability (Cardiology to Pediatrics), and book appointments instantly.",
-        restaurant: "I can present our full continental and Indian menu, provide budget-friendly recommendations for groups or couples, and reserve your table instantly.",
-        ecommerce: "I can provide updated pricing for the latest iPhone, MacBook, and Sony devices, book your orders directly, and track your shipment status.",
-        tech_mahindra: "I can guide you through our 12+ open roles (like React Dev or ML Engineer), explain our remote-first culture and 4-day work week, and schedule your interview.",
-        voxsphere: "I can guide you through our open roles, work culture, and help you schedule a recruitment interview.",
-        agile_it: "I can help with career queries, role descriptions, culture insights, and direct interview scheduling.",
-        default: "I'm here to assist you with all your professional queries today."
-      },
       'en-IN': {
-        hospital: "I can help you with doctor appointments and consultation details.",
-        restaurant: "I can help you with our menu and table reservations.",
-        ecommerce: "I can help you with product pricing and order tracking.",
-        tech_mahindra: "I can help you with job roles and interview scheduling.",
+        hospital: "I can help with doctor appointments and consultation details.",
+        restaurant: "I can help with our menu and table reservations.",
+        ecommerce: "I can help with product pricing and order tracking.",
+        tech_mahindra: "I can help with job roles and interview scheduling.",
         voxsphere: "I can walk you through our AI services and demo bookings.",
         agile_it: "I can help with digital transformation and technical interviews.",
         default: "I'm here to assist you today."
@@ -627,12 +618,14 @@ USER CONTEXT: Name is ${latestName}.
 LANGUAGE: Response MUST be in ${curLang.name} using ${curLang.name} script.
 
 STRICT CONVERSATIONAL FLOW & RULES:
-1. NO REPETITION: Do NOT repeat your greeting or the company introduction. 
-2. ACTION CONFIRMATION: Once an action is done, say: "Your [Action] is confirmed. Is there anything else I can help you with?"
-3. DATES: Use the CURRENT DATE provided above to calculate "Tomorrow" or "Next Monday". In the [COMMAND], output the date as "YYYY-MM-DD" or "DD Month YYYY" so the system can parse it correctly. 
-4. CLOSING FLOW: If user says "No", "Nothing", or "That's all", say: "Understood. Before you go, could you please give me a quick rating from 1 to 5 stars for my service?"
-5. EXIT: Once they give a rating/feedback, say: "Thank you for the feedback! Have a wonderful day. Goodbye!" then output [HANG_UP] on a new line.
-6. COMMANDS: Commands like [BOOK_TABLE], [BOOK_APPOINTMENT], [BOOK_ORDER], [COLLECT_FEEDBACK], or [HANG_UP] must be on a NEW LINE at the very end.
+1. NO GREETINGS: Do NOT say "Hello", "Hi", "Namaskaram", "నమస్కారం" or use the user's name if the conversation has already started. Get straight to the answer.
+2. NO INTRODUCTION: Do NOT introduce yourself or the company again.
+3. BREVITY: Keep responses extremely concise (1-2 sentences) for normal turns. ONLY provide detailed info if the user asks for a "menu", "list of doctors", "role details", or "prices".
+4. ACTION CONFIRMATION: Once an action is done, say: "Your [Action] is confirmed. Is there anything else?"
+5. DATES: Use the CURRENT DATE provided above to calculate "Tomorrow". Output date as "YYYY-MM-DD" in [COMMAND].
+6. CLOSING FLOW: If user says "No" or "Nothing", ask: "Understood. Please give me a quick rating from 1 to 5 stars for my service?"
+7. EXIT: Once they give a rating, say: "Thank you! Have a wonderful day. Goodbye!" and output [HANG_UP].
+8. COMMANDS: Commands like [BOOK_TABLE], [BOOK_APPOINTMENT], [BOOK_ORDER], [COLLECT_FEEDBACK], or [HANG_UP] must be on a NEW LINE at the very end.
 
 ${languageInstruction}
 `;
