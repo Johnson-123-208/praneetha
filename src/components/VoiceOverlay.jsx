@@ -931,46 +931,16 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
     }
 
     setCallState('connected');
+    setConvoPhase('chatting');
+    stateRef.current.convoPhase = 'chatting';
 
-    // CALLIX INTRODUCTION LOGIC - Language already selected
-    let introMsg = "";
-    const serviceInfo = getServiceInfo(selectedLanguage.code);
-
-    if (userName && userName !== 'Guest') {
-      setConvoPhase('chatting');
-      // Greet in selected language with name AND services
-      if (selectedLanguage.code === 'te-IN') {
-        introMsg = `నమస్కారం ${userName}! నేను ${selectedCompany?.name} AI అసిస్టెంట్ కేలిక్స్. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
-      } else if (selectedLanguage.code === 'hi-IN') {
-        introMsg = `नमस्ते ${userName}! मैं ${selectedCompany?.name} का AI सहायक कॉलिक्स हूँ। ${serviceInfo} मैं आपकी क्या मदद कर सकता हूँ?`;
-      } else {
-        introMsg = `Hello ${userName}! I'm Callix from ${selectedCompany?.name}. ${serviceInfo} How can I assist you today?`;
+    // Start listening immediately - user speaks first
+    setTimeout(() => {
+      if (mediaRecorderRef.current?.state === 'inactive') {
+        mediaRecorderRef.current.start();
+        setIsListening(true);
       }
-    } else {
-      setConvoPhase('onboarding');
-      // Greet in selected language and ask for name only
-      if (selectedLanguage.code === 'te-IN') {
-        introMsg = `నమస్కారం! నేను ${selectedCompany?.name} AI అసిస్టెంట్ కేలిక్స్. మీ పేరు ఏమిటి?`;
-      } else if (selectedLanguage.code === 'hi-IN') {
-        introMsg = `नमस्ते! मैं ${selectedCompany?.name} का AI सहायक कॉलिक्स हूँ। आपका नाम क्या है?`;
-      } else {
-        introMsg = `Hello! I'm Callix from ${selectedCompany?.name}. May I know your name?`;
-      }
-    }
-
-    addMessage('agent', introMsg);
-
-    // Ensure voices are loaded before speaking to prevent default male voice greeting
-    const startSpeaking = () => {
-      speak(introMsg, selectedLanguage.code);
-    };
-
-    if (availableVoices.length === 0) {
-      window.speechSynthesis.getVoices();
-      setTimeout(startSpeaking, 500);
-    } else {
-      startSpeaking();
-    }
+    }, 500);
   };
 
   const endCall = () => {
