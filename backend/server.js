@@ -308,8 +308,10 @@ app.get('/api/logs', async (req, res) => {
     }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 API Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 API Server running on port ${PORT}`);
+    });
+}
 
 export default app;

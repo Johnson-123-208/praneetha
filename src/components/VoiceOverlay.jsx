@@ -814,8 +814,8 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
         })
         .catch(() => {
           // Fallback: Web Speech API
+          const voices = window.speechSynthesis.getVoices();
           const getBestVoice = () => {
-            const voices = window.speechSynthesis.getVoices();
             if (voices.length === 0) return null;
 
             const target = targetLangCode.toLowerCase();
@@ -864,11 +864,12 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
           window.speechSynthesis.cancel();
           setTimeout(() => {
             const voice = getBestVoice();
-            if (voice) {
-              console.log(`🔊 [Selection] Locked onto: ${voice.name} (${voice.lang}) for ${targetLangCode}`);
+            if (voice || voices.length > 0) {
+              const selectedVoice = voice || voices[0];
+              console.log(`🔊 [Selection] Locked onto: ${selectedVoice.name} (${selectedVoice.lang}) for ${targetLangCode}`);
               const utterance = new SpeechSynthesisUtterance(text);
-              utterance.voice = voice;
-              utterance.lang = voice.lang;
+              utterance.voice = selectedVoice;
+              utterance.lang = selectedVoice.lang;
               utterance.pitch = 1.1;
               utterance.rate = 1.0;
               utterance.onend = finishSpeech;
