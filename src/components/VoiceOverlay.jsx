@@ -179,28 +179,12 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
           return;
         }
 
-        console.log(`🎙️ Sending Speech Chunk (${audioBlob.size} bytes) to Azure...`);
+        console.log(`🎙️ Sending Speech Chunk (${audioBlob.size} bytes) to Cloud STT...`);
         setIsProcessing(true);
         try {
           setIsTranscribing(true);
           let text = await sttService.transcribe(audioBlob, curLang.code);
-          console.log(`🎤 Azure Response: "${text}"`);
-
-          // FALLBACK: If Azure returns empty but speech was clearly detected, try Groq Whisper
-          if (!text || text.trim().length <= 1) {
-            console.warn("⚠️ Azure STT empty. Triggering Groq Whisper Fallback...");
-            try {
-              const groqText = await transcribeAudio(audioBlob, curLang.code);
-              if (groqText && groqText.trim().length > 1) {
-                console.log(`✅ Groq Fallback Success: "${groqText}"`);
-                text = groqText;
-              } else {
-                console.log("❌ Groq fallback also returned empty.");
-              }
-            } catch (fallbackErr) {
-              console.error("❌ Groq fallback error:", fallbackErr);
-            }
-          }
+          console.log(`🎤 STT Result: "${text}"`);
 
           setIsTranscribing(false);
 
@@ -288,12 +272,12 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
               // User was talking but stopped. Start 1.5s silence timer to cut the chunk.
               if (!silenceTimerRef.current) {
                 silenceTimerRef.current = setTimeout(() => {
-                  console.log("🤫 Silence detected after speech. Processing...");
+                  console.log("🤫 Silence detected. Processing...");
                   if (mediaRecorderRef.current?.state === 'recording') {
                     mediaRecorderRef.current.stop();
                   }
                   silenceTimerRef.current = null;
-                }, 1500);
+                }, 700);
               }
             }
           }

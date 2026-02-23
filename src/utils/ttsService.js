@@ -1,47 +1,21 @@
 /**
- * Unified TTS Service - Supports Azure AI (Primary), XTTS v2 (Local), and Browser Fallbacks
+ * CLEAN TTS SERVICE - AZURE ONLY
  */
+
 export const ttsService = {
-    // Configuration
     AZURE_KEY: import.meta.env.VITE_AZURE_SPEECH_KEY,
     AZURE_REGION: import.meta.env.VITE_AZURE_SPEECH_REGION || 'centralindia',
-    XTTS_URL: import.meta.env.VITE_TTS_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:8000/tts' : null),
-
     currentAudio: null,
 
-    /**
-     * Professional Voice Synthesis using Local XTTS v2 (Primary) or Azure AI (Fallback)
-     */
-    async speak(text, language, gender = 'female') {
+    async speak(text, language) {
         if (!text) return;
+        if (!this.AZURE_KEY) throw new Error("Azure Speech Key missing in .env");
 
-        // 1. TRY XTTS v2 (Local AI Server) - Now Primary for low latency/privacy
-        if (this.XTTS_URL) {
-            try {
-                return await this.speakXTTS(text, language);
-            } catch (e) {
-                console.warn("🏠 XTTS Server offline. Checking Azure...");
-            }
-        }
-
-        // 2. TRY AZURE AI SPEECH (Professional Cloud Quality Fallback)
-        if (this.AZURE_KEY) {
-            try {
-                return await this.speakAzure(text, language);
-            } catch (e) {
-                console.warn("⚠️ Azure TTS failed.");
-            }
-        }
-
-        // 3. IF ALL AI FAILS: Throw to trigger Browser Fallback
-        throw new Error("Local/Cloud AI TTS unavailable. Using browser fallback.");
+        return await this.speakAzure(text, language);
     },
 
-    /**
-     * Azure Neural Voice Logic
-     */
     async speakAzure(text, language) {
-        // XML Escape helper to prevent 400 errors from special characters like '&'
+        // XML Escape helper
         const escapeXml = (unsafe) => {
             return unsafe.replace(/[<>&"']/g, (c) => {
                 switch (c) {
@@ -57,69 +31,47 @@ export const ttsService = {
 
         const voiceMap = {
             'te-IN': 'te-IN-ShrutiNeural',
-            'te': 'te-IN-ShrutiNeural',
             'hi-IN': 'hi-IN-SwaraNeural',
-            'hi': 'hi-IN-SwaraNeural',
             'en-IN': 'en-IN-NeerjaNeural',
-            'en-US': 'en-US-AvaNeural',
-            'en': 'en-IN-NeerjaNeural'
+            'en-US': 'en-US-EmmaNeural'
         };
 
-        const voiceName = voiceMap[language] || voiceMap['en-IN'];
+        // Normalize language code
         const langCode = language.includes('-') ? language : (language === 'te' ? 'te-IN' : language === 'hi' ? 'hi-IN' : 'en-IN');
+        const voiceName = voiceMap[langCode] || voiceMap['en-IN'];
 
         const url = `https://${this.AZURE_REGION}.tts.speech.microsoft.com/cognitiveservices/v1`;
-
-        // ADDED xmlns attribute and escaped the text
         const safeText = escapeXml(text);
-        const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${langCode}'><voice name='${voiceName}'>${safeText}</voice></speak>`;
 
-        console.log(`☁️ [Azure TTS] Requesting: ${voiceName}`);
+        const ssml = `
+            <speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${langCode}'>
+                <voice name='${voiceName}'>
+                    <prosody rate="1.0" pitch="0%" volume="100">
+                        ${safeText}
+                    </prosody>
+                </voice>
+            </speak>
+        `.trim();
+
+        console.log(`🔊 [TTS] Azure Neural: ${voiceName}`);
 
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Ocp-Apim-Subscription-Key': this.AZURE_KEY,
                 'Content-Type': 'application/ssml+xml',
-                'X-Microsoft-OutputFormat': 'audio-16khz-128kbitrate-mono-mp3',
+                'X-Microsoft-OutputFormat': 'audio-24khz-160kbitrate-mono-mp3',
                 'User-Agent': 'CallixAI'
             },
             body: ssml
         });
 
-        if (!response.ok) throw new Error(`Azure Error: ${response.status}`);
+        if (!response.ok) throw new Error(`Azure TTS Error: ${response.status}`);
 
         const blob = await response.blob();
         return this.playBlob(blob);
     },
 
-    /**
-     * Local XTTS Backend Logic
-     */
-    async speakXTTS(text, language) {
-        const langMap = { 'te-in': 'te', 'hi-in': 'hi', 'en-in': 'en' };
-        const xttsLang = langMap[language.toLowerCase()] || 'en';
-
-        console.log(`🏠 [XTTS] Calling Local Server: ${this.XTTS_URL}`);
-
-        const response = await fetch(this.XTTS_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'ngrok-skip-browser-warning': 'true'
-            },
-            body: JSON.stringify({ text, language: xttsLang, speaker_id: 'female' })
-        });
-
-        if (!response.ok) throw new Error("XTTS Offline");
-
-        const blob = await response.blob();
-        return this.playBlob(blob);
-    },
-
-    /**
-     * Internal Audio Player
-     */
     playBlob(blob) {
         this.stop();
         const url = URL.createObjectURL(blob);
@@ -143,4 +95,3 @@ export const ttsService = {
         }
     }
 };
-

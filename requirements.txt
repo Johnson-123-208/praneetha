@@ -1,0 +1,11 @@
+coqui-tts==0.24.1
+openai-whisper
+fastapi
+uvicorn
+python-multipart
+torch
+torchaudio
+transformers==4.40.0
+soundfile
+pydantic
+librosa
