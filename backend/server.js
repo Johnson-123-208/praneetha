@@ -210,6 +210,34 @@ app.post('/api/feedback', async (req, res) => {
     }
 });
 
+// --- Delete Routes ---
+app.delete('/api/appointments/:id', async (req, res) => {
+    try {
+        await Appointment.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Appointment deleted' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/orders/:id', async (req, res) => {
+    try {
+        await Order.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Order deleted' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/feedback/:id', async (req, res) => {
+    try {
+        await Feedback.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Feedback deleted' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // --- Doctor Routes ---
 app.get('/api/doctors', async (req, res) => {
     try {

@@ -183,7 +183,7 @@ const detectFunctionCall = (message, companyContext) => {
         entityId: companyContext?.id,
         entityName: companyContext?.name,
         type: isHospital ? 'doctor' : 'demo',
-        personName: details.personName || (isHospital ? 'General Physician' : 'Callix Demo'),
+        personName: details.personName || (isHospital ? 'Medical Staff' : 'Callix Professional'),
         date: details.date || new Date().toISOString().split('T')[0],
         time: details.time || '10:00',
         userEmail: companyContext?.userEmail,

@@ -225,6 +225,19 @@ export const database = {
     }
   },
 
+  deleteOrder: async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/orders/${id}`, { method: 'DELETE' }).catch(() => null);
+      if (res && res.ok) return true;
+
+      const local = getLocal('orders').filter(o => o._id !== id && o.id !== id);
+      localStorage.setItem(`callix_orders`, JSON.stringify(local));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  },
+
   // --- Appointment management ---
   getAppointments: async (entityId = null, userEmail = null) => {
     try {
@@ -283,6 +296,19 @@ export const database = {
     } catch (error) {
       saveLocal('appointments', newApp);
       return newApp;
+    }
+  },
+
+  deleteAppointment: async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/appointments/${id}`, { method: 'DELETE' }).catch(() => null);
+      if (res && res.ok) return true;
+
+      const local = getLocal('appointments').filter(a => a._id !== id && a.id !== id);
+      localStorage.setItem(`callix_appointments`, JSON.stringify(local));
+      return true;
+    } catch (error) {
+      return false;
     }
   },
 
@@ -373,6 +399,19 @@ export const database = {
     } catch (error) {
       saveLocal('feedback', newFb);
       return newFb;
+    }
+  },
+
+  deleteFeedback: async (id) => {
+    try {
+      const res = await fetch(`${API_URL}/feedback/${id}`, { method: 'DELETE' }).catch(() => null);
+      if (res && res.ok) return true;
+
+      const local = getLocal('feedback').filter(f => f._id !== id && f.id !== id);
+      localStorage.setItem(`callix_feedback`, JSON.stringify(local));
+      return true;
+    } catch (error) {
+      return false;
     }
   }
 };

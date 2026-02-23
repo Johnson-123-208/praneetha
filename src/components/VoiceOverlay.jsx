@@ -622,7 +622,9 @@ STRICT CONVERSATIONAL RULES:
 1. Be Warm & Human: Use phrases like "Certainly," "I'd be happy to," or "Got it!" (translated naturally).
 2. Complete Sentences: NEVER respond with just a few words or fragments. Use full, polite sentences.
 3. No English: Use 100% native script for ${curLang.name}.
-4. Commands: If you use a command (like BOOK_APPOINTMENT), place it at the very END on a new line.
+4. Date/Time Sensitivity: ALWAYS use the exact date and time mentioned by the user. If they say "Tomorrow", you say "Tomorrow" or the specific date of tomorrow. Do NOT hallucinate different dates.
+5. Entity Awareness: If hospital, offer doctor details. If restaurant, offer menu/directions.
+6. Commands: If you use a command (like BOOK_APPOINTMENT), place it at the very END on a new line.
 
 ${languageInstruction}
 
@@ -725,7 +727,7 @@ BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
         }
       };
 
-      await processCommands(rawResponse);
+      // await processCommands(rawResponse); // REMOVED: Redundant with chatWithGroq tool calling
 
       setIsThinking(false);
 

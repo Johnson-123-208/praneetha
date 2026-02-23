@@ -186,6 +186,8 @@ export const extractAppointmentDetails = (question) => {
   // Extract date
   const datePatterns = [
     /(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i,
+    /(\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|july|august|september|october|november|december))/i,
+    /((?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2})/i,
     /(\d{4}-\d{2}-\d{2})/,
     /(\d{1,2}\/\d{1,2}\/\d{4})/,
   ];

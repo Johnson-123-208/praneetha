@@ -1,81 +1,51 @@
-================================================================================
-PROJECT: CALLIX - AI AUTONOMOUS VOICE RECEPTIONIST
-================================================================================
+# CALLIX AI PROJECT DOCUMENTATION
 
-1. PROJECT OVERVIEW
-------------------
-Callix is a high-performance, industry-aware AI Voice Assistant designed to 
-replace traditional receptionists. It bridges the gap between human speech and 
-digital databases, allowing users to book appointments, order products, or 
-provide feedback using only their voice in multiple languages (English, Telugu, Hindi).
+## Project Overview
+Callix is an advanced AI-powered calling and scheduling platform. It allows users to deploy AI agents for various businesses (Healthcare, Food, IT, E-commerce) that can handle natural language conversations in multiple Indian languages (English, Hindi, Telugu, etc.) to book appointments, take orders, and collect feedback.
 
-2. CORE TECHNOLOGY STACK
------------------------
-* FRONTEND: React.js with Tailwind CSS & Framer Motion (Premium UI/UX).
-* BACKEND: Node.js & Express (Robust API Layer).
-* DATABASE: MongoDB Atlas (Cloud Database for real-time sync).
-* AI (THE BRAIN): Groq AI (Llama-3 models) for near-instant reasoning.
-* STT (EARS): Deepgram Nova-3 (State-of-the-art voice-to-text with <200ms latency).
-* TTS (VOICE): Custom TTS Engine & Google Web Speech fallbacks (Professional female voice).
+## Technology Stack
+- **Frontend**: React.js with Vite, Tailwind CSS, Framer Motion (animations), Lucide (icons).
+- **Backend**: Node.js with Express.js.
+- **Database**: MongoDB (via Mongoose) with LocalStorage fallback for offline/isolated usage.
+- **AI Engine**: Groq (Llama-3.3-70b-versatile) for chat, Deepgram (Nova-3) for Speech-to-Text (STT), and custom TTS service.
+- **Speech**: Advanced STT pipeline with silence detection and echo protection.
 
-3. TECHNICAL WORKFLOW (THE FLOW)
-------------------------------
-A. VOICE CAPTURE: 
-   The user speaks into the microphone. Deepgram Nova-3 processes the audio 
-   instantly, converting it into native script (Telugu, Hindi, or English).
+## Core Modules
 
-B. INTELLIGENT REASONING:
-   The text is sent to Groq AI. The AI is grounded with "Context Data" 
-   (e.g., specific doctor names, prices, or menu items) from MongoDB.
-   The AI decides two things:
-   1. How to respond warmly in the user's native language.
-   2. Whether a "Command" needs to be executed (e.g., BOOK_APPOINTMENT).
+### 1. Dashboard (`src/components/UserDashboard.jsx`)
+- Displays user-specific history.
+- Categorized sections: Appointments, Table Bookings, My Orders, Feedback.
+- Features: Deduplication logic, Delete functionality, Real-time status updates.
 
-C. ACTION EXECUTION:
-   If the AI issues a command, the system automatically sends a request to 
-   the Node.js backend to update the MongoDB database. This data is then 
-   immediately visible on the User Dashboard.
+### 2. Voice Interface (`src/components/VoiceOverlay.jsx`)
+- The main interaction hub for AI calls.
+- Handles ringing, language selection, and real-time conversation.
+- Integrates with STT and TTS services.
 
-D. VOICE RESPONSE:
-   The AI's text response is converted back to speech using the TTS engine, 
-   providing a natural 2-way phone-call experience.
+### 3. Database Layer (`src/utils/database.js`)
+- Unified interface for all data operations.
+- Automatically switches between Backend API (MongoDB) and LocalStorage.
+- Used by both the UI and the AI tools.
 
-4. KEY FEATURES FOR THE DEMO
----------------------------
-* MULTI-INDUSTRY: Switch between a Hospital, a Restaurant, or a Corporate office.
-* GROUNDED FACTS: The AI knows exact prices (e.g., iPhone 15 at ₹1.3L) and 
-  doctor schedules because it reads them from the database.
-* REAL-TIME DASHBOARD: Open the dashboard in one tab and speak to the AI in another. 
-  When you book a table, it appears on the dashboard without refreshing.
-* COMPACT PORTFOLIO: A professional account section where all your businesses 
-  are listed in a sleek, modern UI.
+### 4. AI Integration (`src/utils/groq.js`)
+- Handles prompts and conversation history.
+- **Function Calling**: Detects intents like `BOOK_APPOINTMENT` and executes them using predefined tools.
+- Cleaners: Strips internal system markers from text before displaying to users.
 
-5. HOW TO RUN THE PROJECT (LOCAL SETUP)
---------------------------------------
-STEP 1: PREREQUISITES
-Make sure you have Node.js installed on your system.
+## Data Models (Backend)
+- **Company**: Business profile with NLP context and industry-specific data.
+- **Appointment**: Individual schedules (Doctor consultations, Interviews, Demos).
+- **Order**: E-commerce transactions.
+- **Feedback**: User-submitted ratings and comments.
+- **ConversationLog**: Audit trail of AI-User chats.
 
-STEP 2: BACKEND SETUP
-1. Open a terminal and go to the backend folder: 'cd backend'
-2. Install dependencies: 'npm install'
-3. Start the server: 'npm run dev'
-   - It will say "Connected to MongoDB" and "Server running on port 5000".
+## Key Workflows
+1. **Onboarding**: User creates a company profile and provides business context (NLP context).
+2. **AI Action**: User speaks to the AI. AI detects intent -> Calls database tool -> Confirms to user.
+3. **Synchronization**: Records are saved to MongoDB when online, otherwise cached in LocalStorage. Dashboard reconciles both.
 
-STEP 3: FRONTEND SETUP
-1. Open a SECOND terminal in the root folder.
-2. Install dependencies: 'npm install --legacy-peer-deps'
-3. Start the application: 'npm run dev'
-4. Open your browser to the link provided (usually http://localhost:5173).
-
-6. DEPLOYMENT (ONLINE DEMO)
---------------------------
-The project is "Deployment Ready." To host it for free online:
-1. Connect this folder to GitHub.
-2. Import the project into VERCEL (vercel.com).
-3. Set the Environment Variables (.env) in the Vercel dashboard.
-4. Vercel will give you a live HTTPS link to share with your clients.
-
-================================================================================
-Developed with specialized AI architecture for Aarogya Hospital, Spice Garden, 
-and Agile-IT Solutions.
-================================================================================
+## Current State & Recent Fixes
+- Added Delete functionality to all records in the dashboard and database.
+- Implemented robust deduplication to prevent redundant saves during AI tool calling.
+- Reorganized dashboard into logical sub-sections.
+- Enhanced Indian language support (Telugu/Hindi native script).
