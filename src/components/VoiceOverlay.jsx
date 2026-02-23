@@ -508,11 +508,11 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         const serviceInfo = getServiceInfo(curLang.code);
 
         if (curLang.code === 'te-IN') {
-          response = `నమస్కారం ${extractedName}! ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
+          response = `నమస్కారం ${extractedName}! మా ${selectedCompany?.name} కు స్వాగతం. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
         } else if (curLang.code === 'hi-IN') {
-          response = `नमस्ते ${extractedName}! ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
+          response = `नमस्ते ${extractedName}! ${selectedCompany?.name} में आपका स्वागत है। ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
         } else {
-          response = `Hello ${extractedName}! ${serviceInfo} How can I help you?`;
+          response = `Hello ${extractedName}! Welcome to ${selectedCompany?.name}. ${serviceInfo} How can I help you?`;
         }
 
         addMessage('agent', response);
@@ -579,6 +579,12 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       const industry = selectedCompany?.industry?.toLowerCase() || '';
       const compName = selectedCompany?.name?.toLowerCase() || '';
 
+      let companyDesc = "Standard business operations";
+      if (industry.includes('health')) companyDesc = "We are a multi-speciality hospital providing 24/7 care and advanced diagnostics.";
+      else if (industry.includes('restaur')) companyDesc = "We are a premium fine dine restaurant specializing in North Indian and Multi-cuisine delicacies.";
+      else if (industry.includes('commerce')) companyDesc = "We are an electronics mega-store providing fast delivery and the best gadget deals.";
+      else if (industry.includes('tech')) companyDesc = "We are a global IT solutions provider specializing in digital transformation and career growth.";
+
       if (industry.includes('health') || compName.includes('hospital') || compName.includes('aarogya')) specializedPrompt = HospitalPrompt;
       else if (industry.includes('restaur') || compName.includes('garden')) specializedPrompt = RestaurantPrompt;
       else if (industry.includes('commerce') || compName.includes('kart')) specializedPrompt = ECommercePrompt;
@@ -610,12 +616,15 @@ BUSINESS DATA (Use THESE FACTS only):
 ${selectedCompany?.nlp_context || 'Standard business operations'}
 
 USER CONTEXT: Name is ${latestName}.
+COMPANY DESCRIPTION: ${companyDesc}
 LANGUAGE: Response MUST be in ${curLang.name} using ${curLang.name} script.
 
 STRICT CONVERSATIONAL FLOW & RULES:
-1. GREETING & INTRODUCTIONS (MAX PRIORITY): If the user says their name or greets you (e.g., "Namaskaram", "Hi", "My name is..."), you MUST greet them back warmly in their language.
-2. FIRST MESSAGE: If this is the VERY FIRST message of the conversation, always start with a friendly greeting like "Namaskaram" or "Hello".
-3. NO REPETITION: After the initial greeting turn, do NOT repeat greetings or the user's name in subsequent turns.
+1. GREETING TURN: In your VERY FIRST response (Turn 1), you MUST:
+   a) Greet the user BY NAME (e.g., "Namaskaram [Name]!" or "Hello [Name]!").
+   b) Welcome them to ${selectedCompany?.name} and briefly describe what you do based on the COMPANY DESCRIPTION above.
+   c) Ask how you can help.
+2. NO REPETITION: After the initial greeting turn, do NOT repeat greetings or the user's name in subsequent turns.
 4. NO INTRODUCTION: Do NOT introduce yourself or the company name in every turn.
 5. BREVITY: Keep responses extremely concise (1-2 sentences) for normal turns. ONLY provide detailed info (like menus) if requested.
 6. ACTION CONFIRMATION: Once an action is done (booking/order), say: "Your [Action] is confirmed. Is there anything else?"
