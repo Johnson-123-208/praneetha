@@ -88,6 +88,12 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
     if (functionMatch) {
       const result = await executeAction(functionMatch);
 
+      // Logic to determine follow-up question
+      const isFeedback = assistantMessage.toUpperCase().includes('COLLECT_FEEDBACK') || assistantMessage.toUpperCase().includes('COLLECT_RATING');
+      const followUpText = isFeedback
+        ? "Tell the user: 'Thank you for the feedback! Have a wonderful day. Goodbye!' and include [HANG_UP]"
+        : "Ask: 'Is there anything else I can help you with?' or gather missing info if needed.";
+
       // Simple follow-up confirm with the FAST model
       const finalResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
@@ -105,7 +111,8 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
             
             Confirm this result to the user naturally in 1 short sentence. 
             LANGUAGE: Use the same language as the user (Telugu/English/Hindi).
-            FOLLOW-UP: Ask "Is there anything else I can help you with?" or gather missing info if the result was a search.` }
+            FOLLOW-UP: ${followUpText}`
+            }
           ],
           temperature: 0.5,
           max_tokens: 150
@@ -131,7 +138,10 @@ const detectIntent = (message, context) => {
   if (msg.includes('BOOK_APPOINTMENT')) return { name: 'book_appointment', args: { entityId: context?.id, entityName: context?.name } };
   if (msg.includes('BOOK_TABLE')) return { name: 'book_appointment', args: { entityId: context?.id, entityName: context?.name, type: 'table' } };
   if (msg.includes('BOOK_ORDER')) return { name: 'book_order', args: { companyId: context?.id } };
-  if (msg.includes('COLLECT_FEEDBACK')) return { name: 'collect_feedback', args: { entityId: context?.id, entityName: context?.name } };
+  if (msg.includes('COLLECT_FEEDBACK') || msg.includes('COLLECT_RATING') || /([1-5])\s*(STAR|STARS|RATING)/i.test(msg)) {
+    const match = msg.match(/([1-5])/);
+    return { name: 'collect_feedback', args: { entityId: context?.id, entityName: context?.name, rating: match ? match[1] : 5 } };
+  }
   if (msg.includes('QUERY_ENTITY_DATABASE')) return { name: 'query_entity_database', args: { entityId: context?.id } };
 
   return null;

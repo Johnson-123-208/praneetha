@@ -649,6 +649,29 @@ ${languageInstruction}
         const currentCompanyId = selectedCompany?._id || selectedCompany?.id || 'manual';
         const industry = selectedCompany?.industry?.toLowerCase() || '';
 
+        // Helper to resolve relative dates to absolute YYYY-MM-DD
+        const resolveDate = (dateStr) => {
+          const lower = dateStr.toLowerCase();
+          const now = new Date();
+
+          if (lower.includes('tomorrow')) {
+            const tomorrow = new Date(now);
+            tomorrow.setDate(now.getDate() + 1);
+            return tomorrow.toISOString().split('T')[0];
+          }
+          if (lower.includes('today')) {
+            return now.toISOString().split('T')[0];
+          }
+          if (lower.includes('day after tomorrow')) {
+            const dat = new Date(now);
+            dat.setDate(now.getDate() + 2);
+            return dat.toISOString().split('T')[0];
+          }
+
+          // If it's already a date or something else, return as is (but try to clean)
+          return dateStr;
+        };
+
         const commonData = {
           entity_id: currentCompanyId,
           entity_name: selectedCompany?.name,
@@ -660,7 +683,8 @@ ${languageInstruction}
           if (appointmentMatch) {
             console.log("📅 Syncing Appointment to Database...");
             const personName = appointmentMatch[1].trim();
-            const dateStr = appointmentMatch[2].trim();
+            const rawDate = appointmentMatch[2].trim();
+            const dateStr = resolveDate(rawDate);
             const timeStr = appointmentMatch[3].trim();
 
             await crmIntegration.syncAppointment({
@@ -677,7 +701,8 @@ ${languageInstruction}
           if (tableMatch) {
             console.log("🍽️ Syncing Table Booking to Database...");
             const peopleCount = tableMatch[1].trim();
-            const dateStr = tableMatch[2].trim();
+            const rawDate = tableMatch[2].trim();
+            const dateStr = resolveDate(rawDate);
             const timeStr = tableMatch[3].trim();
 
             await crmIntegration.syncAppointment({

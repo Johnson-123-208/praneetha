@@ -44,13 +44,23 @@ const UserDashboard = ({ user, onClose }) => {
                 database.getFeedback(user.email)
             ]);
 
-            const allApps = appointmentsData || [];
+            // Helper to sort by created_at descending (newest first)
+            const sortByNewest = (arr) => {
+                if (!arr) return [];
+                return [...arr].sort((a, b) => {
+                    const dateA = new Date(a.created_at || a.timestamp || 0);
+                    const dateB = new Date(b.created_at || b.timestamp || 0);
+                    return dateB - dateA; // Descending
+                });
+            };
+
+            const allApps = sortByNewest(appointmentsData || []);
 
             setAppointments(deduplicate(allApps.filter(a => a.type !== 'table' && a.type !== 'interview')));
             setSchedules(deduplicate(allApps.filter(a => a.type === 'interview')));
             setBookings(deduplicate(allApps.filter(a => a.type === 'table')));
-            setOrders(deduplicate(ordersData || []));
-            setFeedback(deduplicate(feedbackData || []));
+            setOrders(deduplicate(sortByNewest(ordersData)));
+            setFeedback(deduplicate(sortByNewest(feedbackData)));
         } catch (error) {
             console.error('Error loading user data:', error);
         } finally {
