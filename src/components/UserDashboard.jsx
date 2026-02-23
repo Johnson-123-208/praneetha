@@ -128,18 +128,6 @@ const UserDashboard = ({ user, onClose }) => {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                             <div>
                                 <h1 className="text-3xl font-bold text-slate-900 mb-2">My Dashboard</h1>
-                                <p className="text-slate-500">
-                                    Welcome back, <span className="font-bold text-slate-900">{user.full_name || user.email}</span>
-                                </p>
-                            </div>
-                            <div className="flex items-center space-x-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
-                                <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
-                                    <User size={20} />
-                                </div>
-                                <div className="pr-4">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Logged in as</p>
-                                    <p className="text-sm font-bold text-slate-700">{user.email}</p>
-                                </div>
                             </div>
                         </div>
                     </div>
