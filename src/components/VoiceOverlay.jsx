@@ -143,9 +143,13 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         }
       });
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
+      const mimeType = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+        ? 'audio/ogg;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio';
+
+      console.log(`🎙️ Using Audio Format: ${mimeType}`);
 
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType,
@@ -183,15 +187,17 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
 
           // FALLBACK: If Azure returns empty but speech was clearly detected, try Groq Whisper
           if (!text || text.trim().length <= 1) {
-            console.log("☁️ [Azure STT] Result empty. Attempting backup via Groq Whisper...");
+            console.warn("⚠️ Azure STT empty. Triggering Groq Whisper Fallback...");
             try {
               const groqText = await transcribeAudio(audioBlob, curLang.code);
               if (groqText && groqText.trim().length > 1) {
-                console.log(`🎤 Groq Backup Success: "${groqText}"`);
+                console.log(`✅ Groq Fallback Success: "${groqText}"`);
                 text = groqText;
+              } else {
+                console.log("❌ Groq fallback also returned empty.");
               }
             } catch (fallbackErr) {
-              console.warn("❌ Groq fallback failed:", fallbackErr);
+              console.error("❌ Groq fallback error:", fallbackErr);
             }
           }
 

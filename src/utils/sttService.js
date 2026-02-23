@@ -25,7 +25,7 @@ class STTService {
                 method: 'POST',
                 headers: {
                     'Ocp-Apim-Subscription-Key': this.azureKey,
-                    'Content-Type': audioBlob.type || 'audio/webm;codecs=opus',
+                    'Content-Type': audioBlob.type || 'audio/ogg;codecs=opus',
                     'Accept': 'application/json'
                 },
                 body: audioBlob
