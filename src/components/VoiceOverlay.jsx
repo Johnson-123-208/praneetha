@@ -373,13 +373,13 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         default: "I'm here to assist you with all your professional queries today."
       },
       'en-IN': {
-        hospital: "I can help you explore our registry of 15+ doctors, check consultation fees, and book your appointments instantly.",
-        restaurant: "I can present our multi-cuisine menu, recommend combos, and reserve your table instantly.",
-        ecommerce: "I can help you with product pricing, check stock availability, and track your orders.",
-        tech_mahindra: "I can help you explore open roles, explain our global work culture, and schedule your recruitment interview.",
-        voxsphere: "I can walk you through our AI service catalog, pricing plans, and book a personalized demo for you.",
-        agile_it: "I'm here to assist with digital transformation queries and schedule your technical interviews.",
-        default: "I'm here to assist with all your professional queries today."
+        hospital: "I can help you with doctor appointments and consultation details.",
+        restaurant: "I can help you with our menu and table reservations.",
+        ecommerce: "I can help you with product pricing and order tracking.",
+        tech_mahindra: "I can help you with job roles and interview scheduling.",
+        voxsphere: "I can walk you through our AI services and demo bookings.",
+        agile_it: "I can help with digital transformation and technical interviews.",
+        default: "I'm here to assist you today."
       },
       'te-IN': {
         hospital: "నేను మా డాక్టర్ల వివరాలు, ఫీజులు మరియు అపాయింట్‌మెంట్‌లను బుక్ చేయడంలో మీకు సహాయపడగలను.",
@@ -522,11 +522,11 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         const serviceInfo = getServiceInfo(curLang.code);
 
         if (curLang.code === 'te-IN') {
-          response = `నమస్కారం ${extractedName}! మిమ్మల్ని కలవడం సంతోషం. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
+          response = `నమస్కారం ${extractedName}! ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
         } else if (curLang.code === 'hi-IN') {
-          response = `नमस्ते ${extractedName}! आपसे मिलकर खुशी हुई। ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
+          response = `नमस्ते ${extractedName}! ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
         } else {
-          response = `Nice to meet you, ${extractedName}! ${serviceInfo} How can I assist you today?`;
+          response = `Hello ${extractedName}! ${serviceInfo} How can I help you?`;
         }
 
         addMessage('agent', response);
@@ -611,6 +611,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
         languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Marathi language. Use Devanagari script (मराठी). Do NOT use English words.';
       } else if (curLang.code === 'ml-IN') {
         languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Malayalam language. Use Malayalam script (മലയാളം). Do NOT use English words.';
+      } else {
+        languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in English language. Use normal English script. Do NOT use any other language or script.';
       }
 
       const latestName = stateRef.current.userName || 'Guest';
@@ -618,25 +620,21 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       const systemPrompt = `
 IDENTITY: You are Callix for ${selectedCompany?.name}.
 ${specializedPrompt}
-BUSINESS DATA (Use these facts to answer user queries):
+BUSINESS DATA (Use THESE FACTS only):
 ${selectedCompany?.nlp_context || 'Standard business operations'}
 
 USER CONTEXT: Name is ${latestName}.
 LANGUAGE: Response MUST be in ${curLang.name} using ${curLang.name} script.
 
-STRICT CONVERSATIONAL RULES:
-1. Be Warm & Human: Use phrases like "Certainly," "I'd be happy to," or "Got it!" (translated naturally).
-2. Complete Sentences: NEVER respond with just a few words or fragments. Use full, polite sentences.
-3. No English: Use 100% native script for ${curLang.name}.
-4. Date/Time Sensitivity: ALWAYS use the exact date and time mentioned by the user. If they say "Tomorrow", you say "Tomorrow" or the specific date of tomorrow. Do NOT hallucinate different dates.
-5. Entity Awareness: If hospital, offer doctor details. If restaurant, offer menu/directions.
-6. Commands: If you use a command (like BOOK_APPOINTMENT), place it at the very END on a new line.
+STRICT CONVERSATIONAL FLOW & RULES:
+1. NO REPETITION: Do NOT repeat your greeting or the company introduction. 
+2. ACTION CONFIRMATION: Once an action is done, say: "Your [Action] is confirmed. Is there anything else I can help you with?"
+3. DATES: Use the CURRENT DATE provided above to calculate "Tomorrow" or "Next Monday". In the [COMMAND], output the date as "YYYY-MM-DD" or "DD Month YYYY" so the system can parse it correctly. 
+4. CLOSING FLOW: If user says "No", "Nothing", or "That's all", say: "Understood. Before you go, could you please give me a quick rating from 1 to 5 stars for my service?"
+5. EXIT: Once they give a rating/feedback, say: "Thank you for the feedback! Have a wonderful day. Goodbye!" then output [HANG_UP] on a new line.
+6. COMMANDS: Commands like [BOOK_TABLE], [BOOK_APPOINTMENT], [BOOK_ORDER], [COLLECT_FEEDBACK], or [HANG_UP] must be on a NEW LINE at the very end.
 
 ${languageInstruction}
-
-Example of a good response:
-"నమస్కారం ${latestName}! డాక్టర్ శర్మతో మీ అపాయింట్‌మెంట్ రేపు ఉదయం 10 గంటలకు ఖరారు చేయబడింది. నేను దీన్ని మీ కోసం రిజిస్టర్ చేస్తున్నాను.
-BOOK_APPOINTMENT for Dr. Sharma on Tomorrow at 10:00 AM"
 `;
 
       const rawResponse = await chatWithGroq(

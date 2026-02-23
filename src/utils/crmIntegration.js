@@ -7,13 +7,22 @@ const getLocal = (key) => {
     try { return JSON.parse(localStorage.getItem(`callix_${key}`)) || []; }
     catch { return []; }
 };
-// --- Deduplication Cache ---
+// --- Semantic Deduplication Cache ---
 const recentCache = new Set();
 const dedupe = (data) => {
-    const key = JSON.stringify(data);
-    if (recentCache.has(key)) return true;
-    recentCache.add(key);
-    setTimeout(() => recentCache.delete(key), 10000); // 10s dedupe window
+    // Generate a unique semantic key based on core fields
+    const coreFields = [
+        data.user_email || data.customer_name,
+        data.entity_id || data.company_id,
+        data.date,
+        data.time,
+        data.person_name,
+        data.item
+    ].filter(Boolean).join('|');
+
+    if (recentCache.has(coreFields)) return true;
+    recentCache.add(coreFields);
+    setTimeout(() => recentCache.delete(coreFields), 30000); // 30s dedupe window
     return false;
 };
 

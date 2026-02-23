@@ -35,10 +35,10 @@ const MOCK_COMPANIES = [
     industry: "Healthcare",
     logo: "🏥",
     gender: "female",
-    context_summary: "Tier-1 Healthcare Facility with 50+ Doctors, 15+ specialized departments, and 24/7 Emergency Care.",
-    nlp_context: "DATABASE: [Departments: Cardiology, Neurology, Pediatrics, Orthopedics, Oncology, Dental, Gastroenterology, Dermatology]. DOCTORS: [Dr. Sharm: Cardiology (10am-4pm), Dr. Verma: Neurology (9am-2pm), Dr. Iyer: Pediatrics (5pm-8pm), Dr. Reddy: Orthopedics (11am-3pm), Dr. Kapoor: Oncology (8am-12pm)]. AVAILABILITY: [10:00, 11:00, 12:00, 14:00, 15:00, 16:00]. FEES: [Consultation: ₹500, Specialist Senior: ₹1000]. Action: 'BOOK_APPOINTMENT for [Doctor] on [Date] at [Time]'. NOTE: For doctors, we must check their shift timing.",
-    contact_email: "appointments@aarogya.com",
-    contact_phone: "+91-98765-43000"
+    context_summary: "500-bed NABH-accredited tertiary care hospital with 24/7 emergency, 12 modular OTs, 80 ICU beds, advanced diagnostics, super-specialty departments, organ transplant program, and cancer centre.",
+    nlp_context: "DEPARTMENTS: [Cardiology & CTVS, Neurology & Neurosurgery, Orthopedics & Joint Replacement, Oncology & Onco-surgery, Pediatrics & Neonatology, Gynecology & IVF, Gastroenterology & Hepatology, Urology & Nephrology, Pulmonology & Critical Care, Endocrinology & Diabetology, Dermatology & Cosmetology, ENT & Head-Neck Surgery, Ophthalmology, Plastic & Reconstructive Surgery, Psychiatry, Rheumatology, General Medicine, General Surgery]. DOCTORS: [Dr. Sarah Sharma MD DM: Cardiology (Mon–Fri 9:30–13:00 & 15:00–18:00, ₹900), Dr. Vipul Verma MS MCh: Neurosurgery (Tue–Sat 10:00–14:00, ₹1200), Dr. Amit Iyer MD DNB: Pediatrics & Neonatology (Daily 16:00–20:00, ₹700), Dr. Kavita Reddy MS Ortho: Joint Replacement (Mon,Wed,Fri 11:00–15:00, ₹1000), Dr. Rajesh Kapoor MD DM: Medical Oncology (Thu–Sat 08:30–13:00, ₹1300), Dr. Neha Patel MS DGO: Gynecology & IVF (Mon–Sat 10:00–14:00, ₹800), Dr. Sunil Gupta BDS MDS: Maxillofacial & Implantology (Daily 09:00–17:00, ₹600), Dr. Priya Desai MS ENT: Otology & Rhinology (Wed–Fri 14:00–18:00, ₹750), Dr. Manoj Singh MD: Dermatology & Lasers (Mon–Thu 11:00–16:00, ₹850), Dr. Anil Kumar MS MCh: Urology & Renal Transplant (Tue–Sat 09:00–13:00, ₹950), Dr. Ritu Jain MD DM: Gastroenterology (Mon–Fri 10:00–15:00, ₹1000), Dr. Vikram Bose MD: Pulmonology & Sleep Medicine (Daily 16:00–19:00, ₹900), Dr. Sonia Mehta MD DM: Endocrinology (Tue–Thu 11:00–14:00, ₹800), Dr. Arjun Rao MD DM: Nephrology & Dialysis (Fri–Sun 09:00–13:00, ₹1100), Dr. Lata Singh MS: Ophthalmology & Retina (Mon–Sat 10:00–16:00, ₹700), Dr. Rohan Mehra MS MCh: CTVS (Mon–Wed 09:00–13:00, ₹1500)]. FEES: [OPD General: ₹500, Specialist: ₹700–1500, Emergency: ₹2500, Daycare Procedure: ₹15000–60000, Major Surgery: ₹80000–450000]. EMERGENCY: 24×7 Trauma & Stroke Centre, Ambulance 911 ext, Golden Hour Protocol. BOOKING: 'BOOK_APPOINTMENT for [Doctor Name] on [Date] at [Time]'. ADDRESS: 101 Health Lane, Banjara Hills, Hyderabad, Telangana 500034. FACILITIES: [MRI 3T, CT 128-slice, Cath Lab, LINAC Radiation, 80 ICU beds, 24/7 Pharmacy & Lab, Blood Bank, 24/7 Cafeteria, Valet Parking 250 slots, Tele-consult, Health Check Packages ₹1999–14999].",
+    contact_email: "care@aarogya-hospital.com",
+    contact_phone: "+91-98765-43210"
   },
   {
     _id: "hotel_1",
@@ -46,10 +46,10 @@ const MOCK_COMPANIES = [
     industry: "Food & Beverage",
     logo: "🥗",
     gender: "female",
-    context_summary: "Luxury Multi-cuisine Hotel with Indian, Continental, and Oriental menus. Seats up to 300 guests.",
-    nlp_context: "MENU: [Veg: Paneer Lababdar (₹380), Dal Makhani (₹320), Malai Kofta (₹350)]. [Non-Veg: Butter Chicken (₹480), Hyderabadi Mutton Biryani (₹550), Fish Curry (₹420)]. [Recommended: Chef's Special Thali (₹799), Tandoori Platter (₹1200)]. [Desserts: Gulab Jamun (₹120), Rasmalai (₹150)]. BOOKINGS: Table bookings are available as per guest's preferred time. Action: 'BOOK_TABLE for [People] on [Date] at [Time]'.",
-    contact_email: "tables@spicegarden.com",
-    contact_phone: "+91-88888-55555"
+    context_summary: "5-star luxury boutique hotel – 128 rooms & suites, 5 dining venues, infinity pool, spa, fitness centre, 3 banquet halls (max 650 pax), business centre, rooftop bar.",
+    nlp_context: "DINING_VENUES: [Saffron – North Indian Fine Dining, Lotus Court – Pan-Asian, The Grill – Steak & Seafood, Trattoria – Italian, The Verandah – All-day multi-cuisine]. VEG_STARTERS: [Paneer Ajwaini Tikka ₹420, Hara Bhara Kebab ₹380, Crispy Chilli Baby Corn ₹340, Stuffed Jalapeño ₹400, Mushroom 65 ₹360, Corn Seekh Kebab ₹320, Palak Patta Chaat ₹300, Dahi Ke Kebab ₹390]. NON_VEG_STARTERS: [Chicken Malai Tikka ₹480, Mutton Galouti ₹520, Amritsari Fish ₹550, Prawn Koliwada ₹620, Lamb Seekh Kebab ₹580, Tandoori Jumbo Prawn ₹750, Murgh Reshmi Kebab ₹460, Crispy Duck Bao ₹680]. MAIN_COURSE_VEG: [Paneer Butter Masala ₹460, Dal Bukhara ₹380, Malai Kofta ₹420, Kadai Paneer ₹450, Dum Aloo Kashmiri ₹390, Lauki Kofta ₹360, Veg Jalfrezi ₹340, Mushroom Do Pyaza ₹400, Sarson ka Saag Makki di Roti ₹480]. MAIN_COURSE_NON_VEG: [Murgh Makhani ₹580, Kosha Mangsho ₹720, Hyderabadi Gosht Biryani ₹650, Konkani Prawn Curry ₹780, Chicken Chettinad ₹560, Lamb Shank Rogan Josh ₹750, Kerala Fish Molee ₹680, Tandoori Pomfret ₹850]. DESSERTS: [Gulab Jamun with Rabri ₹180, Warm Chocolate Lava Cake ₹320, Rasmalai ₹200, Mango Cheesecake ₹280, Kulfi Falooda ₹220, Shahi Tukda ₹250, Tiramisu Shot ₹300]. BEVERAGES: [Signature Mocktails ₹280–420, Craft Cocktails ₹450–750, Single Malt ₹600–1800, House Wine Glass ₹450, Fresh Juices ₹220, Detox Infusions ₹280]. HOURS: [Breakfast Buffet 07:00–10:30, All-day Dining 12:00–23:30, Rooftop Bar 17:00–01:00, Room Service 00:00–06:00]. BOOKING: 'BOOK_TABLE for [Pax] on [Date] at [Time]' | Room categories: Deluxe ₹9500, Premier ₹12500, Suite ₹22000–38000. ADDRESS: 123 MG Road, Goregaon West, Mumbai 400104. FACILITIES: [Infinity Pool, Kaya Kalp Spa, 24×7 Gym, Kids Club, Business Centre, Valet Parking 180 slots, High-speed WiFi, EV Charging].",
+    contact_email: "reservations@spicegarden.com",
+    contact_phone: "+91-88888-99999"
   },
   {
     _id: "it_1",
@@ -57,10 +57,10 @@ const MOCK_COMPANIES = [
     industry: "Technology",
     logo: "💻",
     gender: "female",
-    context_summary: "Fortune 500 IT Giant with 40+ open roles in AI, Cloud, and Software Engineering. Remote-First Culture.",
-    nlp_context: "ROLES: [Frontend: React Dev, Vue Expert]. [Backend: Node.js Lead, Python Architect]. [AI: ML Researcher, Data Scientist]. MANAGERS: [Mr. Satya: Engineering Head (Mon-Wed), Ms. Priya: HR Director (Thu-Fri)]. INTERVIEW_SLOTS: [Morning: 10:00-12:00, Afternoon: 14:00-16:00]. Action: 'BOOK_APPOINTMENT for Interview on [Date] at [Time]'.",
-    contact_email: "careers@agile-it.com",
-    contact_phone: "+1-555-TECH-HIRE"
+    context_summary: "650+ employee digital transformation company – AI/ML, cloud-native apps, cybersecurity, data & analytics, low-code, blockchain, IoT – serving 80+ clients across BFSI, retail, healthcare, manufacturing.",
+    nlp_context: "OPEN_ROLES: [Senior React/Next.js Developer ×10 (₹16–30 LPA, 5–11 yrs), Node.js + Microservices Architect ×5 (₹25–42 LPA, 9–16 yrs), Python + GenAI/ML Engineer ×8 (₹18–38 LPA, 4–13 yrs), AWS/GCP/Azure Cloud Architect ×6 (₹22–40 LPA, 8–15 yrs), Cybersecurity Consultant ×5 (₹18–34 LPA, 6–12 yrs), UI/UX Lead (Figma/Framer) ×4 (₹15–28 LPA, 5–10 yrs), DevOps & SRE (Terraform/K8s) ×7 (₹16–32 LPA, 5–11 yrs), Data Engineer (Snowflake/Databricks) ×6 (₹17–35 LPA, 5–12 yrs), Full-Stack Java/Spring ×5 (₹14–28 LPA, 4–9 yrs), AI Product Manager ×3 (₹25–45 LPA, 8+ yrs), Penetration Tester ×4 (₹16–30 LPA, 5–10 yrs)]. HR_TEAM: [Priya Singh – Tech Recruitment Lead priya@agile-it.com +91-98765 43210, Satya Menon – VP Talent satya@agile-it.com, Anjali Sharma – HR Business Partner anjali@agile-it.com +91-88888 77777, Vikram Rao – Campus & Lateral vikram@agile-it.com, Neha Kapoor – Executive Search neha@agile-it.com]. INTERVIEW_TIMINGS: [Mon–Fri 09:00–12:30 & 14:00–18:30 | Slots every 60 min]. PROCESS: [Resume Screen → Online Assessment → 2–3 Tech Rounds → Managerial → HR + Culture Fit]. BENEFITS: [Hybrid 3:2, Health + Parents Insurance, 32 Paid Leaves, Learning Stipend ₹60k/yr, ESOPs, Cab/Meal Allowance, 5-year Loyalty Bonus]. ADDRESS: 456 Tech Park, Whitefield, Bengaluru 560066 | Offices: Hyderabad, Pune, Chennai, London, Dallas. TECHNOLOGIES: [Frontend: React, Next.js, Vue, Svelte | Backend: Node, Spring Boot, .NET, Go | Cloud: AWS, Azure, GCP | AI/ML: PyTorch, TensorFlow, LangChain, LlamaIndex | Data: Snowflake, Databricks, Kafka | DevOps: Kubernetes, ArgoCD, GitHub Actions].",
+    contact_email: "careers@agile-it-global.com",
+    contact_phone: "+91-77777-66666"
   },
   {
     _id: "ecommerce_1",
@@ -68,10 +68,10 @@ const MOCK_COMPANIES = [
     industry: "E-Commerce",
     logo: "🛒",
     gender: "female",
-    context_summary: "Premier Electronics Store featuring 100+ products from Apple, Sony, Samsung, and more.",
-    nlp_context: "CATALOG: [Phones: iPhone 15 Pro (₹1,34,900), S24 Ultra (₹1,29,900), OnePlus 12 (₹64,900)]. [Audio: Sony XM5 (₹29,900), AirPods Pro (₹24,900)]. [Computing: MacBook Pro M3 (₹1,69,900), Dell XPS (₹1,45,000)]. DEMO_AVAILABILITY: Weekdays 11am-7pm. CONTACT: Support is available 24/7 for order tracking. Action: 'BOOK_ORDER [Item]' or 'TRACE_ORDER'.",
-    contact_email: "support@quickkart.com",
-    contact_phone: "+1-800-KART-PRO"
+    context_summary: "Fast-growing online electronics mega-store – mobiles, laptops, audio, TVs, appliances, gaming, wearables, smart home, cameras, personal care – 2–4 hr delivery in 12 cities, next-day in 200+ cities.",
+    nlp_context: "MOBILES: [iPhone 16 Pro Max 256GB ₹144900, Galaxy S25 Ultra 512GB ₹139999, Pixel 9 Pro XL 256GB ₹124900, OnePlus 13 512GB ₹74999, Xiaomi 15 512GB ₹69999, Vivo X200 Pro 512GB ₹94999, Nothing Phone (3) ₹49999, Motorola Edge 50 Ultra ₹64999, Realme GT 7 Pro ₹59999]. LAPTOPS: [MacBook Pro 14 M4 Pro 1TB ₹199900, MacBook Air 13 M4 512GB ₹114900, Dell XPS 14 OLED ₹189900, Lenovo Legion Pro 7i RTX 4080 ₹229900, HP Spectre x360 16 2-in-1 ₹169900, ASUS ROG Zephyrus G16 ₹199900, Acer Predator Helios Neo ₹119900, MSI Stealth 14 AI Studio ₹179900]. AUDIO: [Sony WH-1000XM6 ₹34990, AirPods Max 2 ₹59900, Bose QuietComfort Ultra ₹38500, Sennheiser Momentum 4 ₹34990, JBL Tour One M3 ₹24999, Sony WF-1000XM5 ₹24990, Beats Studio Buds + ₹18990, Nothing Ear (open) ₹11999]. TVS: [Samsung QN90D Neo QLED 65 ₹189990, LG OLED evo C4 65 ₹179990, Sony Bravia 8 OLED 65 ₹239990, TCL C855 Mini-LED 75 ₹149990, Hisense U8N 65 ₹89990, Xiaomi X Pro QLED 65 ₹74990]. APPLIANCES: [LG 9kg AI DD Washing Machine ₹42990, Samsung Bespoke 465L Refrigerator ₹94990, Daikin 1.5T 5★ Inverter AC ₹48990, Dyson V15 Detect Absolute ₹59990, Philips Airfryer XXL ₹12990, Bosch Serie 6 Dishwasher ₹58990]. WEARABLES: [Apple Watch Ultra 2 ₹89900, Galaxy Watch 7 44mm ₹32990, Pixel Watch 3 ₹39990, OnePlus Watch 2R ₹17999, NoiseFit Voyage ₹7999]. GAMING: [PS5 Slim Disc ₹54990, Xbox Series X 1TB ₹49990, Nintendo Switch OLED ₹32990, Steam Deck 1TB ₹64990]. OFFERS: [10% instant bank discount (HDFC/ICICI), No-cost EMI 3–36 months, Exchange bonus up to ₹45000, QuickKart Assured ₹1999/yr (free delivery + extended warranty)]. DELIVERY: [2-hr slots in metro, Next-day 200+ cities, Standard 3–6 days]. ADDRESS: Central Warehouse – Plot 789, Sector 82, Noida, Uttar Pradesh 201305.",
+    contact_email: "orders@quickkart-pro.com",
+    contact_phone: "+91-1800-200-500"
   }
 ];
 
@@ -509,12 +509,12 @@ export const tools = {
     const { companyId, position } = params;
     const company = await database.getCompany(companyId);
     if (!company) return { error: 'Company not found' };
-    
+
     // Extract vacancies from nlp_context if possible
     const context = company.nlp_context || company.context_summary || '';
     const rolesMatch = context.match(/\[Roles: ([^\]]+)\]/);
     const roles = rolesMatch ? rolesMatch[1] : 'Various positions';
-    
+
     return {
       companyName: company.name,
       vacancies: roles,
@@ -554,9 +554,9 @@ export const tools = {
       }
     }
 
-    return { 
-      result: context, 
-      type: 'general', 
+    return {
+      result: context,
+      type: 'general',
       entityName: entity.name,
       message: `Information about ${entity.name}: ${context}`
     };

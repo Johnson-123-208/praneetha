@@ -29,17 +29,30 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
   if (!apiKey) throw new Error('Groq API key not configured');
 
   try {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
     const systemMessage = customSystemMessage || `You are Callix, a professional AI calling agent.
+    CURRENT DATE: ${dateStr}
+    CURRENT TIME: ${timeStr}
     ${companyContext ? `ENTITY: ${companyContext.name} (${companyContext.industry})\nCONTEXT: ${companyContext.nlpContext}` : ''}
     
     CAPABILITIES:
     - [QUERY_ENTITY_DATABASE]: For menu/doctors/vacancies/info.
-    - [BOOK_APPOINTMENT]: For doctors/slots.
+    - [BOOK_APPOINTMENT]: For doctors/slots/interviews.
     - [BOOK_TABLE]: For restaurant bookings.
     - [BOOK_ORDER]: For e-commerce orders.
     - [COLLECT_FEEDBACK]: For ratings and reviews.
+    - [HANG_UP]: To end the call.
     
-    RULE: Speak naturally. If you perform an action, briefly mention it to the user.`;
+    IMPORTANT CONVERSATIONAL RULES:
+    1. If user says "Yes" to a booking/order, DO NOT guess the details. 
+    2. Ask the user for the missing fields (Date, Time, People, or Item Name) naturally in their language.
+    3. AFTER any successful action (booking/order), ALWAYS ask "Is there anything else I can help you with?".
+    4. If the user says "No" or "Nothing else", ALWAYS ask "Could you please give me a quick rating from 1 to 5 stars for this call?".
+    5. AFTER receiving feedback (rating), say "Thank you! Have a great day. Goodbye!" and include [HANG_UP].
+    6. Speak warmly and naturally. Only output the [COMMAND] once you have all the necessary information.`;
 
     const messages = [
       { role: 'system', content: systemMessage },
@@ -75,7 +88,7 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
     if (functionMatch) {
       const result = await executeAction(functionMatch);
 
-      // Simple follow-up to confirm action
+      // Simple follow-up confirm with the FAST model
       const finalResponse = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
@@ -83,13 +96,19 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant', // Faster model for confirmation
+          model: 'llama-3.1-8b-instant',
           messages: [
             ...messages,
             { role: 'assistant', content: cleanInternalCommands(assistantMessage) },
-            { role: 'system', content: `ACTION RESULT: ${JSON.stringify(result)}. Confirm this to the user naturally.` }
+            {
+              role: 'system', content: `ACTION RESULT: ${JSON.stringify(result)}. 
+            
+            Confirm this result to the user naturally in 1 short sentence. 
+            LANGUAGE: Use the same language as the user (Telugu/English/Hindi).
+            FOLLOW-UP: Ask "Is there anything else I can help you with?" or gather missing info if the result was a search.` }
           ],
-          temperature: 0.5
+          temperature: 0.5,
+          max_tokens: 150
         })
       });
 
