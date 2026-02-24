@@ -16,27 +16,51 @@ export const cleanInternalCommands = (text) => {
     .trim();
 };
 
-let apiKey = null;
+let primaryApiKey = null;
+const FALLBACK_API_KEY = import.meta.env.VITE_FALLBACK_GROQ_API_KEY;
 
 export const initializeGroq = (key) => {
   if (!key) return false;
-  apiKey = key;
+  primaryApiKey = key;
   return true;
 };
 
 /**
  * Main AI Reasoning - Uses Groq Llama 3
+ * Integrated with Auto-Key Rotation (Primary -> Fallback)
  */
-const fetchWithRetry = async (url, options, maxRetries = 3, delay = 2000) => {
+const fetchWithRetry = async (url, options, maxRetries = 3, delay = 1000) => {
+  let currentKey = primaryApiKey;
+  let usingFallback = false;
+
   for (let i = 0; i <= maxRetries; i++) {
     try {
-      const response = await fetch(url, options);
-      if (response.status === 429 && i < maxRetries) {
-        // Increase delay for each retry to give the API more time to reset
-        const actualDelay = delay * (i + 1);
-        console.warn(`⚠️ Groq Rate Limit (429) hit, retrying in ${actualDelay}ms... (Attempt ${i + 1}/${maxRetries})`);
-        await new Promise(r => setTimeout(r, actualDelay));
-        continue;
+      // Inject current key into headers
+      const currentOptions = {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${currentKey || FALLBACK_API_KEY}`
+        }
+      };
+
+      const response = await fetch(url, currentOptions);
+
+      if (response.status === 429) {
+        if (!usingFallback && FALLBACK_API_KEY) {
+          console.warn("🔄 Primary API Limit Reached. Switching to Fallback Key...");
+          currentKey = FALLBACK_API_KEY;
+          usingFallback = true;
+          i = 0; // Reset retries for the new key
+          continue;
+        }
+
+        if (i < maxRetries) {
+          const actualDelay = delay * (i + 1);
+          console.warn(`⚠️ Both keys limited (429). Waiting ${actualDelay}ms... (Attempt ${i + 1}/${maxRetries})`);
+          await new Promise(r => setTimeout(r, actualDelay));
+          continue;
+        }
       }
       return response;
     } catch (err) {
@@ -50,7 +74,7 @@ const fetchWithRetry = async (url, options, maxRetries = 3, delay = 2000) => {
  * Main AI Reasoning - Uses Groq Llama 3
  */
 export const chatWithGroq = async (prompt, history = [], companyContext = null, customSystemMessage = null) => {
-  if (!apiKey) throw new Error('Groq API key not configured');
+  if (!primaryApiKey && !FALLBACK_API_KEY) throw new Error('Groq API key not configured');
 
   try {
     const now = new Date();
@@ -92,7 +116,6 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
     const response = await fetchWithRetry(GROQ_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -119,7 +142,7 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 
       const finalResponse = await fetchWithRetry(GROQ_API_URL, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'llama-3.1-8b-instant',
           messages: [
@@ -276,7 +299,7 @@ const executeAction = async (match) => {
 };
 
 export const transcribeAudio = async (audioBlob, languageCode = 'en') => {
-  if (!apiKey) throw new Error('Groq API key not configured');
+  if (!primaryApiKey && !FALLBACK_API_KEY) throw new Error('Groq API key not configured');
 
   const formData = new FormData();
   formData.append('file', audioBlob, 'audio.webm');
@@ -285,7 +308,6 @@ export const transcribeAudio = async (audioBlob, languageCode = 'en') => {
 
   const response = await fetchWithRetry(GROQ_AUDIO_URL, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey} ` },
     body: formData,
   });
 
