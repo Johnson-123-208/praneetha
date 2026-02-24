@@ -54,13 +54,26 @@ const UserDashboard = ({ user, onClose }) => {
                 });
             };
 
-            const allApps = sortByNewest(appointmentsData || []);
+            // Filter out clearly "fake" or old data (anything before 2025)
+            const filterJunk = (arr) => {
+                if (!arr) return [];
+                return arr.filter(item => {
+                    const dateStr = item.date || item.created_at;
+                    if (!dateStr) return true;
+                    const year = new Date(dateStr).getFullYear();
+                    return year >= 2025; // Keep only recent data
+                });
+            };
 
-            setAppointments(deduplicate(allApps.filter(a => a.type !== 'table' && a.type !== 'interview')));
-            setSchedules(deduplicate(allApps.filter(a => a.type === 'interview')));
-            setBookings(deduplicate(allApps.filter(a => a.type === 'table')));
-            setOrders(deduplicate(sortByNewest(ordersData)));
-            setFeedback(deduplicate(sortByNewest(feedbackData)));
+            const cleanApps = filterJunk(sortByNewest(appointmentsData || []));
+            const cleanOrders = filterJunk(sortByNewest(ordersData || []));
+            const cleanFeedback = filterJunk(sortByNewest(feedbackData || []));
+
+            setAppointments(deduplicate(cleanApps.filter(a => a.type !== 'table' && a.type !== 'interview')));
+            setSchedules(deduplicate(cleanApps.filter(a => a.type === 'interview')));
+            setBookings(deduplicate(cleanApps.filter(a => a.type === 'table')));
+            setOrders(deduplicate(cleanOrders));
+            setFeedback(deduplicate(cleanFeedback));
         } catch (error) {
             console.error('Error loading user data:', error);
         } finally {
@@ -139,7 +152,22 @@ const UserDashboard = ({ user, onClose }) => {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                             <div>
                                 <h1 className="text-3xl font-bold text-slate-900 mb-2">My Dashboard</h1>
+                                <p className="text-slate-500 text-sm">Manage your AI interactions and bookings.</p>
                             </div>
+                            <button
+                                onClick={async () => {
+                                    if (window.confirm("This will clear all local records (bookings, orders, etc.). Are you sure?")) {
+                                        localStorage.removeItem('callix_appointments');
+                                        localStorage.removeItem('callix_orders');
+                                        localStorage.removeItem('callix_feedback');
+                                        await loadUserData();
+                                    }
+                                }}
+                                className="px-4 py-2 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl text-sm font-bold border border-slate-200 transition-all flex items-center"
+                            >
+                                <Trash2 size={16} className="mr-2" />
+                                Clear Local History
+                            </button>
                         </div>
                     </div>
 

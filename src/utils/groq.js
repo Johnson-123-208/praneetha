@@ -133,9 +133,12 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 
     const data = await response.json();
     const assistantMessage = data.choices[0]?.message?.content || '';
-
     // Intent post-processing
-    const intent = detectIntent(assistantMessage, companyContext);
+    // STAGE 2: If the AI output a [COMMAND], we execute it and get a confirmation
+    const commandMatch = assistantMessage.match(/\[(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_FEEDBACK|HANG_UP|QUERY_ENTITY_DATABASE).*?\]/i);
+
+    const intent = commandMatch ? detectIntent(assistantMessage, companyContext) : null;
+
     if (intent) {
       const result = await executeAction(intent);
       const followUpText = assistantMessage.includes('?') ? '' : 'Is there anything else I can help you with?';
@@ -149,21 +152,13 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
             {
               role: 'system',
               content: `ACTION RESULT: ${JSON.stringify(result)}. 
-            
-            Confirm this result to the user naturally in 1 or 2 SHORT, COMPLETE sentences. 
-            USER NAME: ${companyContext?.userName || 'Guest'}
-            REQUESTED LANGUAGE: ${companyContext?.currLangName || 'English'}
-            
-            CRITICAL: You MUST respond ONLY in ${companyContext?.currLangName || 'English'} using its native script.
-            DO NOT speak Telugu if ${companyContext?.currLangName} is English.
-            DO NOT speak Hindi if ${companyContext?.currLangName} is English.
-            
-            NAME ADDRESSING: 
-            - If English: Use "Hello [Name]" or "[Name]".
-            - If Telugu: Use "[Name] garu".
-            - If Hindi: Use "[Name] ji".
-            
-            FOLLOW-UP: ${followUpText}`
+              
+              Confirm this result to the user naturally in 1 SHORT, COMPLETE sentence. 
+              REQUESTED LANGUAGE: ${companyContext?.currLangName || 'English'}
+              
+              CRITICAL: You MUST respond ONLY in ${companyContext?.currLangName || 'English'} using its native script.
+              DO NOT repeat the user's name or greet them again. 
+              Only confirm the task is done and add: ${followUpText}`
             }
           ],
           temperature: 0.5,
