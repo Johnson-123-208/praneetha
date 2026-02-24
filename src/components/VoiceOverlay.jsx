@@ -783,9 +783,23 @@ ${languageInstruction}
 
     } catch (error) {
       console.error('Message Handling Error:', error);
-      const err = "I'm sorry, I missed that. Could you repeat it?";
-      addMessage('agent', err);
-      await speak(err);
+
+      let errorMsg = "I'm sorry, I missed that. Could you repeat it?";
+
+      // Specific handling for Groq Limit Reached
+      if (error.message.includes('429')) {
+        const lang = selectedLanguage.code;
+        if (lang === 'te-IN') {
+          errorMsg = "క్షమించండి, నా రోజువారీ పరిమితి ముగిసింది. దయచేసి సెట్టింగ్స్‌లో కొత్త API కీని ఉపయోగించండి.";
+        } else if (lang === 'hi-IN') {
+          errorMsg = "क्षमा करें, मेरी दैनिक सीमा समाप्त हो गई है। कृपया सेटिंग्स में एक नई API कुंजी का उपयोग करें।";
+        } else {
+          errorMsg = "I'm sorry, the AI limit has been reached for today. Please update the API key in settings to continue.";
+        }
+      }
+
+      addMessage('agent', errorMsg);
+      await speak(errorMsg, selectedLanguage.code);
     } finally {
       setIsProcessing(false);
       setIsThinking(false);
