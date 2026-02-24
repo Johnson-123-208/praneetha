@@ -592,9 +592,9 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       // Strong language enforcement
       let languageInstruction = '';
       if (curLang.code === 'te-IN') {
-        languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Telugu language. Use Telugu script (తెలుగు). Do NOT use English words. Example: "నమస్కారం, నేను మీకు ఎలా సహాయం చేయగలను?"';
+        languageInstruction = '\n\nCRITICAL: Respond in Telugu script (తెలుగు). Use a warm, natural conversational tone. Use common English loanwords (like "Table", "Booking", "Confirm", "Doctor", "Menu") in Telugu script if they are clearer than formal Telugu words.';
       } else if (curLang.code === 'hi-IN') {
-        languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Hindi language. Use Devanagari script (हिंदी). Do NOT use English words. Example: "नमस्ते, मैं आपकी कैसे मदद कर सकता हूं?"';
+        languageInstruction = '\n\nCRITICAL: Respond in Hindi script (हिंदी). Use a warm, natural conversational tone. Use common English loanwords (like "Table", "Booking", "Confirm", "Doctor", "Menu") in Hindi script if they are clearer than formal Hindi words.';
       } else if (curLang.code === 'ta-IN') {
         languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Tamil language. Use Tamil script (தமிழ்). Do NOT use English words.';
       } else if (curLang.code === 'kn-IN') {

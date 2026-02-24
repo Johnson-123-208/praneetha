@@ -251,11 +251,17 @@ const detectIntent = (message, context) => {
   if (message.includes('BOOK_APPOINTMENT')) {
     const match = message.match(/BOOK_APPOINTMENT for (.*?) on (.*?) at ([^\n.\r]*)/i);
     if (match) {
+      const industry = context?.industry?.toLowerCase() || '';
+      let type = 'general';
+      if (industry.includes('health') || industry.includes('hosp')) type = 'doctor';
+      else if (industry.includes('tech') || industry.includes('it') || industry.includes('business')) type = 'interview';
+
       return {
         name: 'book_appointment',
         args: {
           entityId,
           entityName,
+          type,
           personName: match[1].trim(),
           date: match[2].trim(),
           time: match[3].trim(),
@@ -289,11 +295,18 @@ const detectIntent = (message, context) => {
   if (message.includes('BOOK_ORDER')) {
     const match = message.match(/BOOK_ORDER (.*)/i);
     if (match) {
+      const fullText = match[1].trim();
+      // Try to extract price if AI included it like "iPhone 15 (₹1,34,900)"
+      const priceMatch = fullText.match(/[₹\$]\s?([\d,]+)/);
+      const totalPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0;
+      const item = fullText.replace(/[\(\)\[\]]/g, '').split('₹')[0].split('$')[0].trim();
+
       return {
         name: 'book_order',
         args: {
           companyId: entityId,
-          item: match[1].trim(),
+          item,
+          totalPrice,
           customerName: userName,
           userEmail
         }

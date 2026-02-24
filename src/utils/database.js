@@ -345,7 +345,10 @@ export const database = {
     return await database.saveAppointment({
       ...booking,
       type: 'table',
-      userInfo: { party_size: booking.userInfo?.peopleCount || 1, notes: booking.userInfo?.notes || '' }
+      userInfo: {
+        party_size: booking.partySize || booking.userInfo?.peopleCount || 1,
+        notes: booking.userInfo?.notes || ''
+      }
     });
   },
 

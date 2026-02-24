@@ -23,7 +23,15 @@ const UserDashboard = ({ user, onClose }) => {
         if (!arr || arr.length === 0) return [];
         const seen = new Set();
         return arr.filter(item => {
-            // Normalize date for better deduplication (ignore time/seconds in the key)
+            // Prefer _id or id for absolute uniqueness
+            const uid = item._id || item.id;
+            if (uid && !uid.includes('local_')) {
+                if (seen.has(uid)) return false;
+                seen.add(uid);
+                return true;
+            }
+
+            // Normalize for semantic deduplication of local/fallback data
             const dateVal = item.date || (item.created_at ? new Date(item.created_at).toLocaleDateString() : 'no-date');
             const timeVal = item.time || 'no-time';
             const key = `${item.entity_name}-${dateVal}-${timeVal}-${item.item || item.type || 'none'}`;
@@ -206,13 +214,13 @@ const UserDashboard = ({ user, onClose }) => {
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
                 {/* Top Nav Bar (from reference) */}
-                <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-40">
-                    <div className="flex items-center bg-slate-100 rounded-2xl px-4 py-2 w-96">
-                        <Loader size={18} className="text-slate-400 mr-2" />
+                <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-40">
+                    <div className="flex items-center bg-slate-100 rounded-xl px-4 py-1.5 w-80">
+                        <Loader size={16} className="text-slate-400 mr-2" />
                         <input
                             type="text"
-                            placeholder="Search your records..."
-                            className="bg-transparent border-none outline-none text-sm text-slate-600 w-full"
+                            placeholder="Search records..."
+                            className="bg-transparent border-none outline-none text-xs text-slate-600 w-full"
                         />
                     </div>
 
@@ -234,14 +242,14 @@ const UserDashboard = ({ user, onClose }) => {
                 </header>
 
                 {/* Content Banner (from reference) */}
-                <main className="flex-1 overflow-y-auto p-8">
+                <main className="flex-1 overflow-y-auto p-6">
                     <div className="max-w-6xl mx-auto">
-                        <div className="mb-10 relative overflow-hidden rounded-[2.5rem] bg-orange-50 border border-orange-100 p-10">
-                            <div className="relative z-10 md:w-2/3">
-                                <h1 className="text-4xl font-black text-slate-900 mb-2">Hello, {user?.name?.split(' ')[0] || 'there'}!</h1>
-                                <p className="text-slate-600 font-medium mb-6">Welcome to your dashboard. You have {appointments.length + bookings.length + schedules.length} active reservations and appointments today.</p>
+                        <div className="mb-6 relative overflow-hidden rounded-3xl bg-orange-50 border border-orange-100 p-6 flex items-center justify-between">
+                            <div className="relative z-10">
+                                <h1 className="text-2xl font-black text-slate-900 mb-1">Hello, {user?.name?.split(' ')[0] || 'there'}!</h1>
+                                <p className="text-slate-600 text-sm font-medium mb-4">Welcome back. You have {appointments.length + bookings.length + schedules.length} active items today.</p>
 
-                                <div className="flex space-x-4">
+                                <div className="flex space-x-3">
                                     <button
                                         onClick={async () => {
                                             if (window.confirm("This will clear all local records. Continue?")) {
@@ -251,16 +259,15 @@ const UserDashboard = ({ user, onClose }) => {
                                                 await loadUserData();
                                             }
                                         }}
-                                        className="px-6 py-3 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 rounded-2xl text-sm font-bold border border-slate-200 transition-all flex items-center shadow-sm"
+                                        className="px-4 py-2 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 rounded-xl text-xs font-bold border border-slate-200 transition-all flex items-center shadow-sm"
                                     >
-                                        <Trash2 size={16} className="mr-2" />
+                                        <Trash2 size={14} className="mr-2" />
                                         Reset History
                                     </button>
                                 </div>
                             </div>
-                            <div className="absolute right-[-2.5rem] bottom-[-2.5rem] w-64 h-64 bg-white/20 rounded-full blur-3xl"></div>
-                            <div className="absolute top-10 right-20 hidden md:block text-orange-200">
-                                <Calendar size={120} strokeWidth={1} />
+                            <div className="relative hidden md:block text-orange-200 opacity-50">
+                                <Calendar size={80} strokeWidth={1.5} />
                             </div>
                         </div>
 
@@ -272,13 +279,13 @@ const UserDashboard = ({ user, onClose }) => {
                                 exit={{ opacity: 0, y: -20 }}
                                 transition={{ duration: 0.3 }}
                             >
-                                <div className="flex items-center justify-between mb-8">
-                                    <h2 className="text-2xl font-black text-slate-900">
-                                        {activeTab === 'orders' ? 'Your Recent Orders' :
-                                            activeTab === 'bookings' ? 'Restaurant Reservations' :
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-xl font-black text-slate-900">
+                                        {activeTab === 'orders' ? 'Recent Orders' :
+                                            activeTab === 'bookings' ? 'Reservations' :
                                                 activeTab === 'appointments' ? 'Medical Consulting' :
-                                                    activeTab === 'schedules' ? 'Interview Schedules' :
-                                                        'Feedback & Reviews'}
+                                                    activeTab === 'schedules' ? 'Interviews' :
+                                                        'Reviews'}
                                     </h2>
                                 </div>
 
@@ -294,7 +301,7 @@ const UserDashboard = ({ user, onClose }) => {
                                         message={`No records in ${activeTab}`}
                                     />
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {currentData.map((record) => (
                                             <RecordCard
                                                 key={record._id}
@@ -366,7 +373,8 @@ const RecordCard = ({ record, type, onDelete, isDeleting, formatDate, getStatusS
                         isFeedback ? (record.entity_name) :
                             record.type === 'doctor' ? `Dr. ${record.person_name}` :
                                 record.type === 'interview' ? `Interview: ${record.person_name}` :
-                                    record.entity_name}
+                                    record.type === 'table' ? record.person_name :
+                                        record.entity_name}
                 </h3>
                 {(record.type === 'doctor' || record.type === 'interview') && (
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-wide">{record.entity_name}</p>
@@ -398,7 +406,7 @@ const RecordCard = ({ record, type, onDelete, isDeleting, formatDate, getStatusS
                 </div>
 
                 <span className="text-[10px] text-slate-300 font-bold tracking-widest uppercase">
-                    ID: {record._id.slice(-6).toUpperCase()}
+                    ID: {(record._id || record.id || 'TEMP').toString().slice(-6).toUpperCase()}
                 </span>
             </div>
         </motion.div>
