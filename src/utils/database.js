@@ -269,15 +269,15 @@ export const database = {
       const lower = dateStr.toLowerCase();
       const now = new Date();
 
-      if (lower.includes('tomorrow')) {
+      if (lower.includes('tomorrow') || lower.includes('రేపు') || lower.includes('कल')) {
         const tomorrow = new Date(now);
         tomorrow.setDate(now.getDate() + 1);
         return tomorrow.toISOString().split('T')[0];
       }
-      if (lower.includes('today')) {
+      if (lower.includes('today') || lower.includes('ఈరోజు') || lower.includes('आज')) {
         return now.toISOString().split('T')[0];
       }
-      if (lower.includes('day after tomorrow')) {
+      if (lower.includes('day after tomorrow') || lower.includes('ఎల్లుండి') || lower.includes('परसों')) {
         const dat = new Date(now);
         dat.setDate(now.getDate() + 2);
         return dat.toISOString().split('T')[0];
@@ -592,5 +592,9 @@ export const tools = {
       entityName: entity.name,
       message: `Information about ${entity.name}: ${context}`
     };
+  },
+
+  hang_up: async () => {
+    return { success: true, message: 'Call terminated.' };
   }
 };

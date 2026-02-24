@@ -29,8 +29,10 @@ const dedupe = (data) => {
 const saveLocal = (key, data) => {
     if (dedupe(data)) return;
     const existing = getLocal(key);
+    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
     const newEntry = {
         ...data,
+        user_email: data.user_email || storedUser.email || '',
         _id: data._id || data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
         timestamp: new Date().toISOString(),
         created_at: data.created_at || new Date().toISOString()
