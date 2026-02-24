@@ -124,13 +124,22 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
           model: 'llama-3.1-8b-instant',
           messages: [
             {
-              role: 'system', content: `ACTION RESULT: ${JSON.stringify(result)}. 
+              role: 'system',
+              content: `ACTION RESULT: ${JSON.stringify(result)}. 
             
             Confirm this result to the user naturally in 1 or 2 SHORT, COMPLETE sentences. 
             USER NAME: ${companyContext?.userName || 'Guest'}
-            CRITICAL: You MUST use the same language as the user's last message (Telugu/English/Hindi).
-            If the user's name is known, address them by name (e.g., "Johnson garu" or "Johnson ji").
-            NEVER respond in English if the user is speaking Telugu.
+            REQUESTED LANGUAGE: ${companyContext?.currLangName || 'English'}
+            
+            CRITICAL: You MUST respond ONLY in ${companyContext?.currLangName || 'English'} using its native script.
+            DO NOT speak Telugu if ${companyContext?.currLangName} is English.
+            DO NOT speak Hindi if ${companyContext?.currLangName} is English.
+            
+            NAME ADDRESSING: 
+            - If English: Use "Hello [Name]" or "[Name]".
+            - If Telugu: Use "[Name] garu".
+            - If Hindi: Use "[Name] ji".
+            
             FOLLOW-UP: ${followUpText}`
             }
           ],
@@ -189,7 +198,7 @@ const detectIntent = (message, context) => {
           entityId,
           entityName,
           type: 'table',
-          personName: `Table for ${match[1].trim()} (${userName})`,
+          personName: `Table for ${match[1].trim()}(${userName})`,
           date: match[2].trim(),
           time: match[3].trim(),
           userEmail,
@@ -276,7 +285,7 @@ export const transcribeAudio = async (audioBlob, languageCode = 'en') => {
 
   const response = await fetchWithRetry(GROQ_AUDIO_URL, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}` },
+    headers: { 'Authorization': `Bearer ${apiKey} ` },
     body: formData,
   });
 
