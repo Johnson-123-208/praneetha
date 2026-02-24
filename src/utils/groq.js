@@ -4,68 +4,111 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_AUDIO_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
 
 // Cleanup utility for internal markers
+// Cleanup utility for internal markers
 export const cleanInternalCommands = (text) => {
   if (!text) return '';
   return text
     .replace(/^(Callix|Agent|Assistant|System):\s*/i, '')
-    // Match commands with or without brackets, and alles following them on the same line
-    .replace(/\[?(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_RATING|COLLECT_FEEDBACK|COLLECT_)\]?.*$/gim, '')
-    .replace(/\[?(TRACE_ORDER|HANG_UP)\]?/gi, '')
+    // Match commands with or without brackets, and all contents of brackets
+    .replace(/\[(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_RATING|COLLECT_FEEDBACK|COLLECT_ITEM|HANG_UP|QUERY_ENTITY_DATABASE|TRACE_ORDER).*?\]/gim, '')
+    // Match any remaining words in all caps with underscores (commands)
+    .replace(/\b(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_FEEDBACK|HANG_UP|QUERY_ENTITY_DATABASE)\b/gi, '')
     .replace(/[\[\]]/g, '') // Remove any dangling brackets
     .replace(/\s+/g, ' ')
     .trim();
 };
 
-let primaryApiKey = null;
-const FALLBACK_API_KEY = import.meta.env.VITE_FALLBACK_GROQ_API_KEY;
+// API Key Management - Dynamically load all keys starting with VITE_GROQ_API_KEY
+const API_KEYS = Object.keys(import.meta.env)
+  .filter(key => key.includes('GROQ_API_KEY'))
+  .sort() // Ensure consistent order
+  .map(key => import.meta.env[key])
+  .filter(Boolean);
+
+let currentKeyIndex = 0;
+let primaryApiKey = null; // Stays for compatibility if initialized from App.jsx
 
 export const initializeGroq = (key) => {
   if (!key) return false;
   primaryApiKey = key;
+  // If the key initialized isn't in our list (maybe it's a user-provided key), we can prepend it
+  if (!API_KEYS.includes(key)) {
+    API_KEYS.unshift(key);
+  }
   return true;
 };
 
 /**
- * Main AI Reasoning - Uses Groq Llama 3
- * Integrated with Auto-Key Rotation (Primary -> Fallback)
+ * Gets the current active key. If a key is known to be limited, we can skip it.
  */
-const fetchWithRetry = async (url, options, maxRetries = 3, delay = 1000) => {
-  let currentKey = primaryApiKey;
-  let usingFallback = false;
+const getActiveKey = () => {
+  if (API_KEYS.length === 0) return primaryApiKey;
+  return API_KEYS[currentKeyIndex];
+};
 
-  for (let i = 0; i <= maxRetries; i++) {
+/**
+ * Rotates to the next available API key
+ */
+const rotateKey = () => {
+  if (API_KEYS.length <= 1) return false;
+  currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+  console.warn(`🔄 Rate limit reached. Switching to API Key #${currentKeyIndex + 1}...`);
+  return true;
+};
+
+/**
+ * Enhanced fetch with intelligent key rotation and retry logic
+ */
+const fetchWithRetry = async (url, options, maxRetries = 3) => {
+  let attempt = 0;
+
+  while (attempt <= maxRetries) {
+    const currentKey = getActiveKey();
+
     try {
-      // Inject current key into headers
       const currentOptions = {
         ...options,
         headers: {
           ...options.headers,
-          'Authorization': `Bearer ${currentKey || FALLBACK_API_KEY}`
+          'Authorization': `Bearer ${currentKey}`
         }
       };
 
       const response = await fetch(url, currentOptions);
 
       if (response.status === 429) {
-        if (!usingFallback && FALLBACK_API_KEY) {
-          console.warn("🔄 Primary API Limit Reached. Switching to Fallback Key...");
-          currentKey = FALLBACK_API_KEY;
-          usingFallback = true;
-          i = 0; // Reset retries for the new key
+        console.warn(`⚠️ API Key #${currentKeyIndex + 1} hit rate limit (429).`);
+
+        // If we have more keys, rotate and try again immediately without counting as a "retry" for the logic
+        if (rotateKey()) {
+          // Reset retries for the new key if you want, or just continue
           continue;
         }
 
-        if (i < maxRetries) {
-          const actualDelay = delay * (i + 1);
-          console.warn(`⚠️ Both keys limited (429). Waiting ${actualDelay}ms... (Attempt ${i + 1}/${maxRetries})`);
-          await new Promise(r => setTimeout(r, actualDelay));
-          continue;
+        // If no more keys to rotate, wait and retry
+        const delay = 2000 * (attempt + 1);
+        console.warn(`⏳ All keys limited. Retrying in ${delay}ms... (Attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, delay));
+        attempt++;
+        continue;
+      }
+
+      // Check for other errors
+      if (!response.ok) {
+        // Some errors shouldn't be retried with rotation (like bad request)
+        if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+          return response;
         }
       }
+
       return response;
     } catch (err) {
-      if (i === maxRetries) throw err;
+      console.error(`❌ Request failed:`, err);
+      if (attempt === maxRetries) throw err;
+
+      const delay = 1000 * (attempt + 1);
       await new Promise(r => setTimeout(r, delay));
+      attempt++;
     }
   }
 };
@@ -74,7 +117,7 @@ const fetchWithRetry = async (url, options, maxRetries = 3, delay = 1000) => {
  * Main AI Reasoning - Uses Groq Llama 3
  */
 export const chatWithGroq = async (prompt, history = [], companyContext = null, customSystemMessage = null) => {
-  if (!primaryApiKey && !FALLBACK_API_KEY) throw new Error('Groq API key not configured');
+  if (API_KEYS.length === 0 && !primaryApiKey) throw new Error('No Groq API keys configured. Please check your .env file or add a key in settings.');
 
   try {
     const now = new Date();
@@ -102,7 +145,8 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
     3. AFTER any successful action (booking/order), ALWAYS ask "Is there anything else I can help you with?".
     4. If the user says "No" or "Nothing else", ALWAYS ask "Could you please give me a quick rating from 1 to 5 stars for this call?".
     5. AFTER receiving feedback (rating), say "Thank you! Have a great day. Goodbye!" and include [HANG_UP].
-    6. Speak warmly and naturally. Only output the [COMMAND] once you have all the necessary information.`;
+    6. Speak warmly and naturally. Only output the [COMMAND] on its own line at the VERY END.
+    7. CRITICAL: Never include brackets [] or commands like BOOK_APPOINTMENT in the visible part of your response meant for the user.`;
 
     const messages = [
       { role: 'system', content: systemMessage },
@@ -133,6 +177,7 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 
     const data = await response.json();
     const assistantMessage = data.choices[0]?.message?.content || '';
+
     // Intent post-processing
     // STAGE 2: If the AI output a [COMMAND], we execute it and get a confirmation
     const commandMatch = assistantMessage.match(/\[(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_FEEDBACK|HANG_UP|QUERY_ENTITY_DATABASE).*?\]/i);
@@ -142,6 +187,9 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
     if (intent) {
       const result = await executeAction(intent);
       const followUpText = assistantMessage.includes('?') ? '' : 'Is there anything else I can help you with?';
+
+      // Clean the original message to remove the bracketed command for the user
+      const cleanedMessageForUser = cleanInternalCommands(assistantMessage);
 
       const finalResponse = await fetchWithRetry(GROQ_API_URL, {
         method: 'POST',
@@ -174,14 +222,19 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 
       if (finalResponse && finalResponse.ok) {
         const finalData = await finalResponse.json();
-        return finalData.choices[0]?.message?.content;
+        const confirmationText = finalData.choices[0]?.message?.content;
+
+        // If the confirmation text is short or simple, it's perfect. 
+        // We prepend the cleaned original message if it contained important conversational context
+        return cleanedMessageForUser.length > 5 ? `${cleanedMessageForUser} ${confirmationText}` : confirmationText;
       }
 
       // If confirmation call failed, fallback to cleaned primary message
-      return cleanInternalCommands(assistantMessage);
+      return cleanedMessageForUser;
     }
 
-    return assistantMessage;
+    // Even for non-intents, always clean internal markers before returning
+    return cleanInternalCommands(assistantMessage);
   } catch (error) {
     console.error('Groq AI Error:', error);
     throw error;
@@ -300,7 +353,7 @@ const executeAction = async (match) => {
 };
 
 export const transcribeAudio = async (audioBlob, languageCode = 'en') => {
-  if (!primaryApiKey && !FALLBACK_API_KEY) throw new Error('Groq API key not configured');
+  if (API_KEYS.length === 0 && !primaryApiKey) throw new Error('No Groq API keys configured for transcription.');
 
   const formData = new FormData();
   formData.append('file', audioBlob, 'audio.webm');
