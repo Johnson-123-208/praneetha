@@ -144,130 +144,174 @@ const UserDashboard = ({ user, onClose }) => {
                         feedback;
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] relative">
-            <div className="max-w-6xl mx-auto px-4 pt-24 pb-20 relative z-10">
-                <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-                    {/* Header */}
-                    <div className="p-6 md:p-8 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                            <div>
-                                <h1 className="text-3xl font-bold text-slate-900 mb-2">My Dashboard</h1>
-                                <p className="text-slate-500 text-sm">Manage your AI interactions and bookings.</p>
-                            </div>
-                            <button
-                                onClick={async () => {
-                                    if (window.confirm("This will clear all local records (bookings, orders, etc.). Are you sure?")) {
-                                        localStorage.removeItem('callix_appointments');
-                                        localStorage.removeItem('callix_orders');
-                                        localStorage.removeItem('callix_feedback');
-                                        await loadUserData();
-                                    }
-                                }}
-                                className="px-4 py-2 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl text-sm font-bold border border-slate-200 transition-all flex items-center"
-                            >
-                                <Trash2 size={16} className="mr-2" />
-                                Clear Local History
-                            </button>
-                        </div>
+        <div className="flex min-h-screen bg-[#F8FAFC]">
+            {/* Expanded Sidebar UI (from reference) */}
+            <div className="sidebar-container-custom hidden lg:flex w-72">
+                <div className="px-8 mb-12">
+                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-4">
+                        <ShoppingBag size={28} />
                     </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
-                        {/* Sidebar Navigation */}
-                        <div className="lg:col-span-3 border-r border-slate-200 bg-slate-50/50">
-                            <nav className="p-4 space-y-2">
-                                <TabButton
-                                    active={activeTab === 'appointments'}
-                                    onClick={() => setActiveTab('appointments')}
-                                    icon={<Calendar size={18} />}
-                                    label="Appointments"
-                                    count={appointments.length}
-                                />
-                                <TabButton
-                                    active={activeTab === 'schedules'}
-                                    onClick={() => setActiveTab('schedules')}
-                                    icon={<Briefcase size={18} />}
-                                    label="Schedules"
-                                    count={schedules.length}
-                                />
-                                <TabButton
-                                    active={activeTab === 'bookings'}
-                                    onClick={() => setActiveTab('bookings')}
-                                    icon={<Utensils size={18} />}
-                                    label="Table Bookings"
-                                    count={bookings.length}
-                                />
-                                <TabButton
-                                    active={activeTab === 'orders'}
-                                    onClick={() => setActiveTab('orders')}
-                                    icon={<ShoppingBag size={18} />}
-                                    label="My Orders"
-                                    count={orders.length}
-                                />
-                                <TabButton
-                                    active={activeTab === 'feedback'}
-                                    onClick={() => setActiveTab('feedback')}
-                                    icon={<Star size={18} />}
-                                    label="Feedback"
-                                    count={feedback.length}
-                                />
-                            </nav>
-                        </div>
-
-                        {/* Content Area */}
-                        <div className="lg:col-span-9 bg-white">
-                            <AnimatePresence mode="wait">
-                                <motion.div
-                                    key={activeTab}
-                                    initial={{ opacity: 0, x: 10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -10 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="p-6 md:p-8"
-                                >
-                                    <div className="flex items-center justify-between mb-8">
-                                        <h2 className="text-2xl font-bold text-slate-900 capitalize">
-                                            {activeTab === 'orders' ? 'Order History' :
-                                                activeTab === 'bookings' ? 'Restaurant Bookings' :
-                                                    activeTab === 'appointments' ? 'Medical Consulting' :
-                                                        activeTab === 'schedules' ? 'Interview Schedules' :
-                                                            'Feedback & Ratings'}
-                                        </h2>
-                                        <div className="text-sm text-slate-400 font-medium bg-slate-50 px-3 py-1 rounded-full">
-                                            {currentData.length} records found
-                                        </div>
-                                    </div>
-
-                                    {currentData.length === 0 ? (
-                                        <EmptyState
-                                            icon={
-                                                activeTab === 'orders' ? <Package size={48} /> :
-                                                    activeTab === 'bookings' ? <Utensils size={48} /> :
-                                                        activeTab === 'schedules' ? <Briefcase size={48} /> :
-                                                            activeTab === 'appointments' ? <Calendar size={48} /> :
-                                                                <Star size={48} />
-                                            }
-                                            message={`No ${activeTab} found yet`}
-                                        />
-                                    ) : (
-                                        <div className="space-y-4">
-                                            {currentData.map((record) => (
-                                                <RecordCard
-                                                    key={record._id}
-                                                    record={record}
-                                                    type={activeTab === 'feedback' ? 'feedback' : (activeTab === 'orders' ? 'order' : (activeTab === 'schedules' ? 'interview' : 'appointment'))}
-                                                    onDelete={() => handleDelete(activeTab === 'feedback' ? 'feedback' : (activeTab === 'orders' ? 'order' : (activeTab === 'bookings' ? 'booking' : (activeTab === 'schedules' ? 'interview' : 'appointment'))), record._id)}
-                                                    isDeleting={deletingId === record._id}
-                                                    formatDate={formatDate}
-                                                    getStatusStyle={getStatusStyle}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-                                </motion.div>
-                            </AnimatePresence>
-                        </div>
-                    </div>
+                    <h2 className="text-white text-xl font-black tracking-tight">Callix AI</h2>
                 </div>
+
+                <nav className="flex-1 space-y-1">
+                    <TabButton
+                        active={activeTab === 'appointments'}
+                        onClick={() => setActiveTab('appointments')}
+                        icon={<Calendar size={20} />}
+                        label="Appointments"
+                        count={appointments.length}
+                    />
+                    <TabButton
+                        active={activeTab === 'schedules'}
+                        onClick={() => setActiveTab('schedules')}
+                        icon={<Briefcase size={20} />}
+                        label="Schedules"
+                        count={schedules.length}
+                    />
+                    <TabButton
+                        active={activeTab === 'bookings'}
+                        onClick={() => setActiveTab('bookings')}
+                        icon={<Utensils size={20} />}
+                        label="Table Bookings"
+                        count={bookings.length}
+                    />
+                    <TabButton
+                        active={activeTab === 'orders'}
+                        onClick={() => setActiveTab('orders')}
+                        icon={<ShoppingBag size={20} />}
+                        label="My Orders"
+                        count={orders.length}
+                    />
+                    <TabButton
+                        active={activeTab === 'feedback'}
+                        onClick={() => setActiveTab('feedback')}
+                        icon={<Star size={20} />}
+                        label="Feedback"
+                        count={feedback.length}
+                    />
+                </nav>
+
+                <div className="px-4 mt-auto">
+                    <button
+                        onClick={onClose}
+                        className="w-full flex items-center space-x-3 px-6 py-4 text-white/60 hover:text-white hover:bg-white/10 rounded-2xl transition-all font-bold"
+                    >
+                        <ChevronRight size={20} className="rotate-180" />
+                        <span>Exit Dashboard</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+                {/* Top Nav Bar (from reference) */}
+                <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-40">
+                    <div className="flex items-center bg-slate-100 rounded-2xl px-4 py-2 w-96">
+                        <Loader size={18} className="text-slate-400 mr-2" />
+                        <input
+                            type="text"
+                            placeholder="Search your records..."
+                            className="bg-transparent border-none outline-none text-sm text-slate-600 w-full"
+                        />
+                    </div>
+
+                    <div className="flex items-center space-x-6">
+                        <button className="text-slate-400 hover:text-slate-600">
+                            <Clock size={20} />
+                        </button>
+                        <div className="h-8 w-[1px] bg-slate-200"></div>
+                        <div className="flex items-center space-x-3">
+                            <div className="text-right hidden md:block">
+                                <p className="text-sm font-bold text-slate-900">{user?.name || 'User'}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{user?.email}</p>
+                            </div>
+                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                                {user?.name?.charAt(0) || 'U'}
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                {/* Content Banner (from reference) */}
+                <main className="flex-1 overflow-y-auto p-8">
+                    <div className="max-w-6xl mx-auto">
+                        <div className="mb-10 relative overflow-hidden rounded-[2.5rem] bg-orange-50 border border-orange-100 p-10">
+                            <div className="relative z-10 md:w-2/3">
+                                <h1 className="text-4xl font-black text-slate-900 mb-2">Hello, {user?.name?.split(' ')[0] || 'there'}!</h1>
+                                <p className="text-slate-600 font-medium mb-6">Welcome to your dashboard. You have {appointments.length + bookings.length + schedules.length} active reservations and appointments today.</p>
+
+                                <div className="flex space-x-4">
+                                    <button
+                                        onClick={async () => {
+                                            if (window.confirm("This will clear all local records. Continue?")) {
+                                                localStorage.removeItem('callix_appointments');
+                                                localStorage.removeItem('callix_orders');
+                                                localStorage.removeItem('callix_feedback');
+                                                await loadUserData();
+                                            }
+                                        }}
+                                        className="px-6 py-3 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 rounded-2xl text-sm font-bold border border-slate-200 transition-all flex items-center shadow-sm"
+                                    >
+                                        <Trash2 size={16} className="mr-2" />
+                                        Reset History
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="absolute right-[-2.5rem] bottom-[-2.5rem] w-64 h-64 bg-white/20 rounded-full blur-3xl"></div>
+                            <div className="absolute top-10 right-20 hidden md:block text-orange-200">
+                                <Calendar size={120} strokeWidth={1} />
+                            </div>
+                        </div>
+
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={activeTab}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <div className="flex items-center justify-between mb-8">
+                                    <h2 className="text-2xl font-black text-slate-900">
+                                        {activeTab === 'orders' ? 'Your Recent Orders' :
+                                            activeTab === 'bookings' ? 'Restaurant Reservations' :
+                                                activeTab === 'appointments' ? 'Medical Consulting' :
+                                                    activeTab === 'schedules' ? 'Interview Schedules' :
+                                                        'Feedback & Reviews'}
+                                    </h2>
+                                </div>
+
+                                {currentData.length === 0 ? (
+                                    <EmptyState
+                                        icon={
+                                            activeTab === 'orders' ? <Package size={64} /> :
+                                                activeTab === 'bookings' ? <Utensils size={64} /> :
+                                                    activeTab === 'schedules' ? <Briefcase size={64} /> :
+                                                        activeTab === 'appointments' ? <Calendar size={64} /> :
+                                                            <Star size={64} />
+                                        }
+                                        message={`No records in ${activeTab}`}
+                                    />
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
+                                        {currentData.map((record) => (
+                                            <RecordCard
+                                                key={record._id}
+                                                record={record}
+                                                type={activeTab === 'feedback' ? 'feedback' : (activeTab === 'orders' ? 'order' : (activeTab === 'schedules' ? 'interview' : 'appointment'))}
+                                                onDelete={() => handleDelete(activeTab === 'feedback' ? 'feedback' : (activeTab === 'orders' ? 'order' : (activeTab === 'bookings' ? 'booking' : (activeTab === 'schedules' ? 'interview' : 'appointment'))), record._id)}
+                                                isDeleting={deletingId === record._id}
+                                                formatDate={formatDate}
+                                                getStatusStyle={getStatusStyle}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </motion.div>
+                        </AnimatePresence>
+                    </div>
+                </main>
             </div>
         </div>
     );
@@ -281,89 +325,81 @@ const RecordCard = ({ record, type, onDelete, isDeleting, formatDate, getStatusS
     return (
         <motion.div
             layout
-            initial={{ opacity: 0, y: 5 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="group relative p-5 rounded-2xl border border-slate-200 bg-white hover:border-purple-300 hover:shadow-md transition-all duration-300"
+            className="group relative p-6 rounded-[2rem] border border-slate-100 bg-white hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/5 transition-all duration-300"
         >
-            <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center space-x-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors shadow-sm ${isOrder ? 'bg-green-50 text-green-600' :
-                        isBooking ? 'bg-orange-50 text-orange-600' :
-                            record.type === 'doctor' ? 'bg-blue-50 text-blue-600' :
-                                isFeedback ? 'bg-amber-50 text-amber-600' :
-                                    'bg-purple-50 text-purple-600'
-                        }`}>
-                        {isOrder ? <ShoppingBag size={24} /> :
-                            isBooking ? <Utensils size={24} /> :
-                                record.type === 'doctor' ? <Stethoscope size={24} /> :
-                                    isFeedback ? <Star size={24} /> :
-                                        record.type === 'interview' ? <Briefcase size={24} /> :
-                                            <Calendar size={24} />}
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-slate-900 text-lg leading-tight">
-                            {isOrder ? (record.item) :
-                                isFeedback ? (record.entity_name) :
-                                    record.type === 'doctor' ? `Dr. ${record.person_name}` :
-                                        record.type === 'interview' ? `Interview: ${record.person_name}` :
-                                            record.entity_name}
-                        </h3>
-                        {(record.type === 'doctor' || record.type === 'interview') && (
-                            <p className="text-xs text-slate-500 font-medium mt-0.5">{record.entity_name}</p>
-                        )}
-                        <div className="flex items-center space-x-3 mt-2">
-                            {!isFeedback && (
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusStyle(record.status)}`}>
-                                    {isBooking ? 'Confirmed' : record.status}
-                                </span>
-                            )}
-                            {isFeedback ? (
-                                <div className="flex items-center space-x-0.5">
-                                    {[...Array(5)].map((_, i) => (
-                                        < Star key={i} size={12} className={i < record.rating ? "text-amber-400 fill-amber-400" : "text-slate-200 fill-slate-200"} />
-                                    ))}
-                                </div>
-                            ) : (
-                                <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">ID: {record._id.slice(-6).toUpperCase()}</span>
-                            )}
-                        </div>
-                    </div>
+            <div className="flex items-center justify-between mb-4">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${isOrder ? 'bg-emerald-50 text-emerald-600' :
+                    isBooking ? 'bg-orange-50 text-orange-600' :
+                        record.type === 'doctor' ? 'bg-blue-50 text-blue-600' :
+                            isFeedback ? 'bg-amber-50 text-amber-600' :
+                                'bg-indigo-50 text-indigo-600'
+                    }`}>
+                    {isOrder ? <ShoppingBag size={28} /> :
+                        isBooking ? <Utensils size={28} /> :
+                            record.type === 'doctor' ? <Stethoscope size={28} /> :
+                                isFeedback ? <Star size={28} /> :
+                                    record.type === 'interview' ? <Briefcase size={28} /> :
+                                        <Calendar size={28} />}
                 </div>
 
-                <div className="flex items-center space-x-4">
-                    <div className="text-right flex flex-col items-end min-w-[120px]">
-                        {isOrder ? (
-                            <>
-                                <p className="text-lg font-black text-slate-900">₹{record.total_price}</p>
-                                <p className="text-xs text-slate-500 font-medium">Qty: {record.quantity || 1}</p>
-                            </>
-                        ) : isFeedback ? (
-                            <>
-                                <p className="text-[10px] text-slate-400 mt-1">{formatDate(record.created_at)}</p>
-                            </>
-                        ) : (
-                            <>
-                                <div className="flex items-center text-slate-900 font-bold text-sm">
-                                    <Calendar size={14} className="mr-2 text-purple-500" />
-                                    {formatDate(record.date)}
-                                </div>
-                                <div className="flex items-center text-slate-500 text-xs mt-1.5 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">
-                                    <Clock size={12} className="mr-1.5 text-slate-400" />
-                                    {record.time}
-                                </div>
-                            </>
-                        )}
-                    </div>
-
+                <div className="flex items-center space-x-2">
+                    {!isFeedback && (
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black border uppercase tracking-wider ${getStatusStyle(record.status)}`}>
+                            {isBooking ? 'Confirmed' : record.status}
+                        </span>
+                    )}
                     <button
                         onClick={onDelete}
                         disabled={isDeleting}
-                        className="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all duration-200 opacity-0 group-hover:opacity-100 disabled:opacity-50"
-                        title="Delete record"
+                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all duration-200 opacity-0 group-hover:opacity-100 disabled:opacity-50"
                     >
-                        {isDeleting ? <Loader size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                        {isDeleting ? <Loader size={16} className="animate-spin" /> : <Trash2 size={16} />}
                     </button>
                 </div>
+            </div>
+
+            <div className="mb-4">
+                <h3 className="font-black text-slate-900 text-lg mb-1">
+                    {isOrder ? (record.item) :
+                        isFeedback ? (record.entity_name) :
+                            record.type === 'doctor' ? `Dr. ${record.person_name}` :
+                                record.type === 'interview' ? `Interview: ${record.person_name}` :
+                                    record.entity_name}
+                </h3>
+                {(record.type === 'doctor' || record.type === 'interview') && (
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wide">{record.entity_name}</p>
+                )}
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                <div className="flex flex-col">
+                    {isOrder ? (
+                        <>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total</span>
+                            <span className="text-xl font-black text-slate-900">₹{record.total_price}</span>
+                        </>
+                    ) : isFeedback ? (
+                        <div className="flex items-center space-x-0.5">
+                            {[...Array(5)].map((_, i) => (
+                                <Star key={i} size={14} className={i < record.rating ? "text-amber-400 fill-amber-400" : "text-slate-100 fill-slate-100"} />
+                            ))}
+                        </div>
+                    ) : (
+                        <>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Date & Time</span>
+                            <div className="flex items-center text-slate-900 font-bold text-sm mt-1">
+                                <Clock size={14} className="mr-2 text-slate-400" />
+                                {formatDate(record.date)} • {record.time}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                <span className="text-[10px] text-slate-300 font-bold tracking-widest uppercase">
+                    ID: {record._id.slice(-6).toUpperCase()}
+                </span>
             </div>
         </motion.div>
     );
@@ -372,25 +408,17 @@ const RecordCard = ({ record, type, onDelete, isDeleting, formatDate, getStatusS
 const TabButton = ({ active, onClick, icon, label, count }) => (
     <button
         onClick={onClick}
-        className={`w-full flex items-center space-x-3 px-4 py-3.5 rounded-2xl transition-all duration-300 font-bold text-sm relative group ${active
-            ? 'bg-purple-600 text-white shadow-lg shadow-purple-200 translate-x-1'
-            : 'text-slate-500 hover:bg-white hover:text-purple-600 hover:shadow-sm'
-            }`}
+        className={`tab-button-custom ${active ? 'active' : ''}`}
     >
-        <span className={`${active ? 'text-white' : 'text-slate-400 group-hover:text-purple-500'} transition-colors`}>{icon}</span>
-        <span>{label}</span>
+        <span className="mr-4">{icon}</span>
+        <span className="flex-1 text-left">{label}</span>
         {count > 0 && (
-            <span className={`ml-auto px-2 py-0.5 rounded-lg text-[10px] font-black ${active ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600 group-hover:bg-purple-100 group-hover:text-purple-600'
-                }`}>
+            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${active ? 'bg-purple-100 text-purple-600' : 'bg-white/20 text-white'}`}>
                 {count}
             </span>
         )}
-        {active && (
-            <motion.div
-                layoutId="activeTab"
-                className="absolute left-0 w-1 h-6 bg-white rounded-r-full"
-            />
-        )}
+        <div className="sidebar-curve-top" />
+        <div className="sidebar-curve-bottom" />
     </button>
 );
 

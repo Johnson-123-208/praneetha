@@ -158,7 +158,13 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
               
               CRITICAL: You MUST respond ONLY in ${companyContext?.currLangName || 'English'} using its native script.
               DO NOT repeat the user's name or greet them again. 
-              Only confirm the task is done and add: ${followUpText}`
+              Use a natural, human-like conversational tone.
+              
+              Example (Telugu): "మీ బుకింగ్ విజయవంతంగా పూర్తయింది."
+              Example (Hindi): "आपकी बुकिंग सफलतापूर्वक हो गई है।"
+              Example (English): "Your booking has been successfully saved."
+              
+              Always include the follow-up if provided: ${followUpText}`
             }
           ],
           temperature: 0.5,
