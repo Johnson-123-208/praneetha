@@ -263,13 +263,42 @@ export const database = {
   },
 
   saveAppointment: async (appointment) => {
+    // Helper to resolve relative dates to absolute YYYY-MM-DD
+    const resolveDate = (dateStr) => {
+      if (!dateStr) return new Date().toISOString().split('T')[0];
+      const lower = dateStr.toLowerCase();
+      const now = new Date();
+
+      if (lower.includes('tomorrow')) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        return tomorrow.toISOString().split('T')[0];
+      }
+      if (lower.includes('today')) {
+        return now.toISOString().split('T')[0];
+      }
+      if (lower.includes('day after tomorrow')) {
+        const dat = new Date(now);
+        dat.setDate(now.getDate() + 2);
+        return dat.toISOString().split('T')[0];
+      }
+
+      // Try to parse standard dates
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
+
+      return dateStr;
+    };
+
     const newApp = {
       id: `APP-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
       entity_id: appointment.entityId,
       entity_name: appointment.entityName || 'General',
-      type: appointment.type,
+      type: appointment.type || (appointment.entityName?.toLowerCase().includes('hospital') ? 'doctor' : 'interview'),
       person_name: appointment.personName,
-      date: appointment.date,
+      date: resolveDate(appointment.date),
       time: appointment.time,
       user_info: appointment.userInfo || {},
       user_email: appointment.userEmail,

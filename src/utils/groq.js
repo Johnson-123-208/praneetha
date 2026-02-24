@@ -8,8 +8,10 @@ export const cleanInternalCommands = (text) => {
   if (!text) return '';
   return text
     .replace(/^(Callix|Agent|Assistant|System):\s*/i, '')
-    .replace(/\b(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_RATING|COLLECT_FEEDBACK|COLLECT_)\b.*$/gim, '')
-    .replace(/\b(TRACE_ORDER|HANG_UP)\b/gi, '')
+    // Match commands with or without brackets, and alles following them on the same line
+    .replace(/\[?(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_RATING|COLLECT_FEEDBACK|COLLECT_)\]?.*$/gim, '')
+    .replace(/\[?(TRACE_ORDER|HANG_UP)\]?/gi, '')
+    .replace(/[\[\]]/g, '') // Remove any dangling brackets
     .replace(/\s+/g, ' ')
     .trim();
 };
@@ -109,8 +111,10 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
             {
               role: 'system', content: `ACTION RESULT: ${JSON.stringify(result)}. 
             
-            Confirm this result to the user naturally in 1 SHORT, COMPLETE sentence. 
+            Confirm this result to the user naturally in 1 or 2 SHORT, COMPLETE sentences. 
+            USER NAME: ${companyContext?.userName || 'Guest'}
             CRITICAL: You MUST use the same language as the user's last message (Telugu/English/Hindi).
+            If the user's name is known, address them by name (e.g., "Johnson garu" or "Johnson ji").
             NEVER respond in English if the user is speaking Telugu.
             FOLLOW-UP: ${followUpText}`
             }
@@ -135,15 +139,79 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 
 const detectIntent = (message, context) => {
   const msg = message.toUpperCase();
+  const entityId = context?._id || context?.id || 'manual';
+  const entityName = context?.name || 'General';
+  const userEmail = context?.userEmail || '';
+  const userName = context?.userName || 'Guest';
 
-  if (msg.includes('BOOK_APPOINTMENT')) return { name: 'book_appointment', args: { entityId: context?.id, entityName: context?.name } };
-  if (msg.includes('BOOK_TABLE')) return { name: 'book_appointment', args: { entityId: context?.id, entityName: context?.name, type: 'table' } };
-  if (msg.includes('BOOK_ORDER')) return { name: 'book_order', args: { companyId: context?.id } };
+  if (message.includes('BOOK_APPOINTMENT')) {
+    const match = message.match(/BOOK_APPOINTMENT for (.*?) on (.*?) at ([^\n.\r]*)/i);
+    if (match) {
+      return {
+        name: 'book_appointment',
+        args: {
+          entityId,
+          entityName,
+          personName: match[1].trim(),
+          date: match[2].trim(),
+          time: match[3].trim(),
+          userEmail,
+          userName
+        }
+      };
+    }
+  }
+
+  if (message.includes('BOOK_TABLE')) {
+    const match = message.match(/BOOK_TABLE for (.*?) on (.*?) at ([^\n.\r]*)/i);
+    if (match) {
+      return {
+        name: 'book_appointment',
+        args: {
+          entityId,
+          entityName,
+          type: 'table',
+          personName: `Table for ${match[1].trim()} (${userName})`,
+          date: match[2].trim(),
+          time: match[3].trim(),
+          userEmail,
+          userName,
+          partySize: match[1].trim()
+        }
+      };
+    }
+  }
+
+  if (message.includes('BOOK_ORDER')) {
+    const match = message.match(/BOOK_ORDER (.*)/i);
+    if (match) {
+      return {
+        name: 'book_order',
+        args: {
+          companyId: entityId,
+          item: match[1].trim(),
+          customerName: userName,
+          userEmail
+        }
+      };
+    }
+  }
+
   if (msg.includes('COLLECT_FEEDBACK') || msg.includes('COLLECT_RATING') || /([1-5])\s*(STAR|STARS|RATING)/i.test(msg)) {
     const match = msg.match(/([1-5])/);
-    return { name: 'collect_feedback', args: { entityId: context?.id, entityName: context?.name, rating: match ? match[1] : 5 } };
+    return {
+      name: 'collect_feedback',
+      args: {
+        entityId,
+        entityName,
+        rating: match ? match[1] : 5,
+        userEmail,
+        userName
+      }
+    };
   }
-  if (msg.includes('QUERY_ENTITY_DATABASE')) return { name: 'query_entity_database', args: { entityId: context?.id } };
+
+  if (msg.includes('QUERY_ENTITY_DATABASE')) return { name: 'query_entity_database', args: { entityId, query: message } };
 
   return null;
 };
