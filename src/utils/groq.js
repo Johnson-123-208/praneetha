@@ -27,16 +27,40 @@ export const initializeGroq = (key) => {
 /**
  * Main AI Reasoning - Uses Groq Llama 3
  */
+const fetchWithRetry = async (url, options, maxRetries = 3, delay = 2000) => {
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (response.status === 429 && i < maxRetries) {
+        // Increase delay for each retry to give the API more time to reset
+        const actualDelay = delay * (i + 1);
+        console.warn(`⚠️ Groq Rate Limit (429) hit, retrying in ${actualDelay}ms... (Attempt ${i + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, actualDelay));
+        continue;
+      }
+      return response;
+    } catch (err) {
+      if (i === maxRetries) throw err;
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+};
+
+/**
+ * Main AI Reasoning - Uses Groq Llama 3
+ */
 export const chatWithGroq = async (prompt, history = [], companyContext = null, customSystemMessage = null) => {
   if (!apiKey) throw new Error('Groq API key not configured');
 
   try {
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    // Use YYYY-MM-DD (Day) for absolute clarity
+    const dateStr = now.toISOString().split('T')[0];
+    const dayName = now.toLocaleDateString('en-IN', { weekday: 'long' });
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
     const systemMessage = customSystemMessage || `You are Callix, a professional AI calling agent.
-    CURRENT DATE: ${dateStr}
+    CURRENT DATE: ${dateStr} (${dayName})
     CURRENT TIME: ${timeStr}
     ${companyContext ? `ENTITY: ${companyContext.name} (${companyContext.industry})\nCONTEXT: ${companyContext.nlpContext}` : ''}
     
@@ -65,49 +89,40 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
       { role: 'user', content: prompt }
     ];
 
-    const response = await fetch(GROQ_API_URL, {
+    const response = await fetchWithRetry(GROQ_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: messages,
-        temperature: 0.6,
-        max_tokens: 800,
-      }),
+        model: 'llama-3.1-8b-instant',
+        messages,
+        temperature: 0.7,
+        max_tokens: 500
+      })
     });
 
-    if (!response.ok) throw new Error(`Groq Error: ${response.status}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Groq Error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+    }
 
     const data = await response.json();
     const assistantMessage = data.choices[0]?.message?.content || '';
 
-    // Action Detection
-    const functionMatch = detectIntent(assistantMessage, companyContext);
+    // Intent post-processing
+    const intent = detectIntent(assistantMessage, companyContext);
+    if (intent) {
+      const result = await executeAction(intent);
+      const followUpText = assistantMessage.includes('?') ? '' : 'Is there anything else I can help you with?';
 
-    if (functionMatch) {
-      const result = await executeAction(functionMatch);
-
-      // Logic to determine follow-up question
-      const isFeedback = assistantMessage.toUpperCase().includes('COLLECT_FEEDBACK') || assistantMessage.toUpperCase().includes('COLLECT_RATING');
-      const followUpText = isFeedback
-        ? "Tell the user: 'Thank you for the feedback! Have a wonderful day. Goodbye!' and include [HANG_UP]"
-        : "Ask: 'Is there anything else I can help you with?' or gather missing info if needed.";
-
-      // Simple follow-up confirm with the FAST model
-      const finalResponse = await fetch(GROQ_API_URL, {
+      const finalResponse = await fetchWithRetry(GROQ_API_URL, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'llama-3.1-8b-instant',
           messages: [
-            ...messages,
-            { role: 'assistant', content: cleanInternalCommands(assistantMessage) },
             {
               role: 'system', content: `ACTION RESULT: ${JSON.stringify(result)}. 
             
@@ -124,10 +139,13 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
         })
       });
 
-      if (finalResponse.ok) {
+      if (finalResponse && finalResponse.ok) {
         const finalData = await finalResponse.json();
         return finalData.choices[0]?.message?.content;
       }
+
+      // If confirmation call failed, fallback to cleaned primary message
+      return cleanInternalCommands(assistantMessage);
     }
 
     return assistantMessage;
@@ -197,14 +215,40 @@ const detectIntent = (message, context) => {
     }
   }
 
-  if (msg.includes('COLLECT_FEEDBACK') || msg.includes('COLLECT_RATING') || /([1-5])\s*(STAR|STARS|RATING)/i.test(msg)) {
-    const match = msg.match(/([1-5])/);
+  // Rating / Feedback Detection
+  const feedbackTriggers = ['COLLECT_FEEDBACK', 'COLLECT_RATING', 'RATING', 'FEEDBACK', 'STAR'];
+  const hasFeedbackMarker = feedbackTriggers.some(t => msg.includes(t));
+
+  // Native number mapping
+  const nativeNumbers = {
+    'ఒకటి': 1, 'एक': 1, 'ONE': 1,
+    'రెండు': 2, 'दो': 2, 'TWO': 2,
+    'మూడు': 3, 'तीन': 3, 'THREE': 3,
+    'నాలుగు': 4, 'चार': 4, 'FOUR': 4,
+    'ఐదు': 5, 'పాంచ్': 5, 'FIVE': 5, 'PAANCH': 5, 'AIDU': 5
+  };
+
+  let extractedRating = null;
+  const digitMatch = message.match(/[1-5]/);
+  if (digitMatch) {
+    extractedRating = parseInt(digitMatch[0]);
+  } else {
+    // Check for native words
+    for (const [word, val] of Object.entries(nativeNumbers)) {
+      if (message.toUpperCase().includes(word)) { // Convert message to uppercase for case-insensitive matching
+        extractedRating = val;
+        break;
+      }
+    }
+  }
+
+  if (hasFeedbackMarker || extractedRating) {
     return {
       name: 'collect_feedback',
       args: {
         entityId,
         entityName,
-        rating: match ? match[1] : 5,
+        rating: extractedRating || 5, // Default to 5 if match found but rating unclear
         userEmail,
         userName
       }
@@ -230,7 +274,7 @@ export const transcribeAudio = async (audioBlob, languageCode = 'en') => {
   formData.append('model', 'whisper-large-v3');
   formData.append('language', languageCode.split('-')[0]);
 
-  const response = await fetch(GROQ_AUDIO_URL, {
+  const response = await fetchWithRetry(GROQ_AUDIO_URL, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}` },
     body: formData,
