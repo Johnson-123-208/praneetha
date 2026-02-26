@@ -31,6 +31,14 @@ const ProblemsAndSolutions = () => {
         //     color: "from-green-500 to-emerald-500"
         // },
         {
+            icon: Database,
+            problem: "Complex Integration",
+            problemDesc: "Difficult to connect with existing systems",
+            solution: "Simple Setup",
+            solutionDesc: "Connect your Supabase database in minutes",
+            color: "from-green-500 to-emerald-500"
+        },
+        {
             icon: MessageSquare,
             problem: "No CRM Integration",
             problemDesc: "Manual tracking of customer interactions",
@@ -65,35 +73,40 @@ const ProblemsAndSolutions = () => {
     ];
 
     return (
-        <section id="features" className="py-10 px-4 bg-black relative overflow-hidden">
+        <section id="features" className="py-20 px-4 bg-black relative overflow-hidden">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 30 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className="text-center mb-8"
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className="text-center mb-16"
                 >
-                    {/* <motion.div
-                        initial={{ scale: 0 }}
-                        whileInView={{ scale: 1 }}
-                        viewport={{ once: true }}
-                        className="inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 rounded-full mb-6"
-                    >
-                        <Sparkles size={16} className="text-white" />
-                        <span className="text-sm font-bold text-white">Why Choose Callix?</span>
-                    </motion.div> */}
-
-                    <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
-                        Questions & Answers: Traditional AI vs <span className="text-purple-400">Callix</span>
+                    <h2 className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tighter">
+                        Questions & Answers: Traditional AI vs <span className="bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Callix</span>
                     </h2>
-                    <p className="text-gray-400 text-base max-w-2xl mx-auto">
-                        Hover over each card to see how we solve traditional limitations
+                    <p className="text-gray-400 text-lg max-w-2xl mx-auto font-medium">
+                        Explore how our neural network solves the limitations of conventional systems.
                     </p>
                 </motion.div>
 
                 {/* Full Width Flex Cards */}
-                <div className="flex gap-4 w-full h-[300px]">
+                <motion.div
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={{ once: true }}
+                    variants={{
+                        hidden: { opacity: 0 },
+                        show: {
+                            opacity: 1,
+                            transition: {
+                                staggerChildren: 0.1
+                            }
+                        }
+                    }}
+                    className="flex gap-4 w-full h-[350px]"
+                >
                     {features.map((feature, index) => {
                         const Icon = feature.icon;
                         const isHovered = hoveredIndex === index;
@@ -101,32 +114,31 @@ const ProblemsAndSolutions = () => {
                         return (
                             <motion.div
                                 key={index}
+                                variants={{
+                                    hidden: { opacity: 0, y: 50, scale: 0.9 },
+                                    show: { opacity: 1, y: 0, scale: 1 }
+                                }}
                                 onMouseEnter={() => setHoveredIndex(index)}
                                 onMouseLeave={() => setHoveredIndex(null)}
-                                className={`relative cursor-pointer transition-all duration-500 ${isHovered ? 'flex-[3]' : 'flex-1'}`}
+                                className={`relative cursor-pointer transition-all duration-700 ease-in-out ${isHovered ? 'flex-[4]' : 'flex-[0.8]'}`}
                                 style={{
-                                    minWidth: isHovered ? '350px' : '100px'
+                                    minWidth: isHovered ? '400px' : '80px'
                                 }}
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                whileInView={{ opacity: 1, scale: 1 }}
-                                viewport={{ once: true }}
-                                transition={{ delay: index * 0.05 }}
                             >
                                 <motion.div
-                                    className={`rounded-2xl overflow-hidden shadow-xl transition-all duration-500 ${isHovered ? 'bg-gray-900 border-2 border-gray-700' : `bg-gradient-to-br ${feature.color}`
+                                    className={`h-full rounded-[2.5rem] overflow-hidden shadow-2xl transition-all duration-500 border border-white/5 ${isHovered ? 'bg-[#0F172A]' : `bg-gradient-to-br ${feature.color}`
                                         }`}
-                                    style={{
-                                        height: '280px'
-                                    }}
                                 >
-                                    {/* Collapsed State - Vertical Text */}
+                                    {/* Collapsed State - Horizontal Text */}
                                     {!isHovered && (
-                                        <div className="h-full flex flex-col items-center justify-center p-4 text-white relative">
-                                            <Icon size={36} className="mb-4" />
-                                            <div className="writing-mode-vertical text-center">
-                                                <p className="text-sm font-bold whitespace-nowrap" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>
-                                                    {feature.solution}
-                                                </p>
+                                        <div className="h-full flex flex-col items-center justify-center p-4 text-white">
+                                            <Icon size={32} className="mb-6 drop-shadow-lg" />
+                                            <div className="flex flex-col items-center">
+                                                {feature.solution.split(' ').map((word, i) => (
+                                                    <span key={i} className="text-[10px] font-black uppercase tracking-tighter leading-tight text-center">
+                                                        {word}
+                                                    </span>
+                                                ))}
                                             </div>
                                         </div>
                                     )}
@@ -134,40 +146,45 @@ const ProblemsAndSolutions = () => {
                                     {/* Expanded State */}
                                     {isHovered && (
                                         <motion.div
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            className="p-5 h-full flex flex-col"
+                                            initial={{ opacity: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ duration: 0.4 }}
+                                            className="p-8 h-full flex flex-col justify-between"
                                         >
-                                            {/* Problem Section - Top */}
-                                            <div className="mb-4 pb-4 border-b border-gray-700">
-                                                <div className="flex items-center space-x-2 mb-2">
-                                                    <div className="w-6 h-6 rounded-full bg-red-900 flex items-center justify-center">
-                                                        <X size={12} className="text-red-400" />
+                                            {/* Problem Section */}
+                                            <div className="space-y-4">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">
+                                                        <X size={14} className="text-red-500" />
                                                     </div>
-                                                    <h4 className="font-semibold text-red-400 text-xs">Traditional AI</h4>
+                                                    <h4 className="text-[10px] font-black uppercase text-red-500 tracking-widest">The Problem</h4>
                                                 </div>
-                                                <h3 className="text-base font-bold text-white mb-1">
-                                                    {feature.problem}
-                                                </h3>
-                                                <p className="text-xs text-gray-400 leading-relaxed">
-                                                    {feature.problemDesc}
-                                                </p>
+                                                <div>
+                                                    <h3 className="text-xl font-black text-white mb-2 leading-none">
+                                                        {feature.problem}
+                                                    </h3>
+                                                    <p className="text-sm text-slate-400 font-medium leading-relaxed">
+                                                        {feature.problemDesc}
+                                                    </p>
+                                                </div>
                                             </div>
 
-                                            {/* Solution Section - Bottom */}
-                                            <div className="flex-1">
-                                                <div className="flex items-center space-x-2 mb-2">
-                                                    <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${feature.color} flex items-center justify-center`}>
-                                                        <Check size={12} className="text-white" />
+                                            {/* Solution Section */}
+                                            <div className="space-y-4">
+                                                <div className="flex items-center space-x-3">
+                                                    <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${feature.color} flex items-center justify-center shadow-lg shadow-indigo-500/20`}>
+                                                        <Check size={14} className="text-white" />
                                                     </div>
-                                                    <h4 className="font-semibold text-purple-400 text-xs">Callix Solution</h4>
+                                                    <h4 className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Callix Evolution</h4>
                                                 </div>
-                                                <div className={`p-3 rounded-xl bg-gradient-to-br ${feature.color}`}>
-                                                    <Icon size={28} className="mb-2 text-white" />
-                                                    <h3 className="text-base font-bold text-white mb-1">
+                                                <div className={`p-6 rounded-3xl bg-gradient-to-br ${feature.color} shadow-2xl relative overflow-hidden group`}>
+                                                    <div className="absolute top-0 right-0 p-4 opacity-10 translate-x-4 -translate-y-4 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform duration-700">
+                                                        <Icon size={80} />
+                                                    </div>
+                                                    <h3 className="text-xl font-black text-white mb-2 relative z-10">
                                                         {feature.solution}
                                                     </h3>
-                                                    <p className="text-xs text-white font-medium opacity-90 leading-relaxed">
+                                                    <p className="text-sm text-white font-bold opacity-90 leading-relaxed relative z-10">
                                                         {feature.solutionDesc}
                                                     </p>
                                                 </div>
@@ -178,8 +195,7 @@ const ProblemsAndSolutions = () => {
                             </motion.div>
                         );
                     })}
-                </div>
-
+                </motion.div>
                 {/* Bottom CTA */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}

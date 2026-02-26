@@ -210,7 +210,7 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
     return (
         <div className="flex min-h-screen bg-[#0F172A] text-white">
             {/* Sidebar */}
-            <aside className="w-52 bg-[#1E293B] border-r border-slate-800 p-3 flex flex-col h-screen sticky top-0 overflow-y-auto">
+            <aside className="w-64 bg-[#1E293B] border-r border-slate-800 p-4 flex flex-col h-screen sticky top-0 overflow-y-auto">
                 <div className="flex items-center space-x-2 px-1 mb-6">
                     <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-xl shadow-indigo-500/20">
                         <ShieldCheck size={18} />
@@ -332,10 +332,10 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
                                     <table className="w-full text-left">
                                         <thead className="bg-[#0F172A]/50 text-[9px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800">
                                             <tr>
-                                                <th className="px-6 py-4">Organization</th>
-                                                <th className="px-6 py-4">Industry</th>
-                                                <th className="px-6 py-4">Visibility</th>
-                                                <th className="px-6 py-4 text-right">Cluster Controls</th>
+                                                <th className="px-4 py-3">Organization</th>
+                                                <th className="px-4 py-3">Industry</th>
+                                                <th className="px-4 py-3 text-center">Visibility</th>
+                                                <th className="px-4 py-3 text-right">Cluster Controls</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-800">
@@ -344,42 +344,42 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
                                                 .filter(c => userSearchTerm === '' || c.name.toLowerCase().includes(userSearchTerm.toLowerCase()) || c.industry.toLowerCase().includes(userSearchTerm.toLowerCase()))
                                                 .map((c) => (
                                                     <tr key={c.id} className="hover:bg-white/5 transition-colors group">
-                                                        <td className="px-6 py-4">
+                                                        <td className="px-4 py-2.5">
                                                             <div className="flex items-center gap-3">
-                                                                <div className="w-10 h-10 bg-[#0F172A] rounded-xl flex items-center justify-center text-xl shadow-inner border border-slate-800">{c.logo || '🏢'}</div>
+                                                                <div className="w-9 h-9 bg-[#0F172A] rounded-xl flex items-center justify-center text-lg shadow-inner border border-slate-800">{c.logo || '🏢'}</div>
                                                                 <div>
-                                                                    <h4 className="font-black text-sm tracking-tight">{c.name}</h4>
-                                                                    <p className="text-[8px] text-slate-500 uppercase font-black">{c.id.slice(0, 8)}...-NODE</p>
+                                                                    <h4 className="font-black text-xs tracking-tight">{c.name}</h4>
+                                                                    <p className="text-[7px] text-slate-500 uppercase font-black">{c.id.slice(0, 8)}...-NODE</p>
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{c.industry}</span>
+                                                        <td className="px-4 py-2.5">
+                                                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">{c.industry}</span>
                                                         </td>
-                                                        <td className="px-6 py-4">
+                                                        <td className="px-4 py-2.5 text-center">
                                                             <button
                                                                 onClick={() => handleToggleCompanyStatus(c.id, c.status)}
-                                                                className={`flex items-center gap-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${c.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}
+                                                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[7px] font-black uppercase tracking-widest transition-all ${c.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}
                                                             >
-                                                                {c.status === 'active' ? <Eye size={12} /> : <EyeOff size={12} />}
+                                                                {c.status === 'active' ? <Eye size={10} /> : <EyeOff size={10} />}
                                                                 {c.status}
                                                             </button>
                                                         </td>
-                                                        <td className="px-6 py-4 text-right">
+                                                        <td className="px-4 py-2.5 text-right">
                                                             <div className="flex items-center justify-end gap-2">
                                                                 <button
                                                                     onClick={() => setSelectedCompany(c)}
-                                                                    className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all"
-                                                                    title="Configure Node"
+                                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/5 text-indigo-400 rounded-lg font-black text-[7px] uppercase tracking-widest hover:bg-indigo-500/10 transition-all border border-indigo-500/10"
                                                                 >
-                                                                    <Settings size={16} />
+                                                                    <Eye size={12} />
+                                                                    <span>View</span>
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handleDeleteCompany(c.id, c.name)}
-                                                                    className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                                                                    className="p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
                                                                     title="Purge Node"
                                                                 >
-                                                                    <Trash2 size={16} />
+                                                                    <Trash2 size={14} />
                                                                 </button>
                                                             </div>
                                                         </td>
@@ -417,10 +417,10 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
                                     <table className="w-full text-left">
                                         <thead className="bg-[#0F172A]/50 text-[9px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800">
                                             <tr>
-                                                <th className="px-6 py-4">Organization</th>
-                                                <th className="px-6 py-4">Industry</th>
-                                                <th className="px-6 py-4">Visibility</th>
-                                                <th className="px-6 py-4 text-right">Cluster Controls</th>
+                                                <th className="px-4 py-3">Organization</th>
+                                                <th className="px-4 py-3">Industry</th>
+                                                <th className="px-4 py-3">Visibility</th>
+                                                <th className="px-4 py-3 text-right">Cluster Controls</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-800">
@@ -429,35 +429,35 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
                                                 .filter(c => userSearchTerm === '' || c.name.toLowerCase().includes(userSearchTerm.toLowerCase()))
                                                 .map((c) => (
                                                     <tr key={c.id} className="hover:bg-white/5 transition-colors group opacity-70 hover:opacity-100">
-                                                        <td className="px-6 py-4">
+                                                        <td className="px-4 py-2.5">
                                                             <div className="flex items-center gap-3">
-                                                                <div className="w-10 h-10 bg-[#0F172A] rounded-xl flex items-center justify-center text-xl grayscale group-hover:grayscale-0 transition-all border border-slate-800">{c.logo || '🏢'}</div>
+                                                                <div className="w-9 h-9 bg-[#0F172A] rounded-xl flex items-center justify-center text-lg grayscale group-hover:grayscale-0 transition-all border border-slate-800">{c.logo || '🏢'}</div>
                                                                 <div>
-                                                                    <h4 className="font-black text-sm tracking-tight text-slate-300">{c.name}</h4>
-                                                                    <p className="text-[8px] text-amber-500 uppercase font-black">ARCHIVED NO-NODE</p>
+                                                                    <h4 className="font-black text-xs tracking-tight text-slate-300">{c.name}</h4>
+                                                                    <p className="text-[7px] text-amber-500 uppercase font-black">ARCHIVED NO-NODE</p>
                                                                 </div>
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{c.industry}</span>
+                                                        <td className="px-4 py-2.5">
+                                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{c.industry}</span>
                                                         </td>
-                                                        <td className="px-6 py-4">
+                                                        <td className="px-4 py-2.5">
                                                             <button
                                                                 onClick={() => handleToggleCompanyStatus(c.id, c.status)}
-                                                                className="flex items-center gap-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/20 transition-all"
+                                                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[7px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/20 transition-all"
                                                             >
-                                                                <EyeOff size={12} />
+                                                                <EyeOff size={10} />
                                                                 Restore
                                                             </button>
                                                         </td>
-                                                        <td className="px-6 py-4 text-right">
+                                                        <td className="px-4 py-2.5 text-right">
                                                             <div className="flex items-center justify-end gap-2">
                                                                 <button
                                                                     onClick={() => handleDeleteCompany(c.id, c.name)}
-                                                                    className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                                                                    className="p-1.5 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
                                                                     title="Purge Node"
                                                                 >
-                                                                    <Trash2 size={16} />
+                                                                    <Trash2 size={14} />
                                                                 </button>
                                                             </div>
                                                         </td>
@@ -465,7 +465,7 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
                                                 ))}
                                             {companies.filter(c => c.status === 'pending' || c.status === 'inactive').length === 0 && (
                                                 <tr>
-                                                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                                                    <td colSpan="4" className="px-4 py-8 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">
                                                         Archive registry empty
                                                     </td>
                                                 </tr>
@@ -781,20 +781,7 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Administrative Controls</span>
-                                            <div className="flex-1 h-px bg-slate-800" />
-                                        </div>
-                                        <div className="pt-2">
-                                            <button
-                                                onClick={() => handleArchiveCompany(selectedCompany)}
-                                                className="w-full py-4 bg-amber-500/5 text-amber-500 border border-amber-500/20 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-amber-500 hover:text-white transition-all shadow-xl shadow-amber-500/5 flex items-center justify-center gap-2 group/btn"
-                                            >
-                                                Archive Company
-                                            </button>
-                                        </div>
-                                    </div>
+                                    {/* Administrative Controls Section Removed */}
                                 </div>
                             </div>
                         </motion.div>

@@ -1,7 +1,18 @@
+import { useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, Bot, ShieldCheck, Sparkles } from 'lucide-react';
+import { Building2, Bot, ShieldCheck, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const AccountPortfolio = ({ onDeployAgent, companies = [], loading = false, isLoggedIn = false, onLoginRequired }) => {
+  const scrollRef = useRef(null);
+
+  const scroll = (direction) => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollTo = direction === 'left' ? scrollLeft - clientWidth / 2 : scrollLeft + clientWidth / 2;
+      scrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+    }
+  };
+
   const handleDeploy = (company) => {
     if (onDeployAgent) {
       onDeployAgent(company);
@@ -24,24 +35,20 @@ const AccountPortfolio = ({ onDeployAgent, companies = [], loading = false, isLo
 
       <div className="max-w-7xl mx-auto relative z-10">
         <motion.div
-          className="mb-12"
-          initial={{ opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, x: -20 }}
+          whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
+          className="mb-12"
         >
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <h2 className="text-3xl font-black text-white tracking-tight">Portfolio</h2>
-              <p className="text-slate-400 text-sm font-medium mt-1">Manage and deploy your automated AI instances.</p>
-            </div>
-          </div>
+          <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight">Portfolio</h2>
+          <p className="text-slate-400 text-sm font-medium mt-1">Manage and deploy your automated AI instances.</p>
         </motion.div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="flex gap-6 overflow-hidden">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-64 bg-white/5 animate-pulse rounded-2xl border border-white/5"></div>
+              <div key={i} className="min-w-[280px] h-64 bg-white/5 animate-pulse rounded-2xl border border-white/5 flex-shrink-0"></div>
             ))}
           </div>
         ) : companies.length === 0 ? (
@@ -51,57 +58,87 @@ const AccountPortfolio = ({ onDeployAgent, companies = [], loading = false, isLo
             <p className="text-slate-400 text-sm">Deploy your first company profile to see it here.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {companies.map((company, index) => {
-              const styles = getIndustryStyles(company.industry);
-              return (
-                <motion.div
-                  key={company.id || index}
-                  className="bg-white/[0.03] backdrop-blur-sm rounded-2xl p-5 border border-white/10 hover:border-blue-500/50 hover:bg-white/[0.05] transition-all duration-300 flex flex-col h-full group"
-                  initial={{ opacity: 0, y: 10 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl group-hover:bg-blue-500/10 group-hover:border-blue-500/30 transition-colors">
-                      {company.logo || '🏢'}
-                    </div>
-                    <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${styles.bg} ${styles.text} border ${styles.border}`}>
-                      {company.industry}
-                    </div>
-                  </div>
+          <div className="relative group/portfolio">
+            {/* Left Scroll Button */}
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover/portfolio:opacity-100 transition-all duration-300 pointer-events-none lg:pointer-events-auto">
+              <button
+                onClick={() => scroll('left')}
+                className="w-12 h-12 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-white/20 hover:border-white/30 transition-all shadow-2xl backdrop-blur-2xl group/btn"
+              >
+                <ChevronLeft size={24} className="group-hover/btn:-translate-x-0.5 transition-transform" />
+              </button>
+            </div>
 
-                  <h3 className="text-base font-black text-white leading-tight mb-3">
-                    {company.name}
-                  </h3>
+            {/* Right Scroll Button */}
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover/portfolio:opacity-100 transition-all duration-300 pointer-events-none lg:pointer-events-auto">
+              <button
+                onClick={() => scroll('right')}
+                className="w-12 h-12 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-white/20 hover:border-white/30 transition-all shadow-2xl backdrop-blur-2xl group/btn"
+              >
+                <ChevronRight size={24} className="group-hover/btn:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
 
-                  <div className="flex-1 bg-black/20 rounded-xl p-3 mb-4 border border-white/5">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <Sparkles size={10} className="text-blue-400" />
-                      <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Capabilities</span>
-                    </div>
-                    <p className="text-xs text-slate-300 font-medium leading-relaxed line-clamp-3">
-                      {company.contextSummary || 'Standard AI Intelligence Pattern'}
-                    </p>
-                  </div>
+            {/* Fade Gradients for visual depth */}
+            <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#0a0c10] to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#0a0c10] to-transparent z-10 pointer-events-none" />
 
-                  <div className="flex items-center justify-between text-[9px] font-bold text-slate-500 mb-4 px-1">
-                    <span className="flex items-center gap-1"><ShieldCheck size={10} className="text-emerald-500" /> Latency Optimized</span>
-                    <span className="text-emerald-500 font-black">ACTIVE</span>
-                  </div>
-
-                  <button
-                    onClick={() => isLoggedIn ? handleDeploy(company) : onLoginRequired()}
-                    className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all duration-300 ${isLoggedIn
-                      ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20'
-                      : 'bg-transparent border border-white/20 text-white hover:bg-white/10'}`}
+            <div
+              ref={scrollRef}
+              className="flex overflow-x-auto pb-10 gap-6 snap-x snap-mandatory scroll-smooth hide-scrollbar p-1 px-12"
+            >
+              {companies.map((company, index) => {
+                const styles = getIndustryStyles(company.industry);
+                return (
+                  <motion.div
+                    key={company.id || index}
+                    className="min-w-[280px] max-w-[280px] bg-white/[0.03] backdrop-blur-sm rounded-[2rem] p-5 border border-white/10 hover:border-blue-500/50 hover:bg-white/[0.05] transition-all duration-300 flex flex-col h-full group flex-shrink-0 snap-center"
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    whileInView={{ opacity: 1, scale: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.03, duration: 0.3 }}
                   >
-                    <Bot size={14} />
-                    <span>{isLoggedIn ? 'Launch Agent' : 'Sign In'}</span>
-                  </button>
-                </motion.div>
-              );
-            })}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="w-12 h-12 rounded-2xl bg-[#0a0c10] border border-white/5 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-500 shadow-2xl">
+                        {company.logo || '🏢'}
+                      </div>
+                      <div className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${styles.bg} ${styles.text} border ${styles.border}`}>
+                        {company.industry}
+                      </div>
+                    </div>
+
+                    <h3 className="text-lg font-black text-white leading-tight mb-3 tracking-tight">
+                      {company.name}
+                    </h3>
+
+                    <div className="flex-1 bg-black p-3.5 rounded-2xl mb-4 border border-white/5">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Sparkles size={10} className="text-blue-400" />
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Capabilities</span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 font-medium leading-normal line-clamp-2">
+                        {company.contextSummary || 'Standard AI Intelligence Pattern'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[9px] font-black text-slate-500 mb-5 px-1">
+                      <span className="flex items-center gap-1"><ShieldCheck size={10} className="text-emerald-500 shadow-emerald-500/20 shadow-lg" /> Optimized</span>
+                      <span className="text-emerald-500">ACTIVE</span>
+                    </div>
+
+                    <button
+                      onClick={() => isLoggedIn ? handleDeploy(company) : onLoginRequired()}
+                      className={`w-full py-3 rounded-2xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center space-x-2 transition-all duration-300 ${isLoggedIn
+                        ? 'bg-blue-600 text-white hover:bg-blue-500 shadow-xl shadow-blue-500/20'
+                        : 'bg-transparent border border-white/20 text-white hover:bg-white/10'}`}
+                    >
+                      <Bot size={14} />
+                      <span>{isLoggedIn ? 'Launch Agent' : 'Sign In To Deploy'}</span>
+                    </button>
+                  </motion.div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
