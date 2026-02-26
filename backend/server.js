@@ -93,63 +93,12 @@ app.post('/api/auth/login', async (req, res) => {
 
 // --- Company Routes ---
 app.get('/api/companies', async (req, res) => {
-    // Highly Detailed Fallback data for the 4 Core Services
-    const fallbackCompanies = [
-        {
-            id: "aarogya-hosp-001",
-            name: "Aarogya Multispeciality Hospital",
-            industry: "Healthcare",
-            logo: "🏥",
-            gender: "female",
-            context_summary: "Tier-1 Healthcare Facility with 50+ Doctors, 15+ specialized departments, and 24/7 Emergency Care.",
-            nlp_context: "DATABASE: [Departments: Cardiology, Neurology, Pediatrics, Orthopedics, Oncology, Dental]. Fees: ₹500 - ₹1500. Facilities: 24/7 Trauma, ICU, In-house Pharmacy. Action: 'BOOK_APPOINTMENT for [Doctor] on [Date] at [Time]'.",
-            contact_email: "appointments@aarogya.com",
-            contact_phone: "+91-98765-43000"
-        },
-        {
-            id: "spice-garden-001",
-            name: "Spice Garden Fine Dine & Hotel",
-            industry: "Food & Beverage",
-            logo: "🥗",
-            gender: "female",
-            context_summary: "Luxury Multi-cuisine Hotel with Indian, Continental, and Oriental menus. Seats up to 300 guests.",
-            nlp_context: "MENU: [Veg: Paneer Lababdar (₹380), Dal Makhani (₹320)]. [Non-Veg: Butter Chicken (₹480), Hyderabadi Mutton Biryani (₹550)]. Recommendations: 'Couple Combo' (₹1800), 'Family Feast' (₹3500). Action: 'BOOK_TABLE for [People] on [Date] at [Time]'.",
-            contact_email: "tables@spicegarden.com",
-            contact_phone: "+91-88888-55555"
-        },
-        {
-            id: "agile-it-001",
-            name: "Agile-IT Global Solutions",
-            industry: "Technology",
-            logo: "💻",
-            gender: "female",
-            context_summary: "Fortune 500 IT Giant with 40+ open roles in AI, Cloud, and Software Engineering. Remote-First Culture.",
-            nlp_context: "HR PORTAL: [Roles: Senior React Dev, Node.js Lead, AI Researcher, UI/UX Specialist]. Culture: 4-day work week, learning stipends, health insurance. Hiring: Screening -> Technical -> HR. Action: 'BOOK_APPOINTMENT for Interview on [Date] at [Time]'.",
-            contact_email: "careers@agile-it.com",
-            contact_phone: "+1-555-TECH-HIRE"
-        },
-        {
-            id: "quickkart-pro-001",
-            name: "QuickKart Pro Electronics",
-            industry: "E-Commerce",
-            logo: "🛒",
-            gender: "female",
-            context_summary: "Premier Electronics Store featuring 100+ products from Apple, Sony, Samsung, and more.",
-            nlp_context: "CATALOG: [Phones: iPhone 15 Pro (₹1,34,900), S24 Ultra (₹1,29,900)]. [Laptops: Macbook Pro M3 (₹1,69,900), Dell XPS (₹1,45,000)]. [Audio: Sony XM5 (₹29,900)]. Action: 'BOOK_ORDER [Item]' or 'TRACE_ORDER'.",
-            contact_email: "support@quickkart.com",
-            contact_phone: "+1-800-KART-PRO"
-        }
-    ];
-
     try {
         const companies = await Company.find();
-        if (companies && companies.length > 0) {
-            return res.json(companies);
-        }
-        res.json(fallbackCompanies);
+        return res.json(companies || []);
     } catch (err) {
         console.error('Company fetch error:', err.message);
-        res.json(fallbackCompanies);
+        res.json([]);
     }
 });
 

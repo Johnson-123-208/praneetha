@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Mic, MicOff, Phone, PhoneOff, Globe, User, MessageSquare, VolumeX } from 'lucide-react';
 import { chatWithGroq, transcribeAudio, isGroqInitialized, cleanInternalCommands } from '../utils/groq.js';
 import { detectLanguage } from '../utils/languageDetection';
-import { crmIntegration } from '../utils/crmIntegration';
 import { ttsService } from '../utils/ttsService';
 import { sttService } from '../utils/sttService';
 import { HospitalPrompt, RestaurantPrompt, ECommercePrompt, BusinessPrompt, DefaultPrompt } from '../prompts/agentPrompts';
@@ -671,121 +670,8 @@ ${languageInstruction}
 
       console.log(`🤖 Raw LLM Response: "${rawResponse}"`);
 
-      // 1. Process System Commands (Side Effects)
-      const processCommands = async (text) => {
-        const appointmentMatch = text.match(/BOOK_APPOINTMENT for (.*?) on (.*?) at ([^\n.\r]*)/i);
-        const tableMatch = text.match(/BOOK_TABLE for (.*?) on (.*?) at ([^\n.\r]*)/i);
-        const orderMatch = text.match(/BOOK_ORDER (.*)/i);
-        const ratingMatch = text.match(/COLLECT_RATING (\d+)/i);
-
-        const currentCompanyId = selectedCompany?._id || selectedCompany?.id || 'manual';
-        const industry = selectedCompany?.industry?.toLowerCase() || '';
-
-        // Helper to resolve relative dates to absolute YYYY-MM-DD
-        const resolveDate = (dateStr) => {
-          const lower = dateStr.toLowerCase();
-          const now = new Date();
-
-          if (lower.includes('tomorrow')) {
-            const tomorrow = new Date(now);
-            tomorrow.setDate(now.getDate() + 1);
-            return tomorrow.toISOString().split('T')[0];
-          }
-          if (lower.includes('today')) {
-            return now.toISOString().split('T')[0];
-          }
-          if (lower.includes('day after tomorrow')) {
-            const dat = new Date(now);
-            dat.setDate(now.getDate() + 2);
-            return dat.toISOString().split('T')[0];
-          }
-
-          // If it's already a date or something else, return as is (but try to clean)
-          return dateStr;
-        };
-
-        const commonData = {
-          entity_id: currentCompanyId,
-          entity_name: selectedCompany?.name,
-          user_email: userEmail,
-          user_info: { name: latestName, session: sessionId }
-        };
-
-        try {
-          if (appointmentMatch) {
-            console.log("📅 Syncing Appointment to Database...");
-            const personName = appointmentMatch[1].trim();
-            const rawDate = appointmentMatch[2].trim();
-            const dateStr = resolveDate(rawDate);
-            const timeStr = appointmentMatch[3].trim();
-
-            await crmIntegration.syncAppointment({
-              ...commonData,
-              type: industry.includes('health') || industry.includes('hosp') ? 'doctor' : 'interview',
-              person_name: personName,
-              date: dateStr,
-              time: timeStr,
-              status: 'scheduled'
-            });
-            addToast(`Appointment confirmed with ${personName} for ${dateStr} at ${timeStr}`, 'success');
-            console.log(`✅ Appointment Saved: ${personName} on ${dateStr} at ${timeStr}`);
-          }
-
-          if (tableMatch) {
-            console.log("🍽️ Syncing Table Booking to Database...");
-            const peopleCount = tableMatch[1].trim();
-            const rawDate = tableMatch[2].trim();
-            const dateStr = resolveDate(rawDate);
-            const timeStr = tableMatch[3].trim();
-
-            await crmIntegration.syncAppointment({
-              ...commonData,
-              type: 'table',
-              person_name: `Table for ${peopleCount} (${latestName})`,
-              date: dateStr,
-              time: timeStr,
-              status: 'scheduled',
-              user_info: { ...commonData.user_info, party_size: peopleCount }
-            });
-            addToast(`Restaurant table for ${peopleCount} reserved for ${dateStr} at ${timeStr}`, 'success');
-            console.log(`✅ Table Booking Saved: ${peopleCount} people on ${dateStr} at ${timeStr}`);
-          }
-
-          if (orderMatch) {
-            const itemName = orderMatch[1].trim();
-            console.log("🛍️ Syncing Order to Database...");
-            await crmIntegration.syncOrder({
-              id: `ORD-${Date.now()}`,
-              company_id: currentCompanyId,
-              item: itemName,
-              quantity: 1,
-              status: 'completed',
-              total_price: 999, // Suggested default/mock price
-              customer_name: latestName,
-              user_email: userEmail
-            });
-            addToast(`Order for ${itemName} has been placed successfully`, 'success');
-            console.log(`✅ Order Saved: ${itemName}`);
-          }
-
-          if (ratingMatch) {
-            const rating = parseInt(ratingMatch[1]);
-            console.log("⭐ Syncing Rating to Database...");
-            await crmIntegration.syncFeedback({
-              ...commonData,
-              status: 'completed',
-              rating: rating,
-              comment: cleanInternalCommands(text) // Save CLEANED comment
-            });
-            addToast(`Feedback received! Rating: ${rating} stars. Thank you!`, 'info');
-            console.log(`✅ Feedback Saved: ${rating} stars`);
-          }
-        } catch (cmdErr) {
-          console.warn("❌ CRM Sync Failed:", cmdErr);
-        }
-      };
-
-      // await processCommands(rawResponse); // REMOVED: Redundant with chatWithGroq tool calling
+      // 1. Process System Commands (Legacy Removal)
+      // Redundant: System commands are now handled via chatWithGroq tool calling which uses database.js directly.
 
       setIsThinking(false);
 
