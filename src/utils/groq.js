@@ -36,6 +36,8 @@ export const initializeGroq = (key) => {
   return true;
 };
 
+export const isGroqInitialized = () => !!primaryApiKey || API_KEYS.length > 0;
+
 const getActiveKey = () => {
   if (API_KEYS.length === 0) return primaryApiKey;
   return API_KEYS[currentKeyIndex];
@@ -96,7 +98,8 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
     ${companyContext ? `ENTITY: ${companyContext.name} (${companyContext.industry})\nCONTEXT: ${companyContext.nlpContext}` : ''}
     
     CAPABILITIES:
-    - [QUERY_ENTITY_DATABASE]: For menu/doctors/vacancies/info.
+    - [QUERY_ENTITY_DATABASE]: For menu/doctors/products/staff/info.
+    - [GET_AVAILABLE_SLOTS]: To check specific free times for a date.
     - [BOOK_APPOINTMENT]: For doctors/slots/interviews.
     - [BOOK_TABLE]: For restaurant bookings.
     - [BOOK_ORDER]: For e-commerce orders.
@@ -169,20 +172,20 @@ const detectIntent = (message, context) => {
   const msg = message.toUpperCase();
   const entityId = context?._id || context?.id || 'manual';
   const entityName = context?.name || 'General';
+  const industry = context?.industry || 'Other';
   const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
   const userEmail = context?.userEmail || storedUser.email || '';
   const userName = context?.userName || storedUser.full_name || 'Guest';
 
   // Appointment Logic
   if (msg.includes('BOOK_APPOINTMENT')) {
-    const match = message.match(/BOOK_APPOINTMENT for (.*?) on (.*?) at ([^\n.\r]*)/i);
+    const match = message.match(/BOOK_APPOINTMENT (?:for )?(.*?) on (.*?) at ([^\n.\r\]]*)/i);
     if (match) {
-      const industry = context?.industry?.toLowerCase() || '';
-      const type = (industry.includes('health') || industry.includes('hosp')) ? 'doctor' : 'interview';
+      const type = (industry.toLowerCase().includes('health') || industry.toLowerCase().includes('hosp')) ? 'doctor' : 'interview';
       return {
         name: 'book_appointment',
         args: {
-          entityId, entityName, type,
+          entityId, entityName, type, industry,
           personName: match[1].replace(/[\[\]]/g, '').trim(),
           date: match[2].replace(/[\[\]]/g, '').trim(),
           time: match[3].replace(/[\[\]]/g, '').trim(),
@@ -194,17 +197,17 @@ const detectIntent = (message, context) => {
 
   // Table Logic
   if (msg.includes('BOOK_TABLE')) {
-    const match = message.match(/BOOK_TABLE for (.*?) on (.*?) at ([^\n.\r]*)/i);
+    const match = message.match(/BOOK_TABLE (?:for )?(.*?) on (.*?) at ([^\n.\r\]]*)/i);
     if (match) {
       return {
         name: 'book_appointment',
         args: {
-          entityId, entityName, type: 'table',
+          entityId, entityName, type: 'table', industry: 'Food & Beverage',
           personName: `Table for ${match[1].replace(/[\[\]]/g, '').trim()} (${userName})`,
           date: match[2].replace(/[\[\]]/g, '').trim(),
           time: match[3].replace(/[\[\]]/g, '').trim(),
           userEmail, userName,
-          partySize: match[1].replace(/[\[\]]/g, '').trim()
+          relatedId: 'TABLE_TBD'
         }
       };
     }
@@ -212,7 +215,7 @@ const detectIntent = (message, context) => {
 
   // Order Logic
   if (msg.includes('BOOK_ORDER')) {
-    const match = message.match(/BOOK_ORDER (.*)/i);
+    const match = message.match(/BOOK_ORDER (?:for )?(.*)/i);
     if (match) {
       const fullText = match[1].replace(/[\[\]]/g, '').trim();
       const priceMatch = fullText.match(/[₹\$]\s?([\d,]+)/);
@@ -220,27 +223,25 @@ const detectIntent = (message, context) => {
       const item = fullText.split(/[₹\$\(\[]/)[0].trim();
       return {
         name: 'book_order',
-        args: { companyId: entityId, item, totalPrice, customerName: userName, userEmail }
+        args: { companyId: entityId, item, totalPrice, customerName: userName, userEmail, industry }
       };
     }
   }
 
   // Rating Logic
-  if (msg.includes('COLLECT_FEEDBACK') || msg.includes('RATING') || msg.includes('STAR')) {
+  if (msg.includes('COLLECT_FEEDBACK')) {
     const digitMatch = message.match(/[1-5]/);
-    const nativeNumbers = { 'ఒకటి': 1, 'రెండు': 2, 'మూడు': 3, 'నాలుగు': 4, 'ఐదు': 5, 'एक': 1, 'दो': 2, 'तीन': 3, 'चार': 4, 'पांच': 5 };
     let rating = digitMatch ? parseInt(digitMatch[0]) : 0;
-    if (!rating) {
-      for (const [word, val] of Object.entries(nativeNumbers)) {
-        if (msg.includes(word.toUpperCase()) || message.includes(word)) { rating = val; break; }
-      }
-    }
-    if (rating) return { name: 'collect_feedback', args: { entityId, entityName, rating, userEmail, userName, comment: 'Voice Feedback' } };
+    if (rating) return { name: 'collect_feedback', args: { companyId: entityId, entityName, rating, userEmail, userName, comment: 'Voice Feedback' } };
+  }
+
+  if (msg.includes('GET_AVAILABLE_SLOTS')) {
+    const match = message.match(/GET_AVAILABLE_SLOTS (?:for )?(.*)/i);
+    const date = match ? match[1].replace(/[\[\]]/g, '').trim() : 'today';
+    return { name: 'get_available_slots', args: { entityId, date, industry } };
   }
 
   if (msg.includes('HANG_UP')) return { name: 'hang_up', args: {} };
-  if (msg.includes('QUERY_')) return { name: 'query_entity_database', args: { entityId, query: message } };
-
   return null;
 };
 

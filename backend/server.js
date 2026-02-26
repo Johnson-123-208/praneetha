@@ -24,14 +24,30 @@ if (process.env.MONGODB_URI) {
     mongoose.connect(process.env.MONGODB_URI, {
         serverSelectionTimeoutMS: 5000 // 5 seconds timeout
     })
-    .then(() => console.log('✅ Connected to MongoDB'))
-    .catch((err) => {
-        console.error('❌ MongoDB Connection Error:', err.message);
-        console.log('⚠️ Running in fallback mode without database connection.');
-    });
+        .then(() => console.log('✅ Connected to MongoDB'))
+        .catch((err) => {
+            console.error('❌ MongoDB Connection Error:', err.message);
+            console.log('⚠️ Running in fallback mode without database connection.');
+        });
 } else {
     console.warn('⚠️ MONGODB_URI not found in environment variables. Backend will run in Demo/Mock mode.');
 }
+
+// --- Notification Routes ---
+app.post('/api/notify-superadmin', async (req, res) => {
+    const { fullName, email, companyName, industry } = req.body;
+
+    console.log('\n--- NEW ADMIN REGISTRATION NOTIFICATION ---');
+    console.log(`👤 Admin: ${fullName} (${email})`);
+    console.log(`🏢 Company: ${companyName}`);
+    console.log(`📋 Industry: ${industry}`);
+    console.log('--- SENT TO SUPERADMIN EMAIL (SIMULATED) ---\n');
+
+    // In production, we'd use nodemailer or a service like Resend here:
+    // await sendEmail({ to: 'superadmin@callix.com', subject: 'New Admin Request', ... })
+
+    res.json({ success: true, message: 'Superadmin notified via terminal (production: email)' });
+});
 
 // --- Auth Routes ---
 app.post('/api/auth/signup', async (req, res) => {
@@ -55,12 +71,12 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         if (mongoose.connection.readyState !== 1) {
             // Fallback for demo when DB is not connected
-            return res.status(200).json({ 
-                user: { 
-                    email: req.body.email, 
-                    full_name: 'Demo User', 
-                    isDemo: true 
-                } 
+            return res.status(200).json({
+                user: {
+                    email: req.body.email,
+                    full_name: 'Demo User',
+                    isDemo: true
+                }
             });
         }
         const { email, password } = req.body;

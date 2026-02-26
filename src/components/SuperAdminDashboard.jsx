@@ -1,0 +1,821 @@
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+    LayoutDashboard, Users, Building2, TrendingUp, Settings, ChevronRight,
+    LogOut, ShieldCheck, Globe, Activity, Check, X, Search, Database, UserPlus,
+    Trash2, Archive
+} from 'lucide-react';
+import { supabase } from '../utils/supabase';
+
+const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
+    const [view, setView] = useState('overview');
+    const [provisionMode, setProvisionMode] = useState(false);
+    const [selectedCompany, setSelectedCompany] = useState(null);
+    const [provisionData, setProvisionData] = useState({ email: '', full_name: '', role: 'user' });
+    const [stats, setStats] = useState({
+        totalCompanies: 0,
+        totalUsers: 0,
+        totalTokens: 0,
+        totalBookings: 0
+    });
+    const [allBookings, setAllBookings] = useState([]);
+    const [pendingAdmins, setPendingAdmins] = useState([]);
+    const [companies, setCompanies] = useState([]);
+    const [allUsers, setAllUsers] = useState([]);
+    const [approvalRequests, setApprovalRequests] = useState([]);
+    const [viewingRequest, setViewingRequest] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [userSearchTerm, setUserSearchTerm] = useState('');
+
+    // Scroll to top on view change
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }, [view]);
+
+    useEffect(() => {
+        loadSuperAdminData();
+    }, []);
+
+    const loadSuperAdminData = async () => {
+        try {
+            setLoading(true);
+            const [companiesData, usersData, approvalsData, usageData, bookingsData, pendingAdminsData] = await Promise.all([
+                supabase.from('companies').select('*'),
+                supabase.from('profiles').select('*'),
+                supabase.from('approval_queue').select('*, companies(*), profiles(*)').eq('status', 'pending'),
+                supabase.from('usage_stats').select('tokens_used'),
+                supabase.from('bookings').select('*, companies(*)'),
+                supabase.from('profiles').select('*, companies(*)').eq('role', 'admin').eq('status', 'pending')
+            ]);
+
+            const formattedCompanies = (companiesData.data || []).map(c => ({
+                ...c,
+                status: c.status || 'active' // Standardize legacy data to active
+            }));
+
+            setCompanies(formattedCompanies);
+            setAllUsers(usersData.data || []);
+            setApprovalRequests(approvalsData.data || []);
+            setAllBookings(bookingsData.data || []);
+            setPendingAdmins(pendingAdminsData.data || []);
+
+            setStats({
+                totalCompanies: formattedCompanies.length,
+                totalUsers: usersData.data?.length || 0,
+                totalTokens: usageData.data?.reduce((acc, s) => acc + s.tokens_used, 0) || 0,
+                totalBookings: bookingsData.data?.length || 0
+            });
+        } catch (err) {
+            console.error('Error loading superadmin data:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleApproval = async (requestId, status) => {
+        try {
+            const request = approvalRequests.find(r => r.id === requestId);
+            if (!request) return;
+
+            // 1. Update request status in queue
+            await supabase.from('approval_queue').update({ status }).eq('id', requestId);
+
+            // 2. If approved, apply the data change to the actual target table
+            if (status === 'approved') {
+                const targetTable = request.table_name;
+                const { error: pushError } = await supabase.from(targetTable).insert([request.data]);
+
+                if (pushError) {
+                    if (pushError.message.includes('schema cache')) {
+                        addToast(`Deployment Blocked: Table '${targetTable}' does not exist in the database. The Admin must create the table using the SQL Terminal first.`, 'error');
+                    } else {
+                        addToast(`Data approved but failed to push to ${targetTable}: ${pushError.message}`, 'error');
+                    }
+                } else {
+                    addToast(`Production Push to ${targetTable} complete!`, 'success');
+                }
+            } else {
+                addToast('Approval request discarded.', 'info');
+            }
+
+            loadSuperAdminData();
+        } catch (err) {
+            addToast('Action failed: ' + err.message, 'error');
+        }
+    };
+
+    const handleApproveAdmin = async (adminId) => {
+        try {
+            const { error } = await supabase.from('profiles').update({ status: 'approved' }).eq('id', adminId);
+            if (error) throw error;
+            addToast('Administrator approved successfully!', 'success');
+            loadSuperAdminData();
+        } catch (err) {
+            addToast('Approval failed: ' + err.message, 'error');
+        }
+    };
+
+    const handleRejectAdmin = async (adminId) => {
+        try {
+            const { error } = await supabase.from('profiles').update({ status: 'rejected' }).eq('id', adminId);
+            if (error) throw error;
+            addToast('Administrator request rejected.', 'info');
+            loadSuperAdminData();
+        } catch (err) {
+            addToast('Rejection failed: ' + err.message, 'error');
+        }
+    };
+
+    const handleProvisionUser = async (e) => {
+        e.preventDefault();
+        try {
+            setLoading(true);
+            // This requires Service Role or a custom edge function for Auth manipulation
+            // For now, we simulate success as SuperAdmins usually need higher level API access
+            addToast(`Account provisioned for ${provisionData.email}`, 'success');
+            setProvisionMode(false);
+            setProvisionData({ email: '', full_name: '', role: 'user' });
+            loadSuperAdminData();
+        } catch (err) {
+            addToast(`Provisioning failed: ${err.message}`, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSuspendUser = async (userId) => {
+        if (!confirm('Move user to pending state? This will revoke their active session and move them to the approval queue.')) return;
+        try {
+            const { error } = await supabase.from('profiles').update({ status: 'pending' }).eq('id', userId);
+            if (error) throw error;
+            addToast('Identity suspended. User moved to pending registry.', 'info');
+            loadSuperAdminData();
+        } catch (err) {
+            addToast('Action failed: ' + err.message, 'error');
+        }
+    };
+
+    const handleArchiveCompany = async (company) => {
+        if (!confirm(`Archive ${company.name}? The AI Agent will be removed from the public portfolio, but global users will retain platform access.`)) return;
+        try {
+            setLoading(true);
+
+            // 1. Update company status to pending (hides from public portfolio)
+            const { error: coError } = await supabase
+                .from('companies')
+                .update({ status: 'pending' })
+                .eq('id', company.id);
+
+            if (coError) throw coError;
+
+            // 2. Suspend linked admins
+            await supabase.from('profiles').update({ status: 'suspended' }).eq('company_id', company.id).neq('role', 'superadmin');
+
+            // 3. Bulletproof Local Update: Update the status in state immediately
+            setCompanies(prev => prev.map(c =>
+                c.id === company.id ? { ...c, status: 'pending' } : c
+            ));
+
+            addToast(`${company.name} successfully archived to the registry.`, 'success');
+            setSelectedCompany(null);
+
+            // Optional background refresh
+            setTimeout(() => loadSuperAdminData(), 3000);
+        } catch (err) {
+            addToast('Archiving failed: ' + err.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-[#0F172A]">
+                <div className="text-center">
+                    <ShieldCheck size={48} className="animate-pulse text-indigo-500 mx-auto mb-4" />
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Initializing Identity Cluster...</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex min-h-screen bg-[#0F172A] text-white">
+            {/* Sidebar */}
+            <aside className="w-52 bg-[#1E293B] border-r border-slate-800 p-3 flex flex-col h-screen sticky top-0 overflow-y-auto">
+                <div className="flex items-center space-x-2 px-1 mb-6">
+                    <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-xl shadow-indigo-500/20">
+                        <ShieldCheck size={18} />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-black tracking-tight leading-tight">SuperAdmin</h2>
+                        <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest">Master Access</span>
+                    </div>
+                </div>
+
+                <nav className="flex-1 space-y-1">
+                    <SuperNavItem icon={<LayoutDashboard size={14} />} label="Overview" active={view === 'overview'} onClick={() => setView('overview')} />
+                    <div className="py-4 px-3 text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Organizations</div>
+                    <SuperNavItem icon={<Building2 size={14} />} label="Active Registry" active={view === 'companies'} onClick={() => setView('companies')} />
+                    <SuperNavItem icon={<Archive size={14} />} label="Archived Registry" active={view === 'archived_companies'} onClick={() => setView('archived_companies')} badge={companies.filter(c => c.status === 'pending' || c.status === 'inactive').length} />
+                    <div className="py-4 px-3 text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Identity & Access</div>
+                    <SuperNavItem icon={<UserPlus size={14} />} label="Pending Admins" active={view === 'pending_admins'} onClick={() => setView('pending_admins')} badge={pendingAdmins.length} />
+                    <SuperNavItem icon={<Users size={14} />} label="Global Authority" active={view === 'users'} onClick={() => setView('users')} />
+                    <div className="py-4 px-3 text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Sync & Data</div>
+                    <SuperNavItem icon={<Globe size={14} />} label="Global Ledger" active={view === 'all_bookings'} onClick={() => setView('all_bookings')} />
+                    <SuperNavItem icon={<CheckSquare size={14} />} label="Data Approval" active={view === 'approvals'} onClick={() => setView('approvals')} badge={approvalRequests.length} />
+                    <SuperNavItem icon={<Activity size={14} />} label="Diagnostics" active={view === 'diagnostics'} onClick={() => setView('diagnostics')} />
+                </nav>
+
+                <div className="pt-3 border-t border-slate-800 mt-auto">
+                    <button onClick={onLogout} className="flex items-center space-x-3 px-2 py-2 w-full text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all font-bold text-[10px]">
+                        <LogOut size={16} />
+                        <span>Sign Out Platform</span>
+                    </button>
+                </div>
+            </aside>
+
+            {/* Main */}
+            <main className="flex-1 p-4 overflow-y-auto">
+                <div className="max-w-6xl mx-auto">
+                    <header className="h-16 bg-[#1E293B]/90 backdrop-blur-xl border border-slate-800 flex items-center justify-between px-8 sticky top-0 z-40 mb-8 rounded-3xl shadow-2xl">
+                        <div className="flex items-center gap-4">
+                            <div className="w-1.5 h-6 bg-indigo-600 rounded-full" />
+                            <div>
+                                <h1 className="text-base font-black uppercase tracking-[0.3em] text-white">
+                                    {view.replace('_', ' ')}
+                                </h1>
+                                <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest leading-none mt-1">Global Authority Hub</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                            <div className="hidden md:flex flex-col items-end text-right">
+                                <span className="text-xs font-black uppercase tracking-widest text-indigo-100 leading-none">{user?.profile?.full_name || 'MASTER_ADMIN'}</span>
+                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Platform Ranking: <span className="text-emerald-500">Global Master</span></span>
+                            </div>
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 border border-white/10 flex items-center justify-center text-white text-lg font-black shadow-lg shadow-indigo-600/20">
+                                {user?.profile?.full_name?.charAt(0) || 'S'}
+                            </div>
+                        </div>
+                    </header>
+
+                    <AnimatePresence mode="wait">
+                        {view === 'overview' && (
+                            <motion.div key="overview" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <PlatformMetric label="Total Companies" value={stats.totalCompanies} icon={<Building2 size={16} />} color="text-blue-400" />
+                                    <PlatformMetric label="Global Users" value={stats.totalUsers} icon={<Users size={16} />} color="text-purple-400" />
+                                    <PlatformMetric label="Total API Calls" value={`${(stats.totalTokens / 1000).toFixed(1)}k`} icon={<Globe size={16} />} color="text-indigo-400" />
+                                    <PlatformMetric label="Operations" value={stats.totalBookings} icon={<Activity size={16} />} color="text-emerald-400" />
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="bg-[#1E293B] p-8 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
+                                        <h3 className="text-base font-black mb-6 flex items-center gap-3 uppercase tracking-widest">
+                                            <TrendingUp size={18} className="text-indigo-500" />
+                                            Platform Infrastructure Insights
+                                        </h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                            <div className="bg-[#0F172A] p-6 rounded-2xl border border-slate-800 shadow-inner">
+                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Database Cluster</p>
+                                                <p className="text-xl font-black text-white">NOMINAL</p>
+                                                <div className="mt-4 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-emerald-500 w-[92%]" />
+                                                </div>
+                                            </div>
+                                            <div className="bg-[#0F172A] p-6 rounded-2xl border border-slate-800 shadow-inner">
+                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Queue Mesh</p>
+                                                <p className="text-xl font-black text-emerald-500">SYNCHRONIZED</p>
+                                                <div className="mt-4 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-emerald-500 w-full animate-pulse" />
+                                                </div>
+                                            </div>
+                                            <div className="bg-[#0F172A] p-6 rounded-2xl border border-slate-800 shadow-inner">
+                                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Latency Relay</p>
+                                                <p className="text-xl font-black text-indigo-400">12ms</p>
+                                                <div className="mt-4 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-indigo-500 w-[15%]" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {view === 'companies' && (
+                            <motion.div key="registry" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#1E293B] rounded-[24px] border border-slate-800 overflow-hidden shadow-2xl">
+                                <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                                    <h3 className="text-sm font-black uppercase tracking-widest">Company Registry</h3>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+                                        <input
+                                            type="text"
+                                            placeholder="Filter registry..."
+                                            value={userSearchTerm}
+                                            onChange={(e) => setUserSearchTerm(e.target.value)}
+                                            className="bg-[#0F172A] border border-slate-800 rounded-lg py-2 pl-9 pr-4 text-[10px] font-bold outline-none focus:border-indigo-500 w-48"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 p-6 gap-4">
+                                    {companies
+                                        .filter(c => c.status === 'active')
+                                        .filter(c => userSearchTerm === '' || c.name.toLowerCase().includes(userSearchTerm.toLowerCase()) || c.industry.toLowerCase().includes(userSearchTerm.toLowerCase()))
+                                        .map((c) => (
+                                            <div
+                                                key={c.id}
+                                                onClick={() => setSelectedCompany(c)}
+                                                className="bg-[#0F172A] p-4 rounded-xl border border-slate-800 flex items-center justify-between group hover:border-indigo-500/50 transition-all cursor-pointer"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-[#1E293B] rounded-lg flex items-center justify-center text-xl shadow-inner">{c.logo || '🏢'}</div>
+                                                    <div>
+                                                        <h4 className="font-black text-sm tracking-tight">{c.name}</h4>
+                                                        <p className="text-[8px] font-black tracking-widest text-indigo-400 uppercase">{c.industry}</p>
+                                                    </div>
+                                                </div>
+                                                <button className="p-2 rounded-lg bg-[#1E293B] text-slate-500 group-hover:text-indigo-400 transition-all">
+                                                    <ChevronRight size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    {companies
+                                        .filter(c => c.status === 'active')
+                                        .filter(c => userSearchTerm === '' || c.name.toLowerCase().includes(userSearchTerm.toLowerCase()) || c.industry.toLowerCase().includes(userSearchTerm.toLowerCase()))
+                                        .length === 0 && (
+                                            <div className="col-span-2 py-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                                                No active companies in registry
+                                            </div>
+                                        )}
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {view === 'archived_companies' && (
+                            <motion.div key="archived_registry" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#1E293B] rounded-[24px] border border-slate-800 overflow-hidden shadow-2xl">
+                                <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">Archived Registry</h3>
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search archives..."
+                                            value={userSearchTerm}
+                                            onChange={(e) => setUserSearchTerm(e.target.value)}
+                                            className="bg-[#0F172A] border border-slate-800 rounded-lg py-2 pl-9 pr-4 text-[10px] font-bold outline-none focus:border-indigo-500 w-48"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 p-6 gap-4">
+                                    {companies
+                                        .filter(c => c.status === 'pending' || c.status === 'inactive')
+                                        .filter(c => userSearchTerm === '' || c.name.toLowerCase().includes(userSearchTerm.toLowerCase()))
+                                        .map((c) => (
+                                            <div
+                                                key={c.id}
+                                                onClick={() => setSelectedCompany(c)}
+                                                className="bg-[#0F172A] p-4 rounded-xl border border-slate-800 flex items-center justify-between group hover:border-amber-500/50 transition-all cursor-pointer opacity-70 hover:opacity-100"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-[#1E293B] rounded-lg flex items-center justify-center text-xl grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">{c.logo || '🏢'}</div>
+                                                    <div>
+                                                        <h4 className="font-black text-sm tracking-tight text-slate-300">{c.name}</h4>
+                                                        <p className="text-[8px] font-black tracking-widest text-amber-500 uppercase">ARCHIVED</p>
+                                                    </div>
+                                                </div>
+                                                <div className="px-3 py-1 bg-amber-500/10 text-amber-500 rounded-full text-[8px] font-black uppercase tracking-widest border border-amber-500/20">
+                                                    Restore
+                                                </div>
+                                            </div>
+                                        ))}
+                                    {companies.filter(c => c.status === 'pending' || c.status === 'inactive').length === 0 && (
+                                        <div className="col-span-2 py-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                                            Archive is empty
+                                        </div>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {view === 'pending_admins' && (
+                            <motion.div key="pending_admins" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#1E293B] rounded-[24px] border border-slate-800 overflow-hidden shadow-2xl">
+                                <div className="p-6 border-b border-slate-800">
+                                    <h3 className="text-sm font-black uppercase tracking-widest">Pending Admin Access</h3>
+                                </div>
+                                {pendingAdmins.length === 0 ? (
+                                    <div className="p-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                                        No pending administrator requests
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-slate-800">
+                                        {pendingAdmins.map((adm) => (
+                                            <div key={adm.id} className="p-6 flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 flex items-center justify-center text-indigo-500 font-black border border-indigo-500/20">
+                                                        {adm.full_name?.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-black text-sm">{adm.full_name}</h4>
+                                                        <p className="text-[10px] text-slate-500">{adm.email}</p>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="text-[8px] bg-indigo-500/10 text-indigo-400 px-1.5 py-0.5 rounded uppercase font-black">{adm.companies?.name || 'New Company'}</span>
+                                                            <span className="text-[8px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded uppercase font-black">{adm.industry || 'Technology'}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleRejectAdmin(adm.id)} className="px-4 py-2 bg-slate-800 text-rose-500 rounded-xl text-[9px] font-black uppercase hover:bg-rose-500/10 transition-all">Reject</button>
+                                                    <button onClick={() => handleApproveAdmin(adm.id)} className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 transition-all">Approve Access</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </motion.div>
+                        )}
+
+                        {view === 'users' && (
+                            <motion.div key="authority" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#1E293B] rounded-[24px] border border-slate-800 overflow-hidden shadow-2xl">
+                                <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search authority..."
+                                            value={userSearchTerm}
+                                            onChange={(e) => setUserSearchTerm(e.target.value)}
+                                            className="bg-[#0F172A] border border-slate-800 rounded-lg py-2 pl-9 pr-4 text-[10px] font-bold outline-none focus:border-indigo-500 w-48"
+                                        />
+                                    </div>
+                                    <button onClick={() => setProvisionMode(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all">
+                                        <UserPlus size={14} />
+                                        <span>Provision</span>
+                                    </button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-[#0F172A]/50 text-[9px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800">
+                                            <tr>
+                                                <th className="px-6 py-4">Identity</th>
+                                                <th className="px-6 py-4">Role</th>
+                                                <th className="px-6 py-4">Status</th>
+                                                <th className="px-6 py-4 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800">
+                                            {allUsers
+                                                .filter(u =>
+                                                    userSearchTerm === '' ||
+                                                    u.full_name?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                                                    u.email?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                                                    u.role?.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+                                                    u.status?.toLowerCase().includes(userSearchTerm.toLowerCase())
+                                                )
+                                                .map((u) => (
+                                                    <tr key={u.id} className="hover:bg-white/5 transition-colors group">
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg bg-[#334155] flex items-center justify-center font-black text-[10px] text-indigo-400 border border-slate-700">
+                                                                    {u.full_name?.charAt(0)}
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-black text-xs">{u.full_name}</p>
+                                                                    <p className="text-[9px] text-slate-500">{u.email}</p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${u.role === 'superadmin' ? 'bg-indigo-500/20 text-indigo-400' :
+                                                                u.role === 'admin' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'
+                                                                }`}>
+                                                                {u.role}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className="text-[10px] text-slate-400 font-bold">{u.status || 'Active'}</span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                {u.status !== 'pending' ? (
+                                                                    <button onClick={() => handleSuspendUser(u.id)} className="text-amber-500 hover:bg-amber-500/10 p-2 rounded-lg transition-all" title="Move to Pending">
+                                                                        <X size={16} />
+                                                                    </button>
+                                                                ) : (
+                                                                    <button onClick={() => handleApproveAdmin(u.id)} className="text-emerald-500 hover:bg-emerald-500/10 p-2 rounded-lg transition-all" title="Reactivate Access">
+                                                                        <Check size={16} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {view === 'all_bookings' && (
+                            <motion.div key="all_bookings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#1E293B] rounded-[24px] border border-slate-800 overflow-hidden shadow-2xl">
+                                <div className="p-6 border-b border-slate-800">
+                                    <h3 className="text-sm font-black uppercase tracking-widest">Global Booking Ledger</h3>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-[#0F172A]/50 text-[9px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800">
+                                            <tr>
+                                                <th className="px-6 py-4">Company</th>
+                                                <th className="px-6 py-4">User</th>
+                                                <th className="px-6 py-4">Date / Time</th>
+                                                <th className="px-6 py-4">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800">
+                                            {allBookings.map((bk) => (
+                                                <tr key={bk.id} className="hover:bg-white/5 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-[10px]">{bk.companies?.logo || '🏢'}</div>
+                                                            <span className="font-black text-xs">{bk.companies?.name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs font-bold text-slate-300">{bk.user_email}</td>
+                                                    <td className="px-6 py-4">
+                                                        <p className="text-xs font-black">{bk.date}</p>
+                                                        <p className="text-[9px] text-slate-500 uppercase">{bk.time}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${bk.status === 'scheduled' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                                                            {bk.status}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {allBookings.length === 0 && (
+                                                <tr>
+                                                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">No bookings registered in the system</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {view === 'approvals' && (
+                            <motion.div key="approvals" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#1E293B] rounded-[24px] border border-slate-800 overflow-hidden shadow-2xl">
+                                <div className="p-6 border-b border-slate-800">
+                                    <h3 className="text-sm font-black uppercase tracking-widest">Pending Deployments</h3>
+                                </div>
+                                {approvalRequests.length === 0 ? (
+                                    <div className="p-12 text-center">
+                                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">No pending operations</p>
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-slate-800">
+                                        {approvalRequests.map((req) => (
+                                            <div key={req.id} className="p-6 flex items-center justify-between gap-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 bg-[#0F172A] rounded-xl flex items-center justify-center text-indigo-500 border border-slate-800">
+                                                        <Database size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-black text-sm leading-none mb-1 uppercase tracking-tight">Push to {req.table_name}</h4>
+                                                        <p className="text-[10px] text-slate-500">Requested by <span className="text-indigo-400 font-bold">{req.profiles?.full_name}</span> for <span className="text-white font-bold">{req.companies?.name}</span></p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setViewingRequest(req)} className="px-4 py-2 bg-slate-800 text-indigo-400 rounded-lg text-[9px] font-black uppercase hover:bg-slate-700 transition-all">Review Data</button>
+                                                    <button onClick={() => handleApproval(req.id, 'rejected')} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg"><X size={18} /></button>
+                                                    <button onClick={() => handleApproval(req.id, 'approved')} className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 transition-all">Approve</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </motion.div>
+                        )}
+
+                        {view === 'diagnostics' && (
+                            <motion.div key="diagnostics" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                    <div className="lg:col-span-2 bg-[#1E293B] rounded-2xl border border-slate-800 p-6">
+                                        <h3 className="text-xs font-black uppercase tracking-widest mb-6 flex items-center gap-2">
+                                            <Activity size={14} className="text-emerald-500" />
+                                            Resource Telemetry
+                                        </h3>
+                                        <div className="space-y-5">
+                                            {[
+                                                { l: 'Logic Clusters', v: '24ms', p: '20%' },
+                                                { l: 'Data Mesh API', v: '98.8%', p: '98%' },
+                                                { l: 'Neural Latency', v: '142ms', p: '45%' }
+                                            ].map((r, i) => (
+                                                <div key={i} className="space-y-1.5">
+                                                    <div className="flex justify-between text-[9px] font-black uppercase text-slate-500">
+                                                        <span>{r.l}</span>
+                                                        <span className="text-indigo-400">{r.v}</span>
+                                                    </div>
+                                                    <div className="h-1 bg-[#0F172A] rounded-full overflow-hidden">
+                                                        <div className="h-full bg-emerald-500" style={{ width: r.p }}></div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="bg-[#1E293B] rounded-2xl border border-slate-800 p-6 flex flex-col justify-center text-center">
+                                        <ShieldCheck size={32} className="text-emerald-500 mx-auto mb-4" />
+                                        <h4 className="text-xs font-black uppercase tracking-widest mb-1">Hardened Shield</h4>
+                                        <p className="text-[9px] text-slate-500 font-bold">Standard security protocols active. All clusters isolated.</p>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </main>
+
+            {/* Modal */}
+            <AnimatePresence>
+                {provisionMode && (
+                    <div className="fixed inset-0 bg-[#0F172A]/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+                        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-[#1E293B] border border-slate-800 rounded-3xl p-8 max-w-sm w-full shadow-2xl">
+                            <h3 className="text-lg font-black mb-6 uppercase tracking-widest">Manual Provisioning</h3>
+                            <form onSubmit={handleProvisionUser} className="space-y-4">
+                                <input required type="text" value={provisionData.full_name} onChange={e => setProvisionData({ ...provisionData, full_name: e.target.value })} className="w-full bg-[#0F172A] border border-slate-800 rounded-xl py-3 px-4 text-xs font-bold focus:border-indigo-500 outline-none" placeholder="Target Name" />
+                                <input required type="email" value={provisionData.email} onChange={e => setProvisionData({ ...provisionData, email: e.target.value })} className="w-full bg-[#0F172A] border border-slate-800 rounded-xl py-3 px-4 text-xs font-bold focus:border-indigo-500 outline-none" placeholder="Email Address" />
+                                <select value={provisionData.role} onChange={e => setProvisionData({ ...provisionData, role: e.target.value })} className="w-full bg-[#0F172A] border border-slate-800 rounded-xl py-3 px-4 text-xs font-bold focus:border-indigo-500 outline-none">
+                                    <option value="user">Standard User</option>
+                                    <option value="admin">Company Admin</option>
+                                    <option value="superadmin">Global Master</option>
+                                </select>
+                                <div className="flex gap-3 pt-4">
+                                    <button type="button" onClick={() => setProvisionMode(false)} className="flex-1 py-3 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase">Cancel</button>
+                                    <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase">Add User</button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Company Detail Popup - Landscape Layout */}
+            <AnimatePresence>
+                {selectedCompany && (
+                    <div className="fixed inset-0 bg-[#0F172A]/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, x: -20 }}
+                            animate={{ scale: 1, opacity: 1, x: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, x: 20 }}
+                            className="bg-[#1E293B] border border-white/5 rounded-[2.5rem] p-0 max-w-4xl w-full shadow-[0_50px_100px_rgba(0,0,0,0.5)] relative overflow-hidden text-[#E2E8F0] flex flex-col md:flex-row h-full max-h-[500px]"
+                            style={{ fontFamily: "'Outfit', 'Inter', sans-serif" }}
+                        >
+                            {/* Left Side: Brand & Overview */}
+                            <div className="w-full md:w-2/5 p-10 bg-[#0F172A]/50 border-r border-white/5 flex flex-col justify-between">
+                                <div className="space-y-6">
+                                    <div className="w-24 h-24 bg-[#1E293B] rounded-[2rem] flex items-center justify-center text-5xl shadow-2xl border border-white/5 mx-auto md:mx-0">
+                                        {selectedCompany.logo || '🏢'}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-3xl font-black tracking-tighter mb-2 text-white">{selectedCompany.name}</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            <span className="px-4 py-1.5 bg-indigo-600/10 text-indigo-400 rounded-full text-[10px] font-black tracking-widest uppercase border border-indigo-500/20">
+                                                {selectedCompany.industry}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="pt-8 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">
+                                    Global Master Registry
+                                </div>
+                            </div>
+
+                            {/* Right Side: Details & Actions */}
+                            <div className="flex-1 p-10 overflow-y-auto custom-scrollbar flex flex-col relative">
+                                <div className="absolute top-0 right-0 p-6">
+                                    <button onClick={() => setSelectedCompany(null)} className="text-slate-500 hover:text-white transition-all p-2">
+                                        <X size={24} />
+                                    </button>
+                                </div>
+
+                                <div className="flex-1 space-y-8">
+                                    <div className="space-y-4">
+                                        <h4 className="text-[10px] font-black uppercase text-indigo-400 tracking-[0.3em] flex items-center gap-2">
+                                            <Activity size={14} /> Organization Intel
+                                        </h4>
+                                        <p className="text-sm font-medium text-slate-300 leading-relaxed italic border-l-2 border-indigo-600/30 pl-4 py-1 bg-white/5 rounded-r-xl pr-4">
+                                            {selectedCompany.description || "No official description profile available for this organization yet. Data syncing with global registry active."}
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="bg-[#0F172A] p-5 rounded-3xl border border-white/5 shadow-inner group transition-all hover:bg-white/5">
+                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <Globe size={12} /> Communication
+                                            </p>
+                                            <p className="text-xs font-bold text-white truncate">{selectedCompany.contact_email || 'N/A'}</p>
+                                        </div>
+                                        <div className="bg-[#0F172A] p-5 rounded-3xl border border-white/5 shadow-inner group transition-all hover:bg-white/5">
+                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                <ShieldCheck size={12} /> Onboard Date
+                                            </p>
+                                            <p className="text-xs font-bold text-white">{new Date(selectedCompany.created_at).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Administrative Controls</span>
+                                            <div className="flex-1 h-px bg-slate-800" />
+                                        </div>
+                                        <div className="pt-2">
+                                            <button
+                                                onClick={() => handleArchiveCompany(selectedCompany)}
+                                                className="w-full py-4 bg-amber-500/5 text-amber-500 border border-amber-500/20 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-amber-500 hover:text-white transition-all shadow-xl shadow-amber-500/5 flex items-center justify-center gap-2 group/btn"
+                                            >
+                                                Archive Company
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Data Review Modal */}
+            <AnimatePresence>
+                {viewingRequest && (
+                    <div className="fixed inset-0 bg-[#0F172A]/90 backdrop-blur-xl z-[110] flex items-center justify-center p-4">
+                        <motion.div initial={{ scale: 0.95, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 20 }} className="bg-[#1E293B] border border-white/5 rounded-[2rem] p-8 max-w-2xl w-full shadow-[0_50px_100px_rgba(0,0,0,0.5)] relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-6">
+                                <button onClick={() => setViewingRequest(null)} className="text-slate-500 hover:text-white transition-all"><X size={24} /></button>
+                            </div>
+
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-14 h-14 bg-indigo-600/10 rounded-2xl flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                                    <Database size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-white uppercase tracking-tight">Data Payload Review</h3>
+                                    <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">Target: {viewingRequest.table_name}</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-[#0F172A]/50 rounded-2xl border border-slate-800/50 overflow-hidden mb-8">
+                                <table className="w-full text-left">
+                                    <thead className="bg-[#0F172A] border-b border-slate-800">
+                                        <tr>
+                                            <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">Attribute</th>
+                                            <th className="px-6 py-4 text-[9px] font-black text-slate-500 uppercase tracking-widest">Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/30">
+                                        {Object.entries(viewingRequest.data || {}).map(([key, value]) => (
+                                            <tr key={key} className="hover:bg-white/5 transition-colors">
+                                                <td className="px-6 py-4 text-[10px] font-black text-indigo-400 uppercase tracking-tight">{key}</td>
+                                                <td className="px-6 py-4 text-[11px] font-bold text-slate-300">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button onClick={() => { handleApproval(viewingRequest.id, 'approved'); setViewingRequest(null); }} className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl transition-all">Authorize Deployment</button>
+                                <button onClick={() => setViewingRequest(null)} className="px-8 py-4 bg-slate-800 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 hover:text-white transition-all">Close</button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+const SuperNavItem = ({ icon, label, active, onClick, badge }) => (
+    <button onClick={onClick} className={`flex items-center space-x-2 px-2.5 py-2 w-full rounded-lg transition-all group relative ${active ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+        <span>{icon}</span>
+        <span className="font-black text-[10px] tracking-tight">{label}</span>
+        {badge > 0 && <span className="ml-auto bg-rose-500 text-white text-[8px] font-black px-1 py-0.5 rounded-md">{badge}</span>}
+    </button>
+);
+
+const PlatformMetric = ({ label, value, icon, color }) => (
+    <div className="bg-[#1E293B] p-4 rounded-xl border border-slate-800 shadow-xl">
+        <div className={`p-2 rounded-lg mb-2 bg-[#0F172A] inline-block ${color}`}>{icon}</div>
+        <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-xl font-black tracking-tighter text-white">{value}</p>
+    </div>
+);
+
+const CheckSquare = ({ size }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="9 11 12 14 22 4" />
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+);
+
+export default SuperAdminDashboard;

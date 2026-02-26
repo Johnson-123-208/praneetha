@@ -1,22 +1,20 @@
-import { getApiUrl } from './database.js';
+import { database } from './database.js';
 
-const API_URL = getApiUrl();
+/**
+ * CRM INTEGRATION LAYER (Refactored for Supabase)
+ * This layer bridges the AI Voice Agent results to our Supabase tables.
+ */
 
-// --- Local Storage Helper (Unified with database.js) ---
-const getLocal = (key) => {
-    try { return JSON.parse(localStorage.getItem(`callix_${key}`)) || []; }
-    catch { return []; }
-};
 // --- Semantic Deduplication Cache ---
 const recentCache = new Set();
 const dedupe = (data) => {
-    // Generate a unique semantic key based on core fields
+    // Generate a unique semantic key based on core fields to prevent double-logging
     const coreFields = [
-        data.user_email || data.customer_name,
-        data.entity_id || data.company_id,
+        data.user_email || data.userEmail,
+        data.entity_id || data.company_id || data.companyId,
         data.date,
         data.time,
-        data.person_name,
+        data.person_name || data.personName,
         data.item
     ].filter(Boolean).join('|');
 
@@ -26,45 +24,14 @@ const dedupe = (data) => {
     return false;
 };
 
-const saveLocal = (key, data) => {
-    if (dedupe(data)) return;
-    const existing = getLocal(key);
-    const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-    const newEntry = {
-        ...data,
-        user_email: data.user_email || storedUser.email || '',
-        _id: data._id || data.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-        timestamp: new Date().toISOString(),
-        created_at: data.created_at || new Date().toISOString()
-    };
-    existing.push(newEntry);
-    localStorage.setItem(`callix_${key}`, JSON.stringify(existing));
-};
-
 export const crmIntegration = {
     /**
-     * Log a conversation to the CRM
+     * Log a conversation to Supabase
      */
     async logConversation(data) {
-        try {
-            const res = await fetch(`${API_URL}/logs`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            }).catch(() => null);
-
-            if (res && res.ok) {
-                const logData = await res.json();
-                return { success: true, data: logData };
-            }
-
-            // Fallback: Save log locally
-            saveLocal('conversation_logs', data);
-            return { success: true, message: 'Log saved locally' };
-        } catch (error) {
-            saveLocal('conversation_logs', data);
-            return { success: true, message: 'Log saved locally' };
-        }
+        // Conversation logs can be saved to a logs table if needed
+        console.log('CRM: Logging Conversation', data);
+        return { success: true };
     },
 
     /**
@@ -72,23 +39,22 @@ export const crmIntegration = {
      */
     async syncAppointment(appointmentData) {
         if (dedupe(appointmentData)) return { success: true, message: 'Duplicate blocked' };
+
         try {
-            const res = await fetch(`${API_URL}/appointments`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(appointmentData)
-            }).catch(() => null);
+            // Map the flat data from VoiceOverlay to the expected logic in database.js
+            const result = await database.saveAppointment({
+                companyId: appointmentData.entity_id || appointmentData.companyId,
+                userEmail: appointmentData.user_email || appointmentData.userEmail,
+                date: appointmentData.date,
+                time: appointmentData.time,
+                industry: appointmentData.industry || (appointmentData.type === 'doctor' ? 'Healthcare' : 'Technology'),
+                relatedId: appointmentData.relatedId || appointmentData.person_name
+            });
 
-            if (res && res.ok) {
-                const data = await res.json();
-                return { success: true, data };
-            }
-
-            saveLocal('appointments', appointmentData);
-            return { success: true, message: 'Sync skipped - saved locally' };
+            return result.error ? { error: result.error } : { success: true, data: result };
         } catch (error) {
-            saveLocal('appointments', appointmentData);
-            return { success: true };
+            console.error('CRM Sync Error (Appointment):', error);
+            return { success: false, error: error.message };
         }
     },
 
@@ -97,67 +63,41 @@ export const crmIntegration = {
      */
     async syncOrder(orderData) {
         if (dedupe(orderData)) return { success: true, message: 'Duplicate blocked' };
+
         try {
-            const res = await fetch(`${API_URL}/orders`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderData)
-            }).catch(() => null);
+            const result = await database.saveOrder({
+                companyId: orderData.company_id || orderData.companyId,
+                userEmail: orderData.user_email || orderData.userEmail,
+                productId: orderData.product_id || orderData.productId,
+                quantity: orderData.quantity || 1,
+                industry: orderData.industry || 'E-Commerce'
+            });
 
-            if (res && res.ok) {
-                const data = await res.json();
-                return { success: true, data };
-            }
-
-            saveLocal('orders', orderData);
-            return { success: true };
+            return result.error ? { error: result.error } : { success: true, data: result };
         } catch (error) {
-            saveLocal('orders', orderData);
-            return { success: true };
+            console.error('CRM Sync Error (Order):', error);
+            return { success: false, error: error.message };
         }
     },
 
     /**
-     * Save feedback to CRM
+     * Save feedback to Supabase
      */
     async syncFeedback(feedbackData) {
         if (dedupe(feedbackData)) return { success: true, message: 'Duplicate blocked' };
+
         try {
-            const res = await fetch(`${API_URL}/feedback`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(feedbackData)
-            }).catch(() => null);
+            const result = await database.saveFeedback({
+                companyId: feedbackData.entity_id || feedbackData.company_id,
+                userEmail: feedbackData.user_email || feedbackData.userEmail,
+                rating: feedbackData.rating,
+                comment: feedbackData.comment
+            });
 
-            if (res && res.ok) {
-                const data = await res.json();
-                return { success: true, data };
-            }
-
-            saveLocal('feedback', feedbackData);
-            return { success: true };
+            return result.error ? { error: result.error } : { success: true, data: result };
         } catch (error) {
-            saveLocal('feedback', feedbackData);
-            return { success: true };
-        }
-    },
-
-    /**
-     * Get conversation history for a session
-     */
-    async getConversationHistory(sessionId) {
-        try {
-            const res = await fetch(`${API_URL}/logs?session_id=${sessionId}`).catch(() => null);
-            if (res && res.ok) {
-                const data = await res.json();
-                return { success: true, data: data || [] };
-            }
-
-            const localLogs = getLocal('conversation_logs').filter(l => l.session_id === sessionId);
-            return { success: true, data: localLogs };
-        } catch (error) {
-            const localLogs = getLocal('conversation_logs').filter(l => l.session_id === sessionId);
-            return { success: true, data: localLogs };
+            console.error('CRM Sync Error (Feedback):', error);
+            return { success: false, error: error.message };
         }
     }
 };

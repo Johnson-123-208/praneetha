@@ -34,39 +34,41 @@ const CompanyOnboarding = ({ isOpen, onClose, onSuccess }) => {
         context_summary: formData.contextSummary
       });
 
-      const companyId = company._id || company.id;
-
-      // Add sample vacancies for companies (non-healthcare)
-      if (formData.industry !== 'Healthcare') {
-        const sampleVacancies = [
-          { position: 'Software Engineer', department: 'Engineering', status: 'open', description: 'Full-stack developer with 3+ years experience' },
-          { position: 'Product Manager', department: 'Product', status: 'open', description: 'Lead product development initiatives' },
-          { position: 'Marketing Specialist', department: 'Marketing', status: 'open', description: 'Digital marketing and content creation' },
-        ];
-
-        for (const vacancy of sampleVacancies) {
-          await database.saveVacancy({
-            ...vacancy,
-            company_id: companyId,
-          });
-        }
-      }
+      const companyId = company.id;
 
       // Add sample doctors for hospitals/healthcare
       if (formData.industry === 'Healthcare') {
         const sampleDoctors = [
-          { name: 'Dr. Sarah Johnson', specialization: 'Cardiology', experience: '15 years', available: true },
-          { name: 'Dr. Michael Chen', specialization: 'Pediatrics', experience: '10 years', available: true },
-          { name: 'Dr. Priya Patel', specialization: 'Dermatology', experience: '8 years', available: true },
+          { doctor_name: 'Dr. Sarah Johnson', specialization: 'Cardiology', fee: 1500, company_id: companyId },
+          { doctor_name: 'Dr. Michael Chen', specialization: 'Pediatrics', fee: 1200, company_id: companyId },
         ];
-
         for (const doctor of sampleDoctors) {
-          await database.saveDoctor({
-            ...doctor,
-            hospital_id: companyId,
-          });
+          await database.saveDoctor(doctor);
         }
       }
+
+      // Add sample menu for restaurants
+      if (formData.industry === 'Food & Beverage') {
+        const sampleMenu = [
+          { item_name: 'Paneer Butter Masala', price: 350, category: 'Main Course', company_id: companyId },
+          { item_name: 'Veg Biryani', price: 280, category: 'Rice', company_id: companyId },
+        ];
+        for (const item of sampleMenu) {
+          await database.saveMenuItem(item);
+        }
+      }
+
+      // Add sample products for e-commerce
+      if (formData.industry === 'E-Commerce') {
+        const sampleProducts = [
+          { name: 'Wireless Headphones', price: 2999, stock: 50, category: 'Electronics', company_id: companyId },
+          { name: 'Smart Watch', price: 4999, stock: 30, category: 'Electronics', company_id: companyId },
+        ];
+        for (const product of sampleProducts) {
+          await database.saveProduct(product);
+        }
+      }
+
 
       onSuccess(company);
 

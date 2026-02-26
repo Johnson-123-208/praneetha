@@ -8,7 +8,7 @@ import { ttsService } from '../utils/ttsService';
 import { sttService } from '../utils/sttService';
 import { HospitalPrompt, RestaurantPrompt, ECommercePrompt, BusinessPrompt, DefaultPrompt } from '../prompts/agentPrompts';
 
-const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
+const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
   const [callState, setCallState] = useState('idle'); // idle, ringing, connected, ended
   console.log("📟 VoiceOverlay V3 - Fallback Fix Active");
   const [isListening, setIsListening] = useState(false);
@@ -19,6 +19,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [liveCatalogue, setLiveCatalogue] = useState('');
   const [pulseScale, setPulseScale] = useState(1);
   const [isUserTalking, setIsUserTalking] = useState(false);
 
@@ -359,6 +360,18 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
     };
   }, [isOpen]);
 
+  // Fetch Live Knowledge (Catalogue) for the selected company
+  useEffect(() => {
+    const fetchLiveContext = async () => {
+      if (selectedCompany?.id && selectedCompany?.industry) {
+        console.log(`🧠 Fetching live catalogue for ${selectedCompany.name}...`);
+        const catalogue = await database.getLiveCatalogue(selectedCompany.id, selectedCompany.industry);
+        setLiveCatalogue(catalogue);
+      }
+    };
+    if (isOpen && selectedCompany) fetchLiveContext();
+  }, [isOpen, selectedCompany]);
+
 
   const getServiceInfo = (langCode = 'en-IN') => {
     const name = selectedCompany?.name?.toLowerCase() || '';
@@ -610,24 +623,34 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user }) => {
       const latestName = stateRef.current.userName || 'Guest';
 
       const systemPrompt = `
-IDENTITY: You are Callix for ${selectedCompany?.name}.
+IDENTITY: You are Callix, the professional voice representative for ${selectedCompany?.name}.
 ${specializedPrompt}
-BUSINESS DATA (Use THESE FACTS only):
-${selectedCompany?.nlp_context || 'Standard business operations'}
 
-USER CONTEXT: Name is ${latestName}.
-COMPANY DESCRIPTION: ${companyDesc}
-LANGUAGE: Response MUST be in ${curLang.name} using ${curLang.name} script.
+LIVE KNOWLEDGE (CRITICAL: Use ONLY these exact facts for pricing/availability):
+${liveCatalogue || 'Standard records active. If no specific items are listed, speak generally but professionally.'}
 
-STRICT CONVERSATIONAL FLOW & RULES:
-1. GREETING TURN: In your VERY FIRST response (Turn 1), you MUST greet the user by name, welcome them, and ask how to help.
-2. NO REPETITION: Do NOT repeat greetings or the user's name in subsequent turns.
-3. BREVITY: Keep responses extremely concise (1-2 sentences).
-4. ACTION CONFIRMATION: Once an action is done (booking/order), confirm natively. Example (Telugu): "మీ కోసం [Action] పూర్తి చేశాను. మీకు ఇంకేమైనా సహాయం కావాలా?"
-5. DATES: For relative dates like "tomorrow", "today", or "day after tomorrow", always use those LITERAL words in the command (e.g., [BOOK_TABLE for 2 on tomorrow at 4pm]).
-6. CLOSING FLOW: If user says "No" or "Nothing", say: "సరే అండీ. వెళ్లే ముందు నా సర్వీస్‌కు 1 నుండి 5 వరకు రేటింగ్ ఇస్తారా?" (Rating ask).
-7. EXIT: Once they give a rating, say: "ధన్యవాదాలు! సెలవు!" (Goodbye) and output [HANG_UP] on a new line.
-8. NO ENGLISH FRAGMENTS: Never output fragments like "for 4 on tomorrow". Use purely native sentences.
+BUSINESS CONTEXT:
+${selectedCompany?.nlp_context || 'A premium provider in the ' + selectedCompany?.industry + ' sector.'}
+
+USER CONTEXT:
+Customer Name: ${latestName}
+Session Context: Talking via Voice/VoIP.
+
+CONVERSATIONAL PROTOCOL:
+1. HUMAN TONE: Speak like a real person. Use fillers like "I see," "Absolutely," "Let me check that," or "Wonderful." 
+2. NO ROBOTIC LISTS: Instead of "We have Doctor Smith, Doctor Jones," say "We currently have some excellent specialists available, including the wonderful Dr. Smith in Cardiology."
+3. TURN 1 (GREETING): Only on the first turn of the conversation, greet them warmly: "Hello [Name]! Welcome to ${selectedCompany?.name}. ${getServiceInfo(curLang.code)} How can I assist you today?"
+4. FOR SUBSEQUENT TURNS: Do NOT repeat the full greeting or welcome. Simply address the user's latest query naturally.
+5. BOOKING FLOW: If a user asks to book, confirm the item/person first. "Excellent choice! Let me see... yes, I can definitely book a table for you."
+6. COMMAND SYNTAX (INTERNAL):
+   - [BOOK_APPOINTMENT for {Doctor/Person} on {Date} at {Time}]
+   - [BOOK_TABLE for {Count} on {Date} at {Time}]
+   - [BOOK_ORDER for {Product/Item}]
+   - [COLLECT_FEEDBACK {1-5}]
+   - [HANG_UP]
+
+7. LANGUAGE: Respond EXCLUSIVELY in ${curLang.name} using ${curLang.name} script. 
+   - Note: For ${curLang.name}, you can use common professional English terms (like "Booking," "Appointment," "Confirm") if they sound more natural in modern conversation, but write them in ${curLang.name} script.
 
 ${languageInstruction}
 `;
@@ -704,6 +727,7 @@ ${languageInstruction}
               time: timeStr,
               status: 'scheduled'
             });
+            addToast(`Appointment confirmed with ${personName} for ${dateStr} at ${timeStr}`, 'success');
             console.log(`✅ Appointment Saved: ${personName} on ${dateStr} at ${timeStr}`);
           }
 
@@ -723,6 +747,7 @@ ${languageInstruction}
               status: 'scheduled',
               user_info: { ...commonData.user_info, party_size: peopleCount }
             });
+            addToast(`Restaurant table for ${peopleCount} reserved for ${dateStr} at ${timeStr}`, 'success');
             console.log(`✅ Table Booking Saved: ${peopleCount} people on ${dateStr} at ${timeStr}`);
           }
 
@@ -739,6 +764,7 @@ ${languageInstruction}
               customer_name: latestName,
               user_email: userEmail
             });
+            addToast(`Order for ${itemName} has been placed successfully`, 'success');
             console.log(`✅ Order Saved: ${itemName}`);
           }
 
@@ -751,6 +777,7 @@ ${languageInstruction}
               rating: rating,
               comment: cleanInternalCommands(text) // Save CLEANED comment
             });
+            addToast(`Feedback received! Rating: ${rating} stars. Thank you!`, 'info');
             console.log(`✅ Feedback Saved: ${rating} stars`);
           }
         } catch (cmdErr) {

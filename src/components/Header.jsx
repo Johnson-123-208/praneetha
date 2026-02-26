@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Menu, X, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
-const Header = ({ onSignUpClick, user, onLogout, onViewDashboard, onNavigateHome }) => {
+const Header = ({ onSignUpClick, onAdminLoginClick, user, onLogout, onViewDashboard, onNavigateHome }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
@@ -113,7 +113,7 @@ const Header = ({ onSignUpClick, user, onLogout, onViewDashboard, onNavigateHome
                 whileTap={{ scale: 0.95 }}
               >
                 <User size={20} />
-                <span className="hidden md:inline">{user.user_metadata?.full_name || user.email}</span>
+                <span className="hidden md:inline">{user.profile?.full_name || user.user_metadata?.full_name || user.email}</span>
               </motion.button>
 
               {showUserMenu && (
@@ -124,7 +124,7 @@ const Header = ({ onSignUpClick, user, onLogout, onViewDashboard, onNavigateHome
                   exit={{ opacity: 0, y: -10 }}
                 >
                   <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
-                    <p className="font-semibold text-gray-900">{user.user_metadata?.full_name || 'User'}</p>
+                    <p className="font-semibold text-gray-900">{user.profile?.full_name || user.user_metadata?.full_name || 'User'}</p>
                     <p className="text-sm text-gray-600">{user.email}</p>
                   </div>
                   <button
@@ -151,14 +151,24 @@ const Header = ({ onSignUpClick, user, onLogout, onViewDashboard, onNavigateHome
               )}
             </div>
           ) : (
-            <motion.button
-              onClick={onSignUpClick}
-              className="px-4 py-1.5 rounded-lg bg-[#000080] hover:bg-blue-900 text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all hidden md:block"
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              Sign In / Sign Up
-            </motion.button>
+            <div className="flex items-center space-x-3">
+              <motion.button
+                onClick={onAdminLoginClick}
+                className="px-4 py-2 rounded-lg border-2 border-[#000080] text-[#000080] text-sm font-bold hover:bg-blue-50 transition-all hidden md:block"
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Admin Gateway
+              </motion.button>
+              <motion.button
+                onClick={onSignUpClick}
+                className="px-4 py-2.5 rounded-lg bg-[#000080] hover:bg-blue-900 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all hidden md:block"
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Sign In / Sign Up
+              </motion.button>
+            </div>
           )}
 
           {/* Mobile Menu Button */}
@@ -223,15 +233,26 @@ const Header = ({ onSignUpClick, user, onLogout, onViewDashboard, onNavigateHome
               </button>
             </>
           ) : (
-            <button
-              onClick={() => {
-                setIsMenuOpen(false);
-                onSignUpClick();
-              }}
-              className="w-full px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold shadow-lg"
-            >
-              Sign In / Sign Up
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onAdminLoginClick();
+                }}
+                className="w-full px-6 py-2.5 rounded-xl border-2 border-purple-600 text-purple-600 font-bold"
+              >
+                Admin Gateway
+              </button>
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onSignUpClick();
+                }}
+                className="w-full px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold shadow-lg"
+              >
+                Sign In / Sign Up
+              </button>
+            </div>
           )}
         </motion.div>
       )}
