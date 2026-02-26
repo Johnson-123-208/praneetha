@@ -39,12 +39,12 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
     const loadSuperAdminData = async () => {
         try {
             setLoading(true);
-            const [companiesData, usersData, approvalsData, usageData, bookingsData, pendingAdminsData] = await Promise.all([
+            const [companiesData, usersData, approvalsData, usageData, interactionsData, pendingAdminsData] = await Promise.all([
                 supabase.from('companies').select('*'),
                 supabase.from('profiles').select('*'),
                 supabase.from('approval_queue').select('*, companies(*), profiles(*)').eq('status', 'pending'),
                 supabase.from('usage_stats').select('tokens_used'),
-                supabase.from('bookings').select('*, companies(*)'),
+                supabase.from('company_interactions').select('*, companies(*)').order('created_at', { ascending: false }),
                 supabase.from('profiles').select('*, companies(*)').eq('role', 'admin').eq('status', 'pending')
             ]);
 
@@ -56,7 +56,7 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
             setCompanies(formattedCompanies);
             setAllUsers(usersData.data || []);
             setApprovalRequests(approvalsData.data || []);
-            setAllBookings(bookingsData.data || []);
+            setAllBookings(interactionsData.data || []);
             setPendingAdmins(pendingAdminsData.data || []);
 
             setStats({
@@ -171,16 +171,13 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
             // 2. Suspend linked admins
             await supabase.from('profiles').update({ status: 'suspended' }).eq('company_id', company.id).neq('role', 'superadmin');
 
-            // 3. Bulletproof Local Update: Update the status in state immediately
+            // 3. Update local state immediately (Optimistic Update)
             setCompanies(prev => prev.map(c =>
                 c.id === company.id ? { ...c, status: 'pending' } : c
             ));
 
             addToast(`${company.name} successfully archived to the registry.`, 'success');
             setSelectedCompany(null);
-
-            // Optional background refresh
-            setTimeout(() => loadSuperAdminData(), 3000);
         } catch (err) {
             addToast('Archiving failed: ' + err.message, 'error');
         } finally {
@@ -224,7 +221,6 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
                     <div className="py-4 px-3 text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Sync & Data</div>
                     <SuperNavItem icon={<Globe size={14} />} label="Global Ledger" active={view === 'all_bookings'} onClick={() => setView('all_bookings')} />
                     <SuperNavItem icon={<CheckSquare size={14} />} label="Data Approval" active={view === 'approvals'} onClick={() => setView('approvals')} badge={approvalRequests.length} />
-                    <SuperNavItem icon={<Activity size={14} />} label="Diagnostics" active={view === 'diagnostics'} onClick={() => setView('diagnostics')} />
                 </nav>
 
                 <div className="pt-3 border-t border-slate-800 mt-auto">
@@ -519,43 +515,56 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
 
                         {view === 'all_bookings' && (
                             <motion.div key="all_bookings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#1E293B] rounded-[24px] border border-slate-800 overflow-hidden shadow-2xl">
-                                <div className="p-6 border-b border-slate-800">
-                                    <h3 className="text-sm font-black uppercase tracking-widest">Global Booking Ledger</h3>
+                                <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400">Platform Interaction Ledger</h3>
+                                    <span className="text-[10px] bg-indigo-500/10 text-indigo-400 px-3 py-1 rounded-full font-black">MASTER SYNC</span>
                                 </div>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left">
                                         <thead className="bg-[#0F172A]/50 text-[9px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800">
                                             <tr>
-                                                <th className="px-6 py-4">Company</th>
-                                                <th className="px-6 py-4">User</th>
-                                                <th className="px-6 py-4">Date / Time</th>
-                                                <th className="px-6 py-4">Status</th>
+                                                <th className="px-6 py-4">Context</th>
+                                                <th className="px-6 py-4">Interaction Details</th>
+                                                <th className="px-6 py-4">Identity</th>
+                                                <th className="px-6 py-4 text-right">Activity Type</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-800">
                                             {allBookings.map((bk) => (
-                                                <tr key={bk.id} className="hover:bg-white/5 transition-colors">
+                                                <tr key={bk.id} className="hover:bg-white/5 transition-colors group">
                                                     <td className="px-6 py-4">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-[10px]">{bk.companies?.logo || '🏢'}</div>
-                                                            <span className="font-black text-xs">{bk.companies?.name}</span>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-lg">{bk.companies?.logo || '🏢'}</div>
+                                                            <div>
+                                                                <p className="font-black text-xs leading-none mb-1">{bk.companies?.name}</p>
+                                                                <p className="text-[8px] text-slate-500 uppercase tracking-widest">{bk.companies?.industry}</p>
+                                                            </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-xs font-bold text-slate-300">{bk.user_email}</td>
                                                     <td className="px-6 py-4">
-                                                        <p className="text-xs font-black">{bk.date}</p>
-                                                        <p className="text-[9px] text-slate-500 uppercase">{bk.time}</p>
+                                                        <div>
+                                                            <p className="text-xs font-black text-white">{bk.title}</p>
+                                                            <p className="text-[9px] text-indigo-400 font-bold uppercase">{bk.sub_title}</p>
+                                                            {(bk.date || bk.time) && <p className="text-[8px] text-slate-400 mt-1 font-bold">{bk.date} @ {bk.time}</p>}
+                                                        </div>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${bk.status === 'scheduled' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                                                            {bk.status}
+                                                        <p className="text-[10px] font-black text-slate-100">{bk.user_name || 'Customer'}</p>
+                                                        <p className="text-[9px] text-slate-500 lowercase">{bk.user_email}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${bk.type === 'order' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                                                            bk.type === 'reservation' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                                                                'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20'
+                                                            }`}>
+                                                            {bk.type || 'Activity'}
                                                         </span>
                                                     </td>
                                                 </tr>
                                             ))}
                                             {allBookings.length === 0 && (
                                                 <tr>
-                                                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">No bookings registered in the system</td>
+                                                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">No activities recorded in the platform</td>
                                                 </tr>
                                             )}
                                         </tbody>
@@ -598,40 +607,7 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
                             </motion.div>
                         )}
 
-                        {view === 'diagnostics' && (
-                            <motion.div key="diagnostics" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                    <div className="lg:col-span-2 bg-[#1E293B] rounded-2xl border border-slate-800 p-6">
-                                        <h3 className="text-xs font-black uppercase tracking-widest mb-6 flex items-center gap-2">
-                                            <Activity size={14} className="text-emerald-500" />
-                                            Resource Telemetry
-                                        </h3>
-                                        <div className="space-y-5">
-                                            {[
-                                                { l: 'Logic Clusters', v: '24ms', p: '20%' },
-                                                { l: 'Data Mesh API', v: '98.8%', p: '98%' },
-                                                { l: 'Neural Latency', v: '142ms', p: '45%' }
-                                            ].map((r, i) => (
-                                                <div key={i} className="space-y-1.5">
-                                                    <div className="flex justify-between text-[9px] font-black uppercase text-slate-500">
-                                                        <span>{r.l}</span>
-                                                        <span className="text-indigo-400">{r.v}</span>
-                                                    </div>
-                                                    <div className="h-1 bg-[#0F172A] rounded-full overflow-hidden">
-                                                        <div className="h-full bg-emerald-500" style={{ width: r.p }}></div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="bg-[#1E293B] rounded-2xl border border-slate-800 p-6 flex flex-col justify-center text-center">
-                                        <ShieldCheck size={32} className="text-emerald-500 mx-auto mb-4" />
-                                        <h4 className="text-xs font-black uppercase tracking-widest mb-1">Hardened Shield</h4>
-                                        <p className="text-[9px] text-slate-500 font-bold">Standard security protocols active. All clusters isolated.</p>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
+                        {/* Diagnostics View Removed */}
                     </AnimatePresence>
                 </div>
             </main>
