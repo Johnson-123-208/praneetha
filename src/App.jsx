@@ -208,7 +208,7 @@ function App() {
     const isPending = user.profile?.status === 'pending';
 
     if (role === 'superadmin') {
-      return <SuperAdminDashboard user={user} onLogout={handleLogout} addToast={addToast} />;
+      return <SuperAdminDashboard user={user} onLogout={handleLogout} addToast={addToast} onHome={() => setShowDashboard(false)} />;
     } else if (role === 'admin') {
       if (isPending) {
         return (
@@ -231,7 +231,7 @@ function App() {
           </div>
         );
       }
-      return <AdminDashboard user={user} onLogout={handleLogout} addToast={addToast} />;
+      return <AdminDashboard user={user} onLogout={handleLogout} addToast={addToast} onHome={() => setShowDashboard(false)} />;
     } else {
       return <UserDashboard user={user} onClose={() => setShowDashboard(false)} onLogout={handleLogout} addToast={addToast} />;
     }

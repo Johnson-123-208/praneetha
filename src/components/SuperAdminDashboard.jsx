@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     LayoutDashboard, Users, Building2, TrendingUp, Settings, ChevronRight,
     LogOut, ShieldCheck, Globe, Activity, Check, X, Search, Database, UserPlus,
-    Trash2, Archive
+    Trash2, Archive, Home, Eye, EyeOff
 } from 'lucide-react';
 import { supabase } from '../utils/supabase';
 
-const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
+const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
     const [view, setView] = useState('overview');
     const [provisionMode, setProvisionMode] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState(null);
@@ -155,31 +155,42 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
         }
     };
 
-    const handleArchiveCompany = async (company) => {
-        if (!confirm(`Archive ${company.name}? The AI Agent will be removed from the public portfolio, but global users will retain platform access.`)) return;
+    const handleDeleteCompany = async (companyId, companyName) => {
+        if (!confirm(`CRITICAL ACTION: Permanently DELETE ${companyName}? This will remove the organization, all its data, and its AI interaction history from the entire database. This cannot be undone.`)) return;
+
         try {
             setLoading(true);
+            const { error } = await supabase.from('companies').delete().eq('id', companyId);
 
-            // 1. Update company status to pending (hides from public portfolio)
-            const { error: coError } = await supabase
-                .from('companies')
-                .update({ status: 'pending' })
-                .eq('id', company.id);
+            if (error) throw error;
 
-            if (coError) throw coError;
-
-            // 2. Suspend linked admins
-            await supabase.from('profiles').update({ status: 'suspended' }).eq('company_id', company.id).neq('role', 'superadmin');
-
-            // 3. Update local state immediately (Optimistic Update)
-            setCompanies(prev => prev.map(c =>
-                c.id === company.id ? { ...c, status: 'pending' } : c
-            ));
-
-            addToast(`${company.name} successfully archived to the registry.`, 'success');
+            setCompanies(prev => prev.filter(c => c.id !== companyId));
+            addToast(`${companyName} purged from database.`, 'error');
             setSelectedCompany(null);
         } catch (err) {
-            addToast('Archiving failed: ' + err.message, 'error');
+            addToast('Purge failed: ' + err.message, 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleToggleCompanyStatus = async (companyId, currentStatus) => {
+        const newStatus = currentStatus === 'active' ? 'pending' : 'active';
+        try {
+            setLoading(true);
+            const { error, count } = await supabase
+                .from('companies')
+                .update({ status: newStatus })
+                .eq('id', companyId);
+
+            if (error) throw error;
+
+            setCompanies(prev => prev.map(c =>
+                c.id === companyId ? { ...c, status: newStatus } : c
+            ));
+            addToast(`Organization is now ${newStatus === 'active' ? 'VISIBLE' : 'HIDDEN'}.`, 'info');
+        } catch (err) {
+            addToast('Toggle failed: ' + err.message, 'error');
         } finally {
             setLoading(false);
         }
@@ -211,6 +222,8 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
                 </div>
 
                 <nav className="flex-1 space-y-1">
+                    <SuperNavItem icon={<Home size={14} />} label="Website Home" active={false} onClick={onHome} />
+                    <div className="py-4 px-3 text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Core Dashboard</div>
                     <SuperNavItem icon={<LayoutDashboard size={14} />} label="Overview" active={view === 'overview'} onClick={() => setView('overview')} />
                     <div className="py-4 px-3 text-[8px] font-black text-slate-500 uppercase tracking-[0.2em] mt-2">Organizations</div>
                     <SuperNavItem icon={<Building2 size={14} />} label="Active Registry" active={view === 'companies'} onClick={() => setView('companies')} />
@@ -303,48 +316,84 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
                         {view === 'companies' && (
                             <motion.div key="registry" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#1E293B] rounded-[24px] border border-slate-800 overflow-hidden shadow-2xl">
                                 <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-                                    <h3 className="text-sm font-black uppercase tracking-widest">Company Registry</h3>
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-indigo-400">Active Organization Registry</h3>
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
                                         <input
                                             type="text"
-                                            placeholder="Filter registry..."
+                                            placeholder="Filter companies..."
                                             value={userSearchTerm}
                                             onChange={(e) => setUserSearchTerm(e.target.value)}
                                             className="bg-[#0F172A] border border-slate-800 rounded-lg py-2 pl-9 pr-4 text-[10px] font-bold outline-none focus:border-indigo-500 w-48"
                                         />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 p-6 gap-4">
-                                    {companies
-                                        .filter(c => c.status === 'active')
-                                        .filter(c => userSearchTerm === '' || c.name.toLowerCase().includes(userSearchTerm.toLowerCase()) || c.industry.toLowerCase().includes(userSearchTerm.toLowerCase()))
-                                        .map((c) => (
-                                            <div
-                                                key={c.id}
-                                                onClick={() => setSelectedCompany(c)}
-                                                className="bg-[#0F172A] p-4 rounded-xl border border-slate-800 flex items-center justify-between group hover:border-indigo-500/50 transition-all cursor-pointer"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-[#1E293B] rounded-lg flex items-center justify-center text-xl shadow-inner">{c.logo || '🏢'}</div>
-                                                    <div>
-                                                        <h4 className="font-black text-sm tracking-tight">{c.name}</h4>
-                                                        <p className="text-[8px] font-black tracking-widest text-indigo-400 uppercase">{c.industry}</p>
-                                                    </div>
-                                                </div>
-                                                <button className="p-2 rounded-lg bg-[#1E293B] text-slate-500 group-hover:text-indigo-400 transition-all">
-                                                    <ChevronRight size={16} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    {companies
-                                        .filter(c => c.status === 'active')
-                                        .filter(c => userSearchTerm === '' || c.name.toLowerCase().includes(userSearchTerm.toLowerCase()) || c.industry.toLowerCase().includes(userSearchTerm.toLowerCase()))
-                                        .length === 0 && (
-                                            <div className="col-span-2 py-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">
-                                                No active companies in registry
-                                            </div>
-                                        )}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-[#0F172A]/50 text-[9px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800">
+                                            <tr>
+                                                <th className="px-6 py-4">Organization</th>
+                                                <th className="px-6 py-4">Industry</th>
+                                                <th className="px-6 py-4">Visibility</th>
+                                                <th className="px-6 py-4 text-right">Cluster Controls</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800">
+                                            {companies
+                                                .filter(c => c.status === 'active')
+                                                .filter(c => userSearchTerm === '' || c.name.toLowerCase().includes(userSearchTerm.toLowerCase()) || c.industry.toLowerCase().includes(userSearchTerm.toLowerCase()))
+                                                .map((c) => (
+                                                    <tr key={c.id} className="hover:bg-white/5 transition-colors group">
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 bg-[#0F172A] rounded-xl flex items-center justify-center text-xl shadow-inner border border-slate-800">{c.logo || '🏢'}</div>
+                                                                <div>
+                                                                    <h4 className="font-black text-sm tracking-tight">{c.name}</h4>
+                                                                    <p className="text-[8px] text-slate-500 uppercase font-black">{c.id.slice(0, 8)}...-NODE</p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{c.industry}</span>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <button
+                                                                onClick={() => handleToggleCompanyStatus(c.id, c.status)}
+                                                                className={`flex items-center gap-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${c.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'}`}
+                                                            >
+                                                                {c.status === 'active' ? <Eye size={12} /> : <EyeOff size={12} />}
+                                                                {c.status}
+                                                            </button>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button
+                                                                    onClick={() => setSelectedCompany(c)}
+                                                                    className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all"
+                                                                    title="Configure Node"
+                                                                >
+                                                                    <Settings size={16} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteCompany(c.id, c.name)}
+                                                                    className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                                                                    title="Purge Node"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            {companies.filter(c => c.status === 'active').length === 0 && (
+                                                <tr>
+                                                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                                                        Infrastructure Registry Empty
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </motion.div>
                         )}
@@ -352,7 +401,7 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
                         {view === 'archived_companies' && (
                             <motion.div key="archived_registry" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-[#1E293B] rounded-[24px] border border-slate-800 overflow-hidden shadow-2xl">
                                 <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">Archived Registry</h3>
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">Archived Organization Registry</h3>
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
                                         <input
@@ -364,33 +413,65 @@ const SuperAdminDashboard = ({ user, onLogout, addToast }) => {
                                         />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 p-6 gap-4">
-                                    {companies
-                                        .filter(c => c.status === 'pending' || c.status === 'inactive')
-                                        .filter(c => userSearchTerm === '' || c.name.toLowerCase().includes(userSearchTerm.toLowerCase()))
-                                        .map((c) => (
-                                            <div
-                                                key={c.id}
-                                                onClick={() => setSelectedCompany(c)}
-                                                className="bg-[#0F172A] p-4 rounded-xl border border-slate-800 flex items-center justify-between group hover:border-amber-500/50 transition-all cursor-pointer opacity-70 hover:opacity-100"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-[#1E293B] rounded-lg flex items-center justify-center text-xl grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">{c.logo || '🏢'}</div>
-                                                    <div>
-                                                        <h4 className="font-black text-sm tracking-tight text-slate-300">{c.name}</h4>
-                                                        <p className="text-[8px] font-black tracking-widest text-amber-500 uppercase">ARCHIVED</p>
-                                                    </div>
-                                                </div>
-                                                <div className="px-3 py-1 bg-amber-500/10 text-amber-500 rounded-full text-[8px] font-black uppercase tracking-widest border border-amber-500/20">
-                                                    Restore
-                                                </div>
-                                            </div>
-                                        ))}
-                                    {companies.filter(c => c.status === 'pending' || c.status === 'inactive').length === 0 && (
-                                        <div className="col-span-2 py-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">
-                                            Archive is empty
-                                        </div>
-                                    )}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-[#0F172A]/50 text-[9px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800">
+                                            <tr>
+                                                <th className="px-6 py-4">Organization</th>
+                                                <th className="px-6 py-4">Industry</th>
+                                                <th className="px-6 py-4">Visibility</th>
+                                                <th className="px-6 py-4 text-right">Cluster Controls</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800">
+                                            {companies
+                                                .filter(c => c.status === 'pending' || c.status === 'inactive')
+                                                .filter(c => userSearchTerm === '' || c.name.toLowerCase().includes(userSearchTerm.toLowerCase()))
+                                                .map((c) => (
+                                                    <tr key={c.id} className="hover:bg-white/5 transition-colors group opacity-70 hover:opacity-100">
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 bg-[#0F172A] rounded-xl flex items-center justify-center text-xl grayscale group-hover:grayscale-0 transition-all border border-slate-800">{c.logo || '🏢'}</div>
+                                                                <div>
+                                                                    <h4 className="font-black text-sm tracking-tight text-slate-300">{c.name}</h4>
+                                                                    <p className="text-[8px] text-amber-500 uppercase font-black">ARCHIVED NO-NODE</p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{c.industry}</span>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            <button
+                                                                onClick={() => handleToggleCompanyStatus(c.id, c.status)}
+                                                                className="flex items-center gap-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/20 transition-all"
+                                                            >
+                                                                <EyeOff size={12} />
+                                                                Restore
+                                                            </button>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button
+                                                                    onClick={() => handleDeleteCompany(c.id, c.name)}
+                                                                    className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                                                                    title="Purge Node"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            {companies.filter(c => c.status === 'pending' || c.status === 'inactive').length === 0 && (
+                                                <tr>
+                                                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                                                        Archive registry empty
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </motion.div>
                         )}
