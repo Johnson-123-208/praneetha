@@ -7,12 +7,14 @@ const GROQ_AUDIO_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
 export const cleanInternalCommands = (text) => {
   if (!text) return '';
   return text
-    .replace(/^(Callix|Agent|Assistant|System):\s*/i, '')
-    // Match commands with or without brackets
-    .replace(/\[(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_RATING|COLLECT_FEEDBACK|COLLECT_ITEM|HANG_UP|QUERY_ENTITY_DATABASE|TRACE_ORDER).*?\]/gim, '')
-    // Match any remaining words in all caps with underscores (commands)
-    .replace(/\b(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_FEEDBACK|HANG_UP|QUERY_ENTITY_DATABASE)\b/gi, '')
-    .replace(/[\[\]]/g, '') // Remove any dangling brackets
+    .replace(/^(Callix|Agent|Assistant|System|User):\s*/i, '')
+    // Replace all internal bracketed commands
+    .replace(/\[(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_RATING|COLLECT_FEEDBACK|GET_AVAILABLE_SLOTS|QUERY_ENTITY_DATABASE|HANG_UP|TRACE_ORDER).*?\]/gim, '')
+    // Remove standalone command keywords if they leak outside brackets
+    .replace(/\b(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_FEEDBACK|GET_AVAILABLE_SLOTS|QUERY_ENTITY_DATABASE|HANG_UP)\b/gi, '')
+    // Remove "Thinking" or "Action" crumbs
+    .replace(/(Searching|Booking|Checking|Wait|One moment|Hold on|I'm checking|Let me see|Querying).*?(slots|database|available|appointment|info|table|order)\b/gi, '')
+    .replace(/[\[\]]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 };
@@ -151,7 +153,12 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
           model: 'llama-3.1-8b-instant',
           messages: [{
             role: 'system',
-            content: `ACTION RESULT: ${JSON.stringify(result)}. Confirm natively in 1 short sentence. NO English loanword fragments like "for [count] on [date]". LANGUAGE: ${companyContext?.currLangName || 'English'}`
+            content: `ACTION RESULT: ${JSON.stringify(result)}. 
+            Confirm natively in 1 short sentence. 
+            NEVER mention "slots", "database", "searching", or "booking process". 
+            Just confirm the result naturally (e.g., "Done, your table is ready"). 
+            NO English loanword fragments in non-English turns. 
+            LANGUAGE: ${companyContext?.currLangName || 'English'}`
           }],
           temperature: 0.5,
           max_tokens: 150
