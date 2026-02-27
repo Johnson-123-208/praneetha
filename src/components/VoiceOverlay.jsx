@@ -376,31 +376,31 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
     const name = selectedCompany?.name?.toLowerCase() || '';
     const sMap = {
       'en-IN': {
-        hospital: "I'm here to help with your appointments and doctor details.",
-        restaurant: "I can help with our menu, specials, and table bookings.",
-        ecommerce: "I can assist with product pricing and order tracking.",
-        tech_mahindra: "I can guide you through our open roles and interviews.",
-        voxsphere: "I can walk you through our AI solutions and book a demo.",
-        agile_it: "I'm here to help with career queries and technical interviews.",
-        default: "I'm here to assist you today."
+        hospital: "I am specialized in managing clinical appointments, scheduling consultations with our expert doctors, and providing information about our medical departments.",
+        restaurant: "I can assist you with our gourmet menu, chef's specials, and securing your table reservations for a premium dining experience.",
+        ecommerce: "I am here to help you explore our product catalog, provide detailed pricing, and assist with tracking your specialized orders.",
+        tech_mahindra: "I can guide you through our professional career opportunities, global job openings, and schedule your technical interview sessions.",
+        voxsphere: "I can provide comprehensive details about our AI-driven software solutions and facilitate a direct demo booking with our specialists.",
+        agile_it: "I am prepared to assist with your technical career inquiries, project details, and the scheduling of your recruitment interviews.",
+        default: "I am here to assist you with all your professional inquiries and service requirements today."
       },
       'te-IN': {
-        hospital: "నేను మీ డాక్టర్ అపాయింట్‌మెంట్‌లు మరియు విచారణలో సహాయపడగలను.",
-        restaurant: "నేను మా రుచికరమైన మెనూ మరియు టేబుల్ బుకింగ్‌లలో మీకు సహాయం చేస్తాను.",
-        ecommerce: "నేను మీకు కావలసిన ప్రోడక్ట్స్ ధరలు మరియు ఆర్డర్లను ట్రాక్ చేయడంలో సహాయపడతాను.",
-        tech_mahindra: "నేను మా వద్ద ఉన్న ఉద్యోగ అవకాశాలు మరియు ఇంటర్వ్యూలలో మీకు సహాయపడగలను.",
-        voxsphere: "నేను మా AI సర్వీసెస్ మరియు డెమో బుకింగ్‌లలో మీకు సహాయం చేస్తాను.",
-        agile_it: "నేను మీ టెక్నికల్ ఇంటర్వ్యూలు మరియు కెరీర్ ప్రశ్నలకు సహాయం చేయగలను.",
-        default: "నేను ఈరోజు మీకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను."
+        hospital: "నేను డాక్టర్ అపాయింట్‌మెంట్‌లను నిర్వహించడంలో, మా నిపుణులైన వైద్యులతో సంప్రదింపులను షెడ్యూల్ చేయడంలో మరియు మా ఇతర వైద్య విభాగాల గురించి సమాచారాన్ని అందించడంలో ప్రత్యేకత కలిగి ఉన్నాను.",
+        restaurant: "నేను మా రుచికరమైన మెనూ, ఈరోజు ప్రత్యేక వంటకాలు మరియు మీ కోసం ప్రీమియం టేబుల్ రిజర్వేషన్‌లను బుక్ చేయడంలో సహాయపడతాను.",
+        ecommerce: "నేను మా ఉత్పత్తుల వివరాలను చూడటంలో, ఇతర ధరల సమాచారాన్ని అందించడంలో మరియు మీ ఆర్డర్‌లను ట్రాక్ చేయడంలో మీకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను.",
+        tech_mahindra: "నేను మా వృత్తిపరమైన కెరీర్ అవకాశాలు, గ్లోబల్ ఉద్యోగ ఖాళీలు మరియు మీ టెక్నికల్ ఇంటర్వ్యూలను షెడ్యూల్ చేయడం ద్వారా మీకు మార్గనిర్దేశం చేయగలను.",
+        voxsphere: "నేను మా AI సాఫ్ట్‌వేర్ పరిష్కారాల గురించి సమగ్ర వివరాలను అందించగలను మరియు మా నిపుణులతో నేరుగా డెమో బుకింగ్‌ను ఏర్పాటు చేయగలను.",
+        agile_it: "నేను మీ టెక్నికల్ కెరీర్ విచారణలు, ప్రాజెక్ట్ వివరాలు మరియు రిక్రూట్‌మెంట్ ఇంటర్వ్యూలను షెడ్యూల్ చేయడంలో సహాయం చేయడానికి సిద్ధంగా ఉన్నాను.",
+        default: "నేను ఈరోజు మీ విచారణలు మరియు సేవా అవసరాలలో మీకు సహాయం చేయడానికి ఇక్కడ ఉన్నాను."
       },
       'hi-IN': {
-        hospital: "मैं आपके डॉक्टर अपॉइंटमेंट और पूछताछ में आपकी मदद कर सकता हूँ।",
-        restaurant: "मैं हमारे मेनू और टेबल बुकिंग में आपकी मदद कर सकता हूँ।",
-        ecommerce: "मैं उत्पादों की कीमत और ऑर्डर ट्रैक करने में आपकी मदद कर सकता हूँ।",
-        tech_mahindra: "मैं नौकरियों के अवसर और इंटरव्यू में आपकी मदद कर सकता हूँ।",
-        voxsphere: "मैं हमारी एआई सेवाओं और डेमो बुक करने में आपकी मदद कर सकता हूँ।",
-        agile_it: "मैं आपकी तकनीकी इंटरव्यू और करियर के सवालों में मदद कर सकता हूँ।",
-        default: "मैं आज आपकी मदद करने के लिए यहाँ हूँ।"
+        hospital: "मैं क्लिनिकल अपॉइंटमेंट प्रबंधित करने, हमारे विशेषज्ञ डॉक्टरों के साथ परामर्श निर्धारित करने और हमारे चिकित्सा विभागों के बारे में जानकारी प्रदान करने में विशेषज्ञ हूँ।",
+        restaurant: "मैं हमारे स्वादिष्ट मेनू, शेफ की विशेषताओं और आपके लिए प्रीमियम टेबल रिजर्वेशन बुक करने में आपकी सहायता कर सकता हूँ।",
+        ecommerce: "मैं हमारे उत्पाद कैटलॉग को एक्सप्लोर करने, विस्तृत मूल्य निर्धारण प्रदान करने और आपके ऑर्डर को ट्रैक करने में आपकी मदद करने के लिए यहाँ हूँ।",
+        tech_mahindra: "मैं आपको हमारे पेशेवर करियर के अवसरों, वैश्विक नौकरी रिक्तियों के माध्यम से मार्गदर्शन कर सकता हूँ और आपके तकनीकी इंटरव्यू सत्र निर्धारित कर सकता हूँ।",
+        voxsphere: "मैं हमारे एआई-संचालित सॉफ़्टवेअर समाधानों के बारे में व्यापक विवरण प्रदान कर सकता हूँ और हमारे विशेषज्ञों के साथ सीधे डेमो बुकिंग की सुविधा प्रदान कर सकता हूँ।",
+        agile_it: "मैं आपके तकनीकी करियर पूछताछ, प्रोजेक्ट विवरण और भर्ती इंटरव्यू को निर्धारित करने में सहायता के लिए तैयार हूँ।",
+        default: "मैं आज आपकी सभी पेशेवर पूछताछ और सेवा आवश्यकताओं में आपकी सहायता करने के लिए यहाँ हूँ।"
       }
     };
 
@@ -485,54 +485,65 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
           extractedName = nameMatch[1];
         } else {
           // Robust extraction for Indian names and simple responses
-          // Filter out stop words and common phrases in English, Telugu, and Hindi
           const ignoreList = [
             'hi', 'hello', 'hey', 'my', 'name', 'is', 'the', 'a', 'an', 'yeah', 'yes', 'i', 'am', 'im',
-            'నమస్కారం', 'పేరు', 'నా', 'నాకు', 'నేను', 'నా పేరు', 'naa', 'na', 'naperu',
+            'నమస్కారం', 'పేరు', 'నా', 'నాకు', 'నేను', 'naa', 'na', 'naperu',
             'नमस्ते', 'नाम', 'मेरा', 'मै', 'हूँ', 'mera', 'naam'
           ];
 
-          // Split by space and remove punctuation from each word for cleaner filtering
           const words = cleanMsg.split(/\s+/).filter(w => {
             const lowW = w.toLowerCase().replace(/[^a-zA-Z0-9\u0C00-\u0C7F\u0900-\u097F]/g, '');
             return lowW.length > 0 && !ignoreList.includes(lowW);
           });
 
           if (words.length > 0) {
-            // Usually the last word in "My name is X" or "Naa peru X" is the name.
             const capWords = words.filter(w => w[0] === w[0].toUpperCase() && /[a-zA-Z]/.test(w[0]) && w.length > 1);
-            if (capWords.length > 0) {
-              extractedName = capWords[capWords.length - 1];
-            } else {
-              extractedName = words[words.length - 1]; // Fallback to last word (Great for Telugu)
-            }
+            extractedName = capWords.length > 0 ? capWords[capWords.length - 1] : words[words.length - 1];
           }
         }
 
-        // Update name and transition phase
         setUserName(extractedName);
         setConvoPhase('chatting');
         stateRef.current.userName = extractedName;
         stateRef.current.convoPhase = 'chatting';
 
-        // Greet in selected language with FULL service info
-        let response = '';
         const serviceInfo = getServiceInfo(curLang.code);
+        let greeting = "";
 
         if (curLang.code === 'te-IN') {
-          response = `నమస్కారం ${extractedName}! మా ${selectedCompany?.name} కు స్వాగతం. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
+          greeting = `నమస్కారం ${extractedName} గారు! మా ${selectedCompany?.name}కు సాదరంగా ఆహ్వానిస్తున్నాము. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
         } else if (curLang.code === 'hi-IN') {
-          response = `नमस्ते ${extractedName}! ${selectedCompany?.name} में आपका स्वागत है। ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
+          greeting = `नमस्ते ${extractedName}! ${selectedCompany?.name} में आपका स्वागत है। ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
         } else {
-          response = `Hello ${extractedName}! Welcome to ${selectedCompany?.name}. ${serviceInfo} How can I help you?`;
+          greeting = `Hello ${extractedName}! Welcome to ${selectedCompany?.name}. ${serviceInfo} How can I assist you today?`;
         }
 
-        addMessage('agent', response);
+        addMessage('agent', greeting);
         try {
-          await speak(response, curLang.code);
+          await speak(greeting, curLang.code);
         } finally {
           setIsProcessing(false);
         }
+        return;
+      }
+
+      // Handle explicit hidden call starter
+      if (message === '[INTERNAL_GREETING_START]') {
+        const serviceInfo = getServiceInfo(curLang.code);
+        const nameToUse = curName || 'Guest';
+        let greeting = "";
+
+        if (curLang.code === 'te-IN') {
+          greeting = `నమస్కారం ${nameToUse === 'Guest' ? '' : nameToUse + ' గారు'}! మా ${selectedCompany?.name}కు సాదరంగా ఆహ్వానిస్తున్నాము. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
+        } else if (curLang.code === 'hi-IN') {
+          greeting = `नमस्ते ${nameToUse === 'Guest' ? '' : nameToUse}! ${selectedCompany?.name} में आपका स्वागत है। ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
+        } else {
+          greeting = `Hello ${nameToUse}! Welcome to ${selectedCompany?.name}. ${serviceInfo} How can I help you?`;
+        }
+
+        addMessage('agent', greeting);
+        await speak(greeting, curLang.code);
+        setIsProcessing(false);
         return;
       }
 
@@ -637,18 +648,22 @@ Session Context: Talking via Voice/VoIP.
 
 CONVERSATIONAL PROTOCOL:
 1. HUMAN TONE: Speak like a real person. Use fillers like "I see," "Absolutely," "Let me check that," or "Wonderful." 
-2. NO ROBOTIC LISTS: Instead of "We have Doctor Smith, Doctor Jones," say "We currently have some excellent specialists available, including the wonderful Dr. Smith in Cardiology."
-3. TURN 1 (GREETING): Only on the first turn of the conversation, greet them warmly: "Hello [Name]! Welcome to ${selectedCompany?.name}. ${getServiceInfo(curLang.code)} How can I assist you today?"
-4. FOR SUBSEQUENT TURNS: Do NOT repeat the full greeting or welcome. Simply address the user's latest query naturally.
-5. BOOKING FLOW: If a user asks to book, confirm the item/person first. "Excellent choice! Let me see... yes, I can definitely book a table for you."
-6. COMMAND SYNTAX (INTERNAL):
+2. NO ROBOTIC LISTS: Instead of listing items, blend them into natural sentences.
+3. ADAPTIVE GREETING:
+   - Only on first contact: Introduce yourself as the virtual receptionist and summarize your main services from the industry data.
+   - For regular turns: Stay focused on the latest answer. Do NOT repeat introductions.
+4. POST-BOOKING/ACTION FLOW (MANDATORY):
+   - Step 1: Once a booking is confirmed, ask: "I've handled that for you. Is there anything else I can help you with today?"
+   - Step 2: If the user says "No" or "That's it": Politely ask for feedback. "Understood. Before we finish, how would you rate my service today on a scale of 1 to 5?"
+   - Step 3: Once the user provides a number (1-5), issue the [COLLECT_FEEDBACK] command followed by [HANG_UP].
+5. COMMAND SYNTAX:
    - [BOOK_APPOINTMENT for {Doctor/Person} on {Date} at {Time}]
    - [BOOK_TABLE for {Count} on {Date} at {Time}]
    - [BOOK_ORDER for {Product/Item}]
    - [COLLECT_FEEDBACK {1-5}]
    - [HANG_UP]
 
-7. LANGUAGE: Respond EXCLUSIVELY in ${curLang.name} using ${curLang.name} script. 
+6. LANGUAGE: Respond EXCLUSIVELY in ${curLang.name} using ${curLang.name} script. 
    - Note: For ${curLang.name}, you can use common professional English terms (like "Booking," "Appointment," "Confirm") if they sound more natural in modern conversation, but write them in ${curLang.name} script.
 
 ${languageInstruction}
@@ -889,17 +904,26 @@ ${languageInstruction}
     }
 
     setCallState('connected');
-    const nextPhase = stateRef.current.userName ? 'chatting' : 'onboarding';
+    const existingName = getNameFromUser(user);
+    const nextPhase = existingName ? 'chatting' : 'onboarding';
+
     setConvoPhase(nextPhase);
     stateRef.current.convoPhase = nextPhase;
 
-    // Start listening immediately - user speaks first
+    // Trigger AI to speak first
     setTimeout(() => {
-      if (mediaRecorderRef.current?.state === 'inactive') {
-        mediaRecorderRef.current.start();
-        setIsListening(true);
+      if (existingName) {
+        handleUserMessage('[INTERNAL_GREETING_START]');
+      } else {
+        const curLang = stateRef.current.selectedLanguage;
+        let onboardingMsg = "Hello! I am Callix, your virtual receptionist. May I know your name, please?";
+        if (curLang.code === 'te-IN') onboardingMsg = "నమస్కారం! నేను Callix, మీ వర్చువల్ రిసెప్షనిస్ట్‌ను. దయచేసి మీ పేరు తెలుసుకోవచ్చా?";
+        if (curLang.code === 'hi-IN') onboardingMsg = "नमस्ते! मैं Callix हूँ, आपकी वर्चुअल रिसेप्शनिस्ट। क्या मैं आपका नाम जान सकता हूँ?";
+
+        addMessage('agent', onboardingMsg);
+        speak(onboardingMsg, curLang.code);
       }
-    }, 500);
+    }, 800);
   };
 
   const endCall = () => {
