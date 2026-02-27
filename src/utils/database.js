@@ -127,7 +127,25 @@ export const database = {
       status: 'scheduled',
       data: appointment
     };
+
+    // 1. Log the interaction
     const { data, error } = await supabase.from('company_interactions').insert([payload]).select();
+
+    // 2. Mark slot as booked in specific industry table
+    try {
+      let slotTable = (industry === INDUSTRIES.RESTAURANT || industry === 'Food & Beverage')
+        ? 'restaurant_slots'
+        : (industry === INDUSTRIES.BUSINESS || industry === 'Technology')
+          ? 'staff_slots'
+          : 'hospital_slots';
+
+      await supabase.from(slotTable)
+        .update({ is_booked: true })
+        .eq('company_id', payload.company_id)
+        .eq('date', payload.date)
+        .eq('time', payload.time);
+    } catch (e) { console.warn('Slot update failed:', e); }
+
     return error ? { error: error.message } : data[0];
   },
 
