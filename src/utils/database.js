@@ -182,10 +182,32 @@ export const database = {
 
   getLiveCatalogue: async (companyId, industry) => {
     try {
+      let knowledge = '';
+
+      // 1. Fetch Unified Assets
       const { data: assets } = await supabase.from('company_assets').select('*').eq('company_id', companyId);
-      let list = assets ? assets.map(a => `[${a.category}] ${a.name}`).join('\n') : '';
-      return list || 'Operational.';
-    } catch (e) { return 'Operational.'; }
+      if (assets?.length > 0) {
+        knowledge += assets.map(a => `[${a.category}] ${a.name}`).join('\n');
+      }
+
+      // 2. Fetch Industry Specific Legacy Data
+      if (industry === INDUSTRIES.HEALTHCARE) {
+        const { data: doctors } = await supabase.from('doctors').select('doctor_name, specialty').eq('company_id', companyId);
+        if (doctors?.length > 0) {
+          knowledge += '\nDoctors Available:\n' + doctors.map(d => `- ${d.doctor_name} (${d.specialty || 'General'})`).join('\n');
+        }
+      } else if (industry === INDUSTRIES.RESTAURANT) {
+        const { data: menu } = await supabase.from('menu').select('item_name, price, category').eq('company_id', companyId);
+        if (menu?.length > 0) {
+          knowledge += '\nMenu Highlights:\n' + menu.map(m => `- ${m.item_name}: ${m.price}`).join('\n');
+        }
+      }
+
+      return knowledge || 'System Operational for ' + industry + '.';
+    } catch (e) {
+      console.error('Catalogue Fetch Error:', e);
+      return 'Operational.';
+    }
   }
 };
 

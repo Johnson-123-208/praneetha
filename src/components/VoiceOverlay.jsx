@@ -173,7 +173,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
         const { selectedLanguage: curLang, isSpeaking, isMuted, callState, isOpen } = stateRef.current;
 
         // Skip if no speech detected or too small or call ended
-        if (!hadSpeech || audioBlob.size < 2000 || isMuted || isSpeaking || callState !== 'connected' || !isOpen) {
+        if (!hadSpeech || audioBlob.size < 2000 || isMuted || callState !== 'connected' || !isOpen) {
           if (hadSpeech && audioBlob.size < 2000) console.log("🤏 Audio too short, skipping.");
           setIsProcessing(false);
           return;
@@ -426,7 +426,8 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
       isSpeaking: curIsSpeaking
     } = stateRef.current;
 
-    if (!message.trim() || curIsSpeaking || (isProcessing && !fromSTT)) return;
+    if (!message.trim() || (isProcessing && !fromSTT)) return;
+    if (!fromSTT && curIsSpeaking) return;
 
     if (!fromSTT) setIsProcessing(true); // Only set if not already set by STT
     setIsThinking(true);
@@ -647,15 +648,12 @@ Customer Name: ${latestName}
 Session Context: Talking via Voice/VoIP.
 
 CONVERSATIONAL PROTOCOL:
-1. HUMAN TONE: Speak like a real person. Use fillers like "I see," "Absolutely," "Let me check that," or "Wonderful." 
-2. NO ROBOTIC LISTS: Instead of listing items, blend them into natural sentences.
+1. RECEPTIONIST ONLY: You are a receptionist. Respond concisely. Never give medical advice, warnings, or moral lessons.
+2. BE BRIEF: Limit every response to maximum 2 or 3 short sentences. No long explanations.
 3. ADAPTIVE GREETING:
-   - Only on first contact: Introduce yourself as the virtual receptionist and summarize your main services from the industry data.
-   - For regular turns: Stay focused on the latest answer. Do NOT repeat introductions.
-4. POST-BOOKING/ACTION FLOW (MANDATORY):
-   - Step 1: Once a booking is confirmed, ask: "I've handled that for you. Is there anything else I can help you with today?"
-   - Step 2: If the user says "No" or "That's it": Politely ask for feedback. "Understood. Before we finish, how would you rate my service today on a scale of 1 to 5?"
-   - Step 3: Once the user provides a number (1-5), issue the [COLLECT_FEEDBACK] command followed by [HANG_UP].
+   - First contact: Introduce yourself as the virtual receptionist and briefly list services.
+   - Regular turns: Address the query directly and briefly. Never repeat introductions.
+4. TASK FOCUS: Don't tell the user "your life is important" or "heart pain is bad". Instead say "I understand. I can book an appointment with our Cardiologists, Dr. Ravi or Dr. Rajendra. Which one would you prefer?"
 5. COMMAND SYNTAX:
    - [BOOK_APPOINTMENT for {Doctor/Person} on {Date} at {Time}]
    - [BOOK_TABLE for {Count} on {Date} at {Time}]
@@ -923,7 +921,7 @@ ${languageInstruction}
         addMessage('agent', onboardingMsg);
         speak(onboardingMsg, curLang.code);
       }
-    }, 800);
+    }, 500);
   };
 
   const endCall = () => {

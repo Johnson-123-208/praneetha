@@ -123,8 +123,8 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
         messages,
-        temperature: 0.7,
-        max_tokens: 500
+        temperature: 0.4,
+        max_tokens: 600
       })
     });
 
