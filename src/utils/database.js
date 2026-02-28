@@ -163,10 +163,13 @@ export const database = {
     const payload = {
       company_id: order.companyId || order.company_id || order.entityId,
       user_email: order.userEmail || order.user_email,
+      user_name: order.customerName || order.user_name || 'Customer',
       booking_type: 'Order',
       target_item: order.item || 'Generic Item',
-      date: new Date().toISOString().split('T')[0], // Today's date for orders
-      time: new Date().toTimeString().split(' ')[0], // Current time
+      title: order.item || 'E-Commerce Order',
+      sub_title: order.industry || 'Purchase',
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toTimeString().split(' ')[0],
       status: 'completed'
     };
 
@@ -178,8 +181,11 @@ export const database = {
     const payload = {
       company_id: appointment.companyId || appointment.company_id || appointment.entityId,
       user_email: appointment.userEmail || appointment.user_email,
+      user_name: appointment.userName || appointment.user_name || 'Customer',
       booking_type: appointment.type || 'Appointment',
       target_item: appointment.personName || appointment.item || 'General',
+      title: appointment.personName || appointment.item || 'Generic Appointment',
+      sub_title: appointment.type || 'Activity',
       date: appointment.date,
       time: appointment.time,
       status: 'scheduled'
@@ -194,8 +200,8 @@ export const database = {
     const { data: f } = await supabase.from('feedback').select('*').eq('user_email', email).order('created_at', { ascending: false });
 
     return {
-      appointments: (b || []).filter(item => item.booking_type !== 'Table'),
-      reservations: (b || []).filter(item => item.booking_type === 'Table'),
+      appointments: (b || []).filter(item => item.booking_type?.toLowerCase() !== 'table'),
+      reservations: (b || []).filter(item => item.booking_type?.toLowerCase() === 'table'),
       feedback: f || []
     };
   },
@@ -287,6 +293,7 @@ export const database = {
 export const tools = {
   book_order: async (data) => await database.saveOrder(data),
   book_appointment: async (params) => await database.saveAppointment(params),
+  collect_feedback: async (params) => await database.saveFeedback(params),
   query_entity_database: async (params) => await database.query_entity_database(params),
   get_available_slots: async (params) => await database.get_available_slots(params),
   hang_up: async () => ({ success: true, message: 'Disconnected.' })

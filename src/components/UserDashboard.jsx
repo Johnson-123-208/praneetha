@@ -195,11 +195,11 @@ const RecordCard = ({ record, type, formatDate, getStatusStyle }) => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h3 className="font-black text-slate-900 text-lg tracking-tight truncate">
-                            {isHospital ? (record.doctors?.doctor_name || 'Medical Specialist') :
+                            {record.title || (isHospital ? (record.doctors?.doctor_name || 'Medical Specialist') :
                                 isRestaurant ? (`Table #${record.restaurant_tables?.table_number || 'TBD'}`) :
                                     isBusiness ? (record.staff?.name || 'HR/Manager Meeting') :
                                         isOrder ? (record.products?.name || 'E-Commerce Item') :
-                                            `Feedback Rating`}
+                                            `Feedback Rating`)}
                         </h3>
                         <div className="flex items-center gap-4 text-xs font-bold text-slate-400 mt-1">
                             {record.date && (
