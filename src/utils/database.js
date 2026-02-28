@@ -52,26 +52,32 @@ export const database = {
     }
   },
 
-  quickSignUp: async () => {
+  quickSignUp: async (email, password) => {
     const randomId = Math.random().toString(36).substring(2, 7);
-    const email = `guest_${randomId}@callix.dev`;
-    const password = `Pass_${randomId}#2025`;
+    const guestEmail = email || `guest_${randomId}@callix.dev`;
+    const guestPass = password || `Pass_${randomId}#2025`;
     const fullName = `Guest User ${randomId.toUpperCase()}`;
 
     try {
       const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName, is_guest: true } }
+        email: guestEmail,
+        password: guestPass,
+        options: {
+          data: {
+            full_name: fullName,
+            role: 'guest',
+            is_guest: true
+          }
+        }
       });
       if (error) throw error;
-      return { user: data.user, email, password };
+      return { user: data.user, email: guestEmail, password: guestPass };
     } catch (err) {
       // Return a valid-looking object even on failure for instant access
       return {
-        user: { id: `guest-${Date.now()}`, email, user_metadata: { full_name: fullName } },
-        email,
-        password,
+        user: { id: `guest-${Date.now()}`, email: guestEmail, user_metadata: { full_name: fullName, role: 'guest' } },
+        email: guestEmail,
+        password: guestPass,
         isMock: true
       };
     }

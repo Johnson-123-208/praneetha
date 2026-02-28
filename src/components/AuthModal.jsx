@@ -7,6 +7,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess, initialMode = 'signin', initial
     // Initialize state directly from props since we use 'key' in App.jsx to force remounts
     const [authMode, setAuthMode] = useState(initialMode);
     const [userRole, setUserRole] = useState(initialRole);
+    const [isGuest, setIsGuest] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -24,6 +25,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess, initialMode = 'signin', initial
     useEffect(() => {
         setAuthMode(initialMode);
         setUserRole(initialRole);
+        setIsGuest(false);
     }, [initialMode, initialRole]);
 
     const handleSubmit = async (e) => {
@@ -36,6 +38,13 @@ const AuthModal = ({ isOpen, onClose, onSuccess, initialMode = 'signin', initial
                 if (userRole === 'admin') {
                     await database.signUpAdmin(formData.email, formData.password, formData.fullName, formData.companyName, formData.industry);
                     alert('Registration submitted. The Superadmin has been notified for approval.');
+                } else if (isGuest) {
+                    const quickUser = await database.quickSignUp(formData.email, formData.password);
+                    const user = await database.signIn(quickUser.email, quickUser.password);
+                    localStorage.setItem('user', JSON.stringify(user));
+                    onSuccess(user);
+                    onClose();
+                    return;
                 } else {
                     await database.signUp(formData.email, formData.password, formData.fullName);
                     alert('Registration successful. Please check your email for verification.');
@@ -108,27 +117,24 @@ const AuthModal = ({ isOpen, onClose, onSuccess, initialMode = 'signin', initial
                         )}
 
                         {authMode === 'signup' && userRole === 'user' && (
-                            <motion.button
-                                type="button"
-                                onClick={async () => {
-                                    setLoading(true);
-                                    try {
-                                        const quickUser = await database.quickSignUp();
-                                        const user = await database.signIn(quickUser.email, quickUser.password);
-                                        localStorage.setItem('user', JSON.stringify(user));
-                                        onSuccess(user);
-                                        onClose();
-                                    } catch (err) {
-                                        setError('Quick Access failed. Please use standard signup.');
-                                    } finally {
-                                        setLoading(false);
-                                    }
-                                }}
-                                className="w-full mb-4 py-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 text-indigo-400 font-black text-[9px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-indigo-500/10 transition-all"
-                            >
-                                <Zap size={12} className="fill-indigo-400" />
-                                Express Guest Entry (No Email Confirm)
-                            </motion.button>
+                            <div className="mb-4 flex items-center justify-between p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Zap size={12} className={isGuest ? "text-amber-400 fill-amber-400" : "text-indigo-400"} />
+                                        <span className={`text-[9px] font-black uppercase tracking-wider ${isGuest ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                            {isGuest ? 'Express Guest Mode Active' : 'Enable Guest Access'}
+                                        </span>
+                                    </div>
+                                    <p className="text-[7px] text-slate-500 font-bold uppercase tracking-tighter">Bypass email confirmation & skip verification</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsGuest(!isGuest)}
+                                    className={`relative w-8 h-4 rounded-full transition-all duration-300 ${isGuest ? 'bg-amber-500' : 'bg-slate-800'}`}
+                                >
+                                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all duration-300 ${isGuest ? 'left-4.5' : 'left-0.5'}`} />
+                                </button>
+                            </div>
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-3 text-left">
@@ -241,12 +247,12 @@ const AuthModal = ({ isOpen, onClose, onSuccess, initialMode = 'signin', initial
                                 <motion.button
                                     type="submit"
                                     disabled={loading}
-                                    className={`w-full text-white font-black text-[9px] uppercase tracking-[0.3em] py-3 rounded-lg shadow-xl transition-all flex items-center justify-center gap-2 group mb-4 disabled:opacity-50 ${userRole === 'admin' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-indigo-600 hover:bg-indigo-500'
+                                    className={`w-full text-white font-black text-[9px] uppercase tracking-[0.3em] py-3 rounded-lg shadow-xl transition-all flex items-center justify-center gap-2 group mb-4 disabled:opacity-50 ${userRole === 'admin' ? 'bg-amber-600 hover:bg-amber-500' : (isGuest ? 'bg-amber-500 hover:bg-amber-400' : 'bg-indigo-600 hover:bg-indigo-500')
                                         }`}
                                     whileHover={{ y: -1 }}
                                     whileTap={{ scale: 0.99 }}
                                 >
-                                    {loading ? 'Processing...' : authMode === 'signin' ? 'Sign In' : 'Sign Up'}
+                                    {loading ? 'Processing...' : (authMode === 'signin' ? 'Sign In' : (isGuest ? 'Start Instant Guest Session' : 'Create Standard Account'))}
                                     <ChevronRight size={10} className="group-hover:translate-x-1 transition-transform" />
                                 </motion.button>
 
