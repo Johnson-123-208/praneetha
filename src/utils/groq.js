@@ -115,7 +115,7 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
 
     const messages = [
       { role: 'system', content: systemMessage },
-      ...history.map(msg => ({ role: 'user', content: msg.text || msg.content || '' })),
+      ...history.map(msg => ({ role: msg.role || 'user', content: msg.text || msg.content || '' })),
       { role: 'user', content: prompt }
     ];
 
@@ -151,15 +151,18 @@ export const chatWithGroq = async (prompt, history = [], companyContext = null, 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'llama-3.1-8b-instant',
-          messages: [{
-            role: 'system',
-            content: `ACTION RESULT: ${JSON.stringify(result)}. 
-            Confirm natively in 1 short sentence. 
-            NEVER mention "slots", "database", "searching", or "booking process". 
-            Just confirm the result naturally (e.g., "Done, your table is ready"). 
-            NO English loanword fragments in non-English turns. 
-            LANGUAGE: ${companyContext?.currLangName || 'English'}`
-          }],
+          messages: [
+            ...messages,
+            { role: 'assistant', content: assistantMessage },
+            {
+              role: 'system',
+              content: `ACTION RESULT: ${JSON.stringify(result)}. 
+              Confirm that the action was successful or state the result naturally in 1 short sentence.
+              BE ADVISED: Use the same language as the previous turn: ${companyContext?.currLangName || 'English'}.
+              NEVER mention internal technical terms like "slots", "database", "searching", or "booking process".
+              Just confirm results like: "Done, your table for 4 is booked." or "I've scheduled your appointment with Dr. Rao."`
+            }
+          ],
           temperature: 0.5,
           max_tokens: 150
         })

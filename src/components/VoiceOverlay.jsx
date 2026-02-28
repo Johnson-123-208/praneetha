@@ -6,6 +6,7 @@ import { detectLanguage } from '../utils/languageDetection';
 import { ttsService } from '../utils/ttsService';
 import { sttService } from '../utils/sttService';
 import { HospitalPrompt, RestaurantPrompt, ECommercePrompt, BusinessPrompt, DefaultPrompt } from '../prompts/agentPrompts';
+import { database } from '../utils/database';
 
 const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
   const [callState, setCallState] = useState('idle'); // idle, ringing, connected, ended
@@ -302,7 +303,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
                     mediaRecorderRef.current.stop();
                   }
                   silenceTimerRef.current = null;
-                }, 700);
+                }, 1200);
               }
             }
           }
@@ -457,13 +458,17 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
     setIsThinking(true);
 
     try {
-      addMessage('user', message);
+      const isInternal = message.startsWith('[') && message.endsWith(']');
+      if (!isInternal) {
+        addMessage('user', message);
+      }
       setIsListening(false);
       setTranscript('');
 
-      if (curMessages.length > 0) {
-        const lastAgentMsg = curMessages.filter(m => m.sender === 'agent').pop();
-        if (lastAgentMsg && calculateSimilarity(message, lastAgentMsg.text) > 0.95) {
+      const currentMsgs = stateRef.current.messages;
+      if (currentMsgs.length > 0) {
+        const lastAgentMsg = currentMsgs.filter(m => m.sender === 'agent').pop();
+        if (lastAgentMsg && lastAgentMsg.text && calculateSimilarity(message, lastAgentMsg.text) > 0.95) {
           console.log(`🚫 Echo detected, ignoring.`);
           setIsProcessing(false);
           setIsThinking(false);
@@ -477,7 +482,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
         setConvoPhase('chatting');
         stateRef.current.userName = extractedName;
         stateRef.current.convoPhase = 'chatting';
-        message = `[USER_NAME_DISCOVERED: ${extractedName}]`;
+        message = `${message} [SYSTEM: User name discovered as ${extractedName}]`;
       }
 
       // Main AI Flow starts here
