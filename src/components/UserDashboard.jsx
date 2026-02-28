@@ -85,11 +85,11 @@ const UserDashboard = ({ user, onClose, onLogout, addToast }) => {
                 </div>
 
                 <nav className="flex-1 space-y-2">
-                    <TabButton active={activeTab === 'appointments'} onClick={() => setActiveTab('appointments')} icon={<Stethoscope size={20} />} label="Hospitals" count={data.appointments.length} />
-                    <TabButton active={activeTab === 'reservations'} onClick={() => setActiveTab('reservations')} icon={<Utensils size={20} />} label="Restaurants" count={data.reservations.length} />
-                    <TabButton active={activeTab === 'meetings'} onClick={() => setActiveTab('meetings')} icon={<Briefcase size={20} />} label="Business" count={data.meetings.length} />
-                    <TabButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} icon={<ShoppingBag size={20} />} label="E-Commerce" count={data.orders.length} />
-                    <TabButton active={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} icon={<Star size={20} />} label="Ratings" count={data.feedback.length} />
+                    <TabButton active={activeTab === 'appointments'} onClick={() => setActiveTab('appointments')} icon={<Stethoscope size={20} />} label="Hospitals" count={data?.appointments?.length || 0} />
+                    <TabButton active={activeTab === 'reservations'} onClick={() => setActiveTab('reservations')} icon={<Utensils size={20} />} label="Restaurants" count={data?.reservations?.length || 0} />
+                    <TabButton active={activeTab === 'meetings'} onClick={() => setActiveTab('meetings')} icon={<Briefcase size={20} />} label="Business" count={data?.meetings?.length || 0} />
+                    <TabButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} icon={<ShoppingBag size={20} />} label="E-Commerce" count={data?.orders?.length || 0} />
+                    <TabButton active={activeTab === 'feedback'} onClick={() => setActiveTab('feedback')} icon={<Star size={20} />} label="Ratings" count={data?.feedback?.length || 0} />
                 </nav>
 
                 <div className="mt-auto pt-4 border-t border-white/10">

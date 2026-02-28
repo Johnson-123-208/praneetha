@@ -200,8 +200,10 @@ export const database = {
     const { data: f } = await supabase.from('feedback').select('*').eq('user_email', email).order('created_at', { ascending: false });
 
     return {
-      appointments: (b || []).filter(item => item.booking_type?.toLowerCase() !== 'table'),
-      reservations: (b || []).filter(item => item.booking_type?.toLowerCase() === 'table'),
+      appointments: (b || []).filter(item => item.booking_type?.toLowerCase() === 'appointment' || item.booking_type?.toLowerCase() === 'doctor'),
+      reservations: (b || []).filter(item => item.booking_type?.toLowerCase() === 'table' || item.booking_type?.toLowerCase() === 'reservation'),
+      meetings: (b || []).filter(item => item.booking_type?.toLowerCase() === 'meeting' || item.booking_type?.toLowerCase() === 'interview'),
+      orders: (b || []).filter(item => item.booking_type?.toLowerCase() === 'order'),
       feedback: f || []
     };
   },
