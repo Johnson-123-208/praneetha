@@ -143,28 +143,31 @@ function App() {
       setLoading(true);
       const data = await database.getCompanies();
 
-      if (data && data.length > 0) {
+      if (data) {
         const formattedCompanies = data
-          .map(c => ({ ...c, status: c.status || 'active' }))
-          .filter(c => c.status === 'active')
           .map(c => ({
             id: c.id,
             name: c.name,
             industry: c.industry || 'Technology',
             logo: c.logo || (c.industry === 'Healthcare' ? '🏥' : (c.industry === 'Food & Beverage' ? '🍽' : (c.industry === 'E-Commerce' ? '🛒' : '🏢'))),
-            contextSummary: c.context_summary || '',
+            contextSummary: c.context_summary || c.nlp_context || 'Standard AI Intelligence Pattern',
             nlpContext: c.nlp_context || '',
+            status: c.status || 'active',
             apiLinked: true
           }));
-        setCompanies(formattedCompanies);
-      } else {
-        // Fallback for demo when database is unreachable
-        setCompanies([
-          { id: 'h1', name: 'Aarogya Multi-Specialty Hospital', industry: 'Healthcare', logo: '🏥', contextSummary: 'AI-Driven 24/7 Patient Concierge and Appointment Management.', nlpContext: 'Manage appointments, check availability.', apiLinked: true },
-          { id: 'r1', name: 'Spice Garden Premium Fine-Dining', industry: 'Food & Beverage', logo: '🍽', contextSummary: 'Automated Reservations, Menu Inquiries, and Home Delivery.', nlpContext: 'Book tables and take food orders.', apiLinked: true },
-          { id: 't1', name: 'TechNova Global IT Solutions', industry: 'Technology', logo: '🏢', contextSummary: 'Level-1 Technical Support and SaaS Deployment Assistance.', nlpContext: 'IT support and lead generation.', apiLinked: true }
-        ]);
+
+        if (formattedCompanies.length > 0) {
+          setCompanies(formattedCompanies);
+          return;
+        }
       }
+
+      // Fallback for demo when database is unreachable or empty
+      setCompanies([
+        { id: 'h1', name: 'Aarogya Multi-Specialty Hospital', industry: 'Healthcare', logo: '🏥', contextSummary: 'AI-Driven 24/7 Patient Concierge and Appointment Management.', nlpContext: 'Manage appointments, check availability.', apiLinked: true },
+        { id: 'r1', name: 'Spice Garden Premium Fine-Dining', industry: 'Food & Beverage', logo: '🍽', contextSummary: 'Automated Reservations, Menu Inquiries, and Home Delivery.', nlpContext: 'Book tables and take food orders.', apiLinked: true },
+        { id: 't1', name: 'TechNova Global IT Solutions', industry: 'Technology', logo: '🏢', contextSummary: 'Level-1 Technical Support and SaaS Deployment Assistance.', nlpContext: 'IT support and lead generation.', apiLinked: true }
+      ]);
     } catch (error) {
       console.error('Error loading companies:', error);
     } finally {

@@ -23,6 +23,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/supabase': {
+        target: 'https://ywvqvldqlowloxrpldss.supabase.co',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/supabase/, '')
+      },
       '/groq': {
         target: 'https://api.groq.com',
         changeOrigin: true,

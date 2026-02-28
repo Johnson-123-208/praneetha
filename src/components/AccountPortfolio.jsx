@@ -121,9 +121,14 @@ const AccountPortfolio = ({ onDeployAgent, companies = [], loading = false, isLo
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-between text-[9px] font-black text-slate-500 mb-5 px-1">
-                      <span className="flex items-center gap-1"><ShieldCheck size={10} className="text-emerald-500 shadow-emerald-500/20 shadow-lg" /> Optimized</span>
-                      <span className="text-emerald-500">ACTIVE</span>
+                    <div className="flex items-center justify-between text-[9px] font-black mb-5 px-1">
+                      <span className="flex items-center gap-1 text-slate-500 uppercase tracking-widest leading-none">
+                        <ShieldCheck size={10} className={`${company.status === 'active' ? 'text-emerald-500' : 'text-amber-500'} shadow-lg`} />
+                        {company.status === 'active' ? 'Verified' : 'Provisioning'}
+                      </span>
+                      <span className={company.status === 'active' ? 'text-emerald-500' : 'text-amber-500 uppercase tracking-widest'}>
+                        {company.status?.toUpperCase() || 'ACTIVE'}
+                      </span>
                     </div>
 
                     <button
