@@ -243,6 +243,44 @@ export const database = {
       console.warn('Vault Access Error:', e);
       return 'Operational.';
     }
+  },
+
+  query_entity_database: async ({ entityId, category, query }) => {
+    try {
+      // Logic to search specifically within the company's vault
+      const { data } = await supabase
+        .from('companies')
+        .select('name')
+        .eq('id', entityId)
+        .single();
+
+      const catalogue = await database.getLiveCatalogue(entityId, data?.name || '');
+      // This allows the AI to "search" the text-based catalogue we already fetch
+      return catalogue;
+    } catch (e) {
+      return "Database search unavailable.";
+    }
+  },
+
+  get_available_slots: async ({ entityId, date, industry }) => {
+    try {
+      // Fetch existing bookings for this entity and date
+      const { data: existingBookings } = await supabase
+        .from('bookings')
+        .select('time')
+        .eq('company_id', entityId)
+        .eq('date', date)
+        .eq('status', 'scheduled');
+
+      const bookedTimes = (existingBookings || []).map(b => b.time);
+
+      // Return the current bookings so the AI can compare against vault timings
+      return bookedTimes.length > 0
+        ? `Existing bookings for ${date}: ${bookedTimes.join(', ')}. Please suggest alternative times.`
+        : `All slots are currently free for ${date}.`;
+    } catch (e) {
+      return "Unable to verify slots at this time.";
+    }
   }
 };
 
