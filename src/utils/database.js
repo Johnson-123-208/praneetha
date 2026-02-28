@@ -130,7 +130,8 @@ export const database = {
       industry: companyData.industry,
       nlp_context: companyData.nlp_context,
       website_url: companyData.websiteUrl || companyData.website_url,
-      logo: companyData.logo || '🏢'
+      logo: companyData.logo || '🏢',
+      status: 'active'
     }]).select();
     if (error) throw error;
     return data[0];

@@ -145,7 +145,8 @@ function App() {
 
       if (data && data.length > 0) {
         const formattedCompanies = data
-          .filter(c => c.status !== 'pending' && c.status !== 'inactive')
+          .map(c => ({ ...c, status: c.status || 'active' }))
+          .filter(c => c.status === 'active')
           .map(c => ({
             id: c.id,
             name: c.name,

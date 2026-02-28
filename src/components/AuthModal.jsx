@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mail, Lock, User, Building2, Briefcase, ChevronRight, ShieldCheck, ArrowLeft, AlertCircle } from 'lucide-react';
+import { X, Mail, Lock, User, Building2, Briefcase, ChevronRight, ShieldCheck, ArrowLeft, AlertCircle, Zap } from 'lucide-react';
 import { database } from '../utils/database';
 
 const AuthModal = ({ isOpen, onClose, onSuccess, initialMode = 'signin', initialRole = 'user' }) => {
