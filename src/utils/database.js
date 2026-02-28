@@ -36,7 +36,11 @@ export const database = {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName } }
+        options: {
+          data: { full_name: fullName },
+          // Note: If you want to disable email confirmation for users, 
+          // you must also toggle "Confirm Email" OFF in the Supabase Auth Settings.
+        }
       });
       if (error) throw error;
       return data;
@@ -48,6 +52,30 @@ export const database = {
     }
   },
 
+  quickSignUp: async () => {
+    const randomId = Math.random().toString(36).substring(2, 7);
+    const email = `guest_${randomId}@callix.dev`;
+    const password = `Pass_${randomId}#2025`;
+    const fullName = `Guest User ${randomId.toUpperCase()}`;
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName, is_guest: true } }
+      });
+      if (error) throw error;
+      return { user: data.user, email, password };
+    } catch (err) {
+      // Return a valid-looking object even on failure for instant access
+      return {
+        user: { id: `guest-${Date.now()}`, email, user_metadata: { full_name: fullName } },
+        email,
+        password,
+        isMock: true
+      };
+    }
+  },
   signUpAdmin: async (email, password, fullName, companyName, industry) => {
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -96,134 +124,116 @@ export const database = {
     return error ? null : data;
   },
 
+  saveCompany: async (companyData) => {
+    const { data, error } = await supabase.from('companies').insert([{
+      name: companyData.name,
+      industry: companyData.industry,
+      nlp_context: companyData.nlp_context,
+      website_url: companyData.websiteUrl || companyData.website_url,
+      logo: companyData.logo || '🏢'
+    }]).select();
+    if (error) throw error;
+    return data[0];
+  },
+
+  saveDoctor: async (doctor) => {
+    const { data, error } = await supabase.from('doctors').insert([doctor]).select();
+    return error ? { error: error.message } : data[0];
+  },
+
+  saveMenuItem: async (item) => {
+    const { data, error } = await supabase.from('restaurant_tables').insert([item]).select(); // Note: check if 'menu' or 'tables' is correct, but follow onboarding usage
+    return error ? { error: error.message } : data[0];
+  },
+
+  saveProduct: async (product) => {
+    const { data, error } = await supabase.from('products').insert([product]).select();
+    return error ? { error: error.message } : data[0];
+  },
+
   // --- UNIVERSAL INTERACTION ENGINE ---
   saveOrder: async (order) => {
     const payload = {
       company_id: order.companyId || order.company_id || order.entityId,
       user_email: order.userEmail || order.user_email,
-      user_name: order.userName || order.user_name || 'Customer',
-      type: 'order',
-      title: order.item || 'Order',
-      sub_title: order.quantity ? `${order.quantity} units` : '1 unit',
-      amount: order.price || 0,
-      status: 'completed',
-      data: order
+      booking_type: 'Order',
+      target_item: order.item || 'Generic Item',
+      date: new Date().toISOString().split('T')[0], // Today's date for orders
+      time: new Date().toTimeString().split(' ')[0], // Current time
+      status: 'completed'
     };
-    const { data, error } = await supabase.from('company_interactions').insert([payload]).select();
+
+    const { data, error } = await supabase.from('bookings').insert([payload]).select();
     return error ? { error: error.message } : data[0];
   },
 
   saveAppointment: async (appointment) => {
-    const industry = appointment.industry;
     const payload = {
       company_id: appointment.companyId || appointment.company_id || appointment.entityId,
       user_email: appointment.userEmail || appointment.user_email,
-      user_name: appointment.userName || appointment.user_name || 'Client',
-      type: industry === INDUSTRIES.RESTAURANT ? 'reservation' : (industry === INDUSTRIES.BUSINESS ? 'meeting' : 'booking'),
-      title: appointment.item || 'Appointment',
-      sub_title: appointment.personName || appointment.person_name || 'General',
+      booking_type: appointment.type || 'Appointment',
+      target_item: appointment.personName || appointment.item || 'General',
       date: appointment.date,
       time: appointment.time,
-      status: 'scheduled',
-      data: appointment
+      status: 'scheduled'
     };
 
-    // 1. Log the interaction
-    const { data, error } = await supabase.from('company_interactions').insert([payload]).select();
-
-    // 2. Mark slot as booked in specific industry table
-    try {
-      let slotTable = (industry === INDUSTRIES.RESTAURANT || industry === 'Food & Beverage')
-        ? 'restaurant_slots'
-        : (industry === INDUSTRIES.BUSINESS || industry === 'Technology')
-          ? 'staff_slots'
-          : 'hospital_slots';
-
-      await supabase.from(slotTable)
-        .update({ is_booked: true })
-        .eq('company_id', payload.company_id)
-        .eq('date', payload.date)
-        .eq('time', payload.time);
-    } catch (e) { console.warn('Slot update failed:', e); }
-
+    const { data, error } = await supabase.from('bookings').insert([payload]).select();
     return error ? { error: error.message } : data[0];
   },
 
   getUserData: async (email) => {
-    const { data: all } = await supabase.from('company_interactions').select('*').eq('user_email', email).order('created_at', { ascending: false });
+    const { data: b } = await supabase.from('bookings').select('*').eq('user_email', email).order('created_at', { ascending: false });
+    const { data: f } = await supabase.from('feedback').select('*').eq('user_email', email).order('created_at', { ascending: false });
+
     return {
-      appointments: (all || []).filter(i => i.type === 'booking'),
-      reservations: (all || []).filter(i => i.type === 'reservation'),
-      meetings: (all || []).filter(i => i.type === 'meeting'),
-      orders: (all || []).filter(i => i.type === 'order')
+      appointments: (b || []).filter(item => item.booking_type !== 'Table'),
+      reservations: (b || []).filter(item => item.booking_type === 'Table'),
+      feedback: f || []
     };
   },
 
-  // --- AI TOOL LOGIC ---
-  query_entity_database: async (params) => {
-    const { entityId } = params;
-    const company = await database.getCompany(entityId);
-    if (!company) return { error: 'Company not found' };
-
-    let knowledge = '';
-
-    // 1. Unified Assets (Modern Folder)
-    const { data: assets } = await supabase.from('company_assets').select('*').eq('company_id', entityId);
-    if (assets) {
-      knowledge += assets.map(a => `[${a.category.toUpperCase()}] ${a.name}: ${JSON.stringify(a.data)}`).join('\n');
-    }
-
-    // 2. Legacy Tables (Fallbacks)
-    if (company.industry === INDUSTRIES.HEALTHCARE) {
-      const { data } = await supabase.from('doctors').select('*').eq('company_id', entityId);
-      if (data) knowledge += '\nDoctors: ' + data.map(d => `${d.doctor_name}`).join(', ');
-    } else if (company.industry === INDUSTRIES.RESTAURANT) {
-      const { data } = await supabase.from('menu').select('*').eq('company_id', entityId);
-      if (data) knowledge += '\nMenu items available.';
-    }
-
-    return {
-      result: knowledge || company.nlp_context || 'System operational.',
-      entityName: company.name
-    };
+  // --- ADMIN DASHBOARD DATA ---
+  getCompanyInteractions: async (companyId) => {
+    const { data: bookings } = await supabase.from('bookings').select('*').eq('company_id', companyId).order('created_at', { ascending: false });
+    const { data: feedback } = await supabase.from('feedback').select('*').eq('company_id', companyId).order('created_at', { ascending: false });
+    return { bookings: bookings || [], feedback: feedback || [] };
   },
 
-  get_available_slots: async (params) => {
-    const { entityId, date, industry } = params;
-    let table = industry === INDUSTRIES.RESTAURANT ? 'restaurant_slots' : (industry === INDUSTRIES.BUSINESS ? 'staff_slots' : 'hospital_slots');
-    const { data } = await supabase.from(table).select('time').eq('company_id', entityId).eq('date', date).eq('is_booked', false);
-    return {
-      available: data ? data.map(s => s.time) : [],
-      message: data?.length ? `Available: ${data.map(s => s.time).join(', ')}` : 'No slots available.'
+  saveFeedback: async (feedback) => {
+    const payload = {
+      company_id: feedback.companyId || feedback.company_id || feedback.entityId,
+      user_email: feedback.user_email || feedback.userEmail || 'Guest',
+      rating: feedback.rating,
+      comment: feedback.comment || 'Voice Feedback'
     };
+    const { data, error } = await supabase.from('feedback').insert([payload]).select();
+    return error ? { error: error.message } : data[0];
   },
 
-  getLiveCatalogue: async (companyId, industry) => {
+  getLiveCatalogue: async (companyId, companyName) => {
     try {
-      let knowledge = '';
+      let vaultTable = '';
+      const name = companyName.toLowerCase();
 
-      // 1. Fetch Unified Assets
-      const { data: assets } = await supabase.from('company_assets').select('*').eq('company_id', companyId);
-      if (assets?.length > 0) {
-        knowledge += assets.map(a => `[${a.category}] ${a.name}`).join('\n');
-      }
+      if (name.includes('aarogya')) vaultTable = 'aarogya_hospital_vault';
+      else if (name.includes('city')) vaultTable = 'city_general_vault';
+      else if (name.includes('technova')) vaultTable = 'technova_solutions_vault';
+      else if (name.includes('spice')) vaultTable = 'spice_garden_vault';
+      else if (name.includes('quickkart')) vaultTable = 'quickkart_electronics_vault';
 
-      // 2. Fetch Industry Specific Legacy Data
-      if (industry === INDUSTRIES.HEALTHCARE) {
-        const { data: doctors } = await supabase.from('doctors').select('doctor_name, specialty').eq('company_id', companyId);
-        if (doctors?.length > 0) {
-          knowledge += '\nDoctors Available:\n' + doctors.map(d => `- ${d.doctor_name} (${d.specialty || 'General'})`).join('\n');
-        }
-      } else if (industry === INDUSTRIES.RESTAURANT) {
-        const { data: menu } = await supabase.from('menu').select('item_name, price, category').eq('company_id', companyId);
-        if (menu?.length > 0) {
-          knowledge += '\nMenu Highlights:\n' + menu.map(m => `- ${m.item_name}: ${m.price}`).join('\n');
-        }
-      }
+      if (!vaultTable) return "Operational.";
 
-      return knowledge || 'System Operational for ' + industry + '.';
+      const { data } = await supabase.from(vaultTable).select('*');
+      if (!data || data.length === 0) return "Catalogue under sync...";
+
+      return data.map(item => {
+        const timings = item.timings_json ? ` | Timings: ${JSON.stringify(item.timings_json)}` : '';
+        const price = item.price_or_fee || item.price ? ` | Price: ${item.price_or_fee || item.price} INR` : '';
+        return `[${item.category.toUpperCase()}] ${item.label}: ${item.details}${price}${timings}`;
+      }).join('\n');
     } catch (e) {
-      console.error('Catalogue Fetch Error:', e);
+      console.warn('Vault Access Error:', e);
       return 'Operational.';
     }
   }

@@ -81,12 +81,12 @@ const AdminDashboard = ({ user, onLogout, addToast }) => {
                 .eq('company_id', user.profile.company_id);
             setUsers(companyUsers || []);
 
-            const { data: interactions } = await supabase
-                .from('company_interactions')
+            const { data: bookingsData } = await supabase
+                .from('bookings')
                 .select('*')
                 .eq('company_id', user.profile.company_id)
                 .order('created_at', { ascending: false });
-            setBookings(interactions || []);
+            setBookings(bookingsData || []);
 
             const { data: registry } = await supabase
                 .from('approval_queue')

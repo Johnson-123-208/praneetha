@@ -39,12 +39,12 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
     const loadSuperAdminData = async () => {
         try {
             setLoading(true);
-            const [companiesData, usersData, approvalsData, usageData, interactionsData, pendingAdminsData] = await Promise.all([
+            const [companiesData, usersData, approvalsData, usageData, bookingsData, pendingAdminsData] = await Promise.all([
                 supabase.from('companies').select('*'),
                 supabase.from('profiles').select('*'),
                 supabase.from('approval_queue').select('*, companies(*), profiles(*)').eq('status', 'pending'),
                 supabase.from('usage_stats').select('tokens_used'),
-                supabase.from('company_interactions').select('*, companies(*)').order('created_at', { ascending: false }),
+                supabase.from('bookings').select('*, companies(*)').order('created_at', { ascending: false }),
                 supabase.from('profiles').select('*, companies(*)').eq('role', 'admin').eq('status', 'pending')
             ]);
 
@@ -56,7 +56,7 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
             setCompanies(formattedCompanies);
             setAllUsers(usersData.data || []);
             setApprovalRequests(approvalsData.data || []);
-            setAllBookings(interactionsData.data || []);
+            setAllBookings(bookingsData.data || []);
             setPendingAdmins(pendingAdminsData.data || []);
 
             setStats({
@@ -272,10 +272,10 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
                         {view === 'overview' && (
                             <motion.div key="overview" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <PlatformMetric label="Total Companies" value={stats.totalCompanies} icon={<Building2 size={16} />} color="text-blue-400" />
-                                    <PlatformMetric label="Global Users" value={stats.totalUsers} icon={<Users size={16} />} color="text-purple-400" />
-                                    <PlatformMetric label="Total API Calls" value={`${(stats.totalTokens / 1000).toFixed(1)}k`} icon={<Globe size={16} />} color="text-indigo-400" />
-                                    <PlatformMetric label="Operations" value={stats.totalBookings} icon={<Activity size={16} />} color="text-emerald-400" />
+                                    <PlatformMetric label="Total Registered Organizations" value={stats.totalCompanies} icon={<Building2 size={16} />} color="text-blue-400" />
+                                    <PlatformMetric label="Global Authority Network" value={stats.totalUsers} icon={<Users size={16} />} color="text-purple-400" />
+                                    <PlatformMetric label="AI Intelligence Relay" value={`${(stats.totalTokens / 1000).toFixed(1)}k`} icon={<Globe size={16} />} color="text-indigo-400" />
+                                    <PlatformMetric label="Global Ledger Operations" value={stats.totalBookings} icon={<Activity size={16} />} color="text-emerald-400" />
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-4">

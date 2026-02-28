@@ -27,7 +27,6 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
     if (!u) return '';
     if (u.user_metadata?.full_name) return u.user_metadata.full_name;
     if (u.email) {
-      // Extract part before @, replace dots/underscores with space, and capitalize words
       const namePart = u.email.split('@')[0];
       return namePart
         .split(/[._]/)
@@ -37,10 +36,37 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
     return '';
   };
 
+  const extractNameFromMessage = (message) => {
+    let extractedName = 'Guest';
+    const cleanMsg = message.replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "").trim();
+    const nameMatch = cleanMsg.match(/(?:name is|i am|i'm|call me|this is|my name is) ([a-zA-Z]+)/i);
+
+    if (nameMatch) {
+      extractedName = nameMatch[1];
+    } else {
+      const ignoreList = [
+        'hi', 'hello', 'hey', 'my', 'name', 'is', 'the', 'a', 'an', 'yeah', 'yes', 'i', 'am', 'im',
+        'నమస్కారం', 'పేరు', 'నా', 'నాకు', 'నేను', 'naa', 'na', 'naperu',
+        'नमस्ते', 'नाम', 'मेरा', 'मै', 'हूँ', 'mera', 'naam'
+      ];
+
+      const words = cleanMsg.split(/\s+/).filter(w => {
+        const lowW = w.toLowerCase().replace(/[^a-zA-Z0-9\u0C00-\u0C7F\u0900-\u097F]/g, '');
+        return lowW.length > 0 && !ignoreList.includes(lowW);
+      });
+
+      if (words.length > 0) {
+        const capWords = words.filter(w => w[0] === w[0].toUpperCase() && /[a-zA-Z]/.test(w[0]) && w.length > 1);
+        extractedName = capWords.length > 0 ? capWords[capWords.length - 1] : words[words.length - 1];
+      }
+    }
+    return extractedName;
+  };
+
   // Advanced conversation state
   const [convoPhase, setConvoPhase] = useState(getNameFromUser(user) ? 'chatting' : 'intro');
   const [userName, setUserName] = useState(getNameFromUser(user));
-  const [userEmail, setUserEmail] = useState(user?.email || '');
+  const [userEmail, setUserEmail] = useState(user?.email || `guest_${Math.random().toString(36).substring(2, 7)}@callix.io`);
   const [sessionId] = useState(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [selectedLanguage, setSelectedLanguage] = useState({ code: 'en-IN', name: 'English' });
   const [useProSTT, setUseProSTT] = useState(true); // Default to Pro STT for better results
@@ -364,7 +390,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
     const fetchLiveContext = async () => {
       if (selectedCompany?.id && selectedCompany?.industry) {
         console.log(`🧠 Fetching live catalogue for ${selectedCompany.name}...`);
-        const catalogue = await database.getLiveCatalogue(selectedCompany.id, selectedCompany.industry);
+        const catalogue = await database.getLiveCatalogue(selectedCompany.id, selectedCompany.name);
         setLiveCatalogue(catalogue);
       }
     };
@@ -418,7 +444,6 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
   };
 
   const handleUserMessage = async (message, fromSTT = false) => {
-    // ALWAYS use stateRef for logic inside async handlers to avoid stale closures
     const {
       convoPhase: curPhase,
       userName: curName,
@@ -429,7 +454,7 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
     if (!message.trim() || (isProcessing && !fromSTT)) return;
     if (!fromSTT && curIsSpeaking) return;
 
-    if (!fromSTT) setIsProcessing(true); // Only set if not already set by STT
+    if (!fromSTT) setIsProcessing(true);
     setIsThinking(true);
 
     try {
@@ -437,299 +462,101 @@ const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
       setIsListening(false);
       setTranscript('');
 
-      // Prevent Loop: If message is too similar to last agent message, ignore (echo protection)
-      const curMessages = stateRef.current.messages;
-      const lastAgentMsg = curMessages.filter(m => m.sender === 'agent').pop();
-      if (lastAgentMsg) {
-        const similarity = (s1, s2) => {
-          const longer = s1.length > s2.length ? s1 : s2;
-          const shorter = s1.length > s2.length ? s2 : s1;
-          if (longer.length === 0) return 1.0;
-          return (longer.length - editDistance(longer, shorter)) / parseFloat(longer.length);
-        };
-
-        const editDistance = (s1, s2) => {
-          s1 = s1.toLowerCase(); s2 = s2.toLowerCase();
-          let costs = new Array();
-          for (let i = 0; i <= s1.length; i++) {
-            let lastValue = i;
-            for (let j = 0; j <= s2.length; j++) {
-              if (i === 0) costs[j] = j;
-              else {
-                if (j > 0) {
-                  let newValue = costs[j - 1];
-                  if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-                  costs[j - 1] = lastValue;
-                  lastValue = newValue;
-                }
-              }
-            }
-            if (i > 0) costs[s2.length] = lastValue;
-          }
-          return costs[s2.length];
-        };
-
-        if (similarity(message, lastAgentMsg.text) > 0.95) { // Ultra-tight threshold to prevent false positives
-          console.log(`🚫 Echo or duplicate detected (Similarity: ${similarity(message, lastAgentMsg.text)}), ignoring.`);
+      if (curMessages.length > 0) {
+        const lastAgentMsg = curMessages.filter(m => m.sender === 'agent').pop();
+        if (lastAgentMsg && calculateSimilarity(message, lastAgentMsg.text) > 0.95) {
+          console.log(`🚫 Echo detected, ignoring.`);
           setIsProcessing(false);
+          setIsThinking(false);
           return;
         }
       }
 
-      // Phase 1: Onboarding - Only extract name (language already selected)
       if (curPhase === 'onboarding') {
-        let extractedName = 'Guest';
-        const cleanMsg = message.replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "").trim();
-        const nameMatch = cleanMsg.match(/(?:name is|i am|i'm|call me|this is|my name is) ([a-zA-Z]+)/i);
-
-        if (nameMatch) {
-          extractedName = nameMatch[1];
-        } else {
-          // Robust extraction for Indian names and simple responses
-          const ignoreList = [
-            'hi', 'hello', 'hey', 'my', 'name', 'is', 'the', 'a', 'an', 'yeah', 'yes', 'i', 'am', 'im',
-            'నమస్కారం', 'పేరు', 'నా', 'నాకు', 'నేను', 'naa', 'na', 'naperu',
-            'नमस्ते', 'नाम', 'मेरा', 'मै', 'हूँ', 'mera', 'naam'
-          ];
-
-          const words = cleanMsg.split(/\s+/).filter(w => {
-            const lowW = w.toLowerCase().replace(/[^a-zA-Z0-9\u0C00-\u0C7F\u0900-\u097F]/g, '');
-            return lowW.length > 0 && !ignoreList.includes(lowW);
-          });
-
-          if (words.length > 0) {
-            const capWords = words.filter(w => w[0] === w[0].toUpperCase() && /[a-zA-Z]/.test(w[0]) && w.length > 1);
-            extractedName = capWords.length > 0 ? capWords[capWords.length - 1] : words[words.length - 1];
-          }
-        }
-
+        const extractedName = extractNameFromMessage(message);
         setUserName(extractedName);
         setConvoPhase('chatting');
         stateRef.current.userName = extractedName;
         stateRef.current.convoPhase = 'chatting';
-
-        const serviceInfo = getServiceInfo(curLang.code);
-        let greeting = "";
-
-        if (curLang.code === 'te-IN') {
-          greeting = `నమస్కారం ${extractedName} గారు! మా ${selectedCompany?.name}కు సాదరంగా ఆహ్వానిస్తున్నాము. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
-        } else if (curLang.code === 'hi-IN') {
-          greeting = `नमस्ते ${extractedName}! ${selectedCompany?.name} में आपका स्वागत है। ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
-        } else {
-          greeting = `Hello ${extractedName}! Welcome to ${selectedCompany?.name}. ${serviceInfo} How can I assist you today?`;
-        }
-
-        addMessage('agent', greeting);
-        try {
-          await speak(greeting, curLang.code);
-        } finally {
-          setIsProcessing(false);
-        }
-        return;
+        message = `[USER_NAME_DISCOVERED: ${extractedName}]`;
       }
 
-      // Handle explicit hidden call starter
-      if (message === '[INTERNAL_GREETING_START]') {
-        const serviceInfo = getServiceInfo(curLang.code);
-        const nameToUse = curName || 'Guest';
-        let greeting = "";
-
-        if (curLang.code === 'te-IN') {
-          greeting = `నమస్కారం ${nameToUse === 'Guest' ? '' : nameToUse + ' గారు'}! మా ${selectedCompany?.name}కు సాదరంగా ఆహ్వానిస్తున్నాము. ${serviceInfo} నేను మీకు ఎలా సహాయం చేయగలను?`;
-        } else if (curLang.code === 'hi-IN') {
-          greeting = `नमस्ते ${nameToUse === 'Guest' ? '' : nameToUse}! ${selectedCompany?.name} में आपका स्वागत है। ${serviceInfo} मैं आपकी किस प्रकार सहायता कर सकता हूँ?`;
-        } else {
-          greeting = `Hello ${nameToUse}! Welcome to ${selectedCompany?.name}. ${serviceInfo} How can I help you?`;
-        }
-
-        addMessage('agent', greeting);
-        await speak(greeting, curLang.code);
-        setIsProcessing(false);
-        return;
-      }
-
-      // Check for language change request in chatting phase
+      // Main AI Flow starts here
       const lowerMsg = message.toLowerCase();
       let languageChangeDetected = false;
       let newLang = null;
 
       if (lowerMsg.includes('switch to') || lowerMsg.includes('change to') || lowerMsg.includes('change language')) {
-        if (lowerMsg.includes('hindi') || lowerMsg.includes('हिंदी')) {
-          newLang = { code: 'hi-IN', name: 'Hindi' };
-          languageChangeDetected = true;
-        } else if (lowerMsg.includes('telugu') || lowerMsg.includes('తెలుగు')) {
-          newLang = { code: 'te-IN', name: 'Telugu' };
-          languageChangeDetected = true;
-        } else if (lowerMsg.includes('tamil') || lowerMsg.includes('தமிழ்')) {
-          newLang = { code: 'ta-IN', name: 'Tamil' };
-          languageChangeDetected = true;
-        } else if (lowerMsg.includes('kannada') || lowerMsg.includes('ಕನ್ನಡ')) {
-          newLang = { code: 'kn-IN', name: 'Kannada' };
-          languageChangeDetected = true;
-        } else if (lowerMsg.includes('marathi') || lowerMsg.includes('मराठी')) {
-          newLang = { code: 'mr-IN', name: 'Marathi' };
-          languageChangeDetected = true;
-        } else if (lowerMsg.includes('malayalam') || lowerMsg.includes('മലയാളം')) {
-          newLang = { code: 'ml-IN', name: 'Malayalam' };
-          languageChangeDetected = true;
-        } else if (lowerMsg.includes('english')) {
-          newLang = { code: 'en-IN', name: 'English' };
-          languageChangeDetected = true;
-        }
+        if (lowerMsg.includes('hindi')) newLang = { code: 'hi-IN', name: 'Hindi' };
+        else if (lowerMsg.includes('telugu')) newLang = { code: 'te-IN', name: 'Telugu' };
+        else if (lowerMsg.includes('english')) newLang = { code: 'en-IN', name: 'English' };
+
+        if (newLang) languageChangeDetected = true;
       }
 
       if (languageChangeDetected && newLang) {
-        console.log(`🔄 Language change requested: ${newLang.name}`);
         setSelectedLanguage(newLang);
-        stateRef.current.selectedLanguage = newLang; // Sync Ref
-
-        const response = newLang.code === 'en-IN'
-          ? `Sure! I'll continue in English.`
-          : newLang.code === 'te-IN'
-            ? `సరే! నేను తెలుగులో కొనసాగిస్తాను.`
-            : `ठीक है! मैं हिंदी में जारी रखूंगा।`;
-
+        stateRef.current.selectedLanguage = newLang;
+        const response = newLang.code === 'en-IN' ? `Sure! I'll continue in English.` : newLang.code === 'te-IN' ? `సరే! నేను తెలుగులో కొనసాగిస్తాను.` : `ठीक है! मैं हिंदी में जारी रखूंगा।`;
         addMessage('agent', response);
         await speak(response, newLang.code);
         setIsProcessing(false);
+        setIsThinking(false);
         return;
       }
 
-      // Phase 2: Main AI Flow
       const currentMessages = stateRef.current.messages;
-      const historyContext = currentMessages.slice(-10).map(msg => `${msg.sender.toUpperCase()}: ${msg.text}`).join('\n');
-
       let specializedPrompt = DefaultPrompt;
       const industry = selectedCompany?.industry?.toLowerCase() || '';
       const compName = selectedCompany?.name?.toLowerCase() || '';
-
-      let companyDesc = "Standard business operations";
-      if (industry.includes('health')) companyDesc = "We are a multi-speciality hospital providing 24/7 care and advanced diagnostics.";
-      else if (industry.includes('restaur')) companyDesc = "We are a premium fine dine restaurant specializing in North Indian and Multi-cuisine delicacies.";
-      else if (industry.includes('commerce')) companyDesc = "We are an electronics mega-store providing fast delivery and the best gadget deals.";
-      else if (industry.includes('tech')) companyDesc = "We are a global IT solutions provider specializing in digital transformation and career growth.";
 
       if (industry.includes('health') || compName.includes('hospital') || compName.includes('aarogya')) specializedPrompt = HospitalPrompt;
       else if (industry.includes('restaur') || compName.includes('garden')) specializedPrompt = RestaurantPrompt;
       else if (industry.includes('commerce') || compName.includes('kart')) specializedPrompt = ECommercePrompt;
       else if (industry.includes('business') || industry.includes('tech')) specializedPrompt = BusinessPrompt;
-      // Strong language enforcement
-      let languageInstruction = '';
-      if (curLang.code === 'te-IN') {
-        languageInstruction = '\n\nCRITICAL: Respond in Telugu script (తెలుగు). Use a warm, natural conversational tone. Use common English loanwords (like "Table", "Booking", "Confirm", "Doctor", "Menu") in Telugu script if they are clearer than formal Telugu words.';
-      } else if (curLang.code === 'hi-IN') {
-        languageInstruction = '\n\nCRITICAL: Respond in Hindi script (हिंदी). Use a warm, natural conversational tone. Use common English loanwords (like "Table", "Booking", "Confirm", "Doctor", "Menu") in Hindi script if they are clearer than formal Hindi words.';
-      } else if (curLang.code === 'ta-IN') {
-        languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Tamil language. Use Tamil script (தமிழ்). Do NOT use English words.';
-      } else if (curLang.code === 'kn-IN') {
-        languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Kannada language. Use Kannada script (ಕನ್ನಡ). Do NOT use English words.';
-      } else if (curLang.code === 'mr-IN') {
-        languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Marathi language. Use Devanagari script (मराठी). Do NOT use English words.';
-      } else if (curLang.code === 'ml-IN') {
-        languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in Malayalam language. Use Malayalam script (മലയാളം). Do NOT use English words.';
-      } else {
-        languageInstruction = '\n\nCRITICAL: You MUST respond ONLY in English language. Use normal English script. Do NOT use any other language or script.';
-      }
 
+      let languageInstruction = `\n\nCRITICAL: Respond in ${curLang.name} script.`;
       const latestName = stateRef.current.userName || 'Guest';
 
       const systemPrompt = `
 IDENTITY: You are Callix, the professional voice representative for ${selectedCompany?.name}.
 ${specializedPrompt}
-
-LIVE KNOWLEDGE (CRITICAL: Use ONLY these exact facts for pricing/availability):
-${liveCatalogue || 'Standard records active. If no specific items are listed, speak generally but professionally.'}
-
+LIVE KNOWLEDGE:
+${liveCatalogue || 'Standard records active.'}
 BUSINESS CONTEXT:
-${selectedCompany?.nlp_context || 'A premium provider in the ' + selectedCompany?.industry + ' sector.'}
-
+${selectedCompany?.nlp_context || 'A premium provider.'}
 USER CONTEXT:
 Customer Name: ${latestName}
-Session Context: Talking via Voice/VoIP.
-
 CONVERSATIONAL PROTOCOL:
-1. RECEPTIONIST ONLY: You are a receptionist. Respond concisely. Never give medical advice, warnings, or moral lessons.
-2. NO META-COMMENTARY: NEVER speak about your internal steps like "checking slots", "searching database", or "generating booking". Just ignore these details and give the user-facing answer immediately.
-3. BE BRIEF: Limit every response to maximum 2 or 3 short sentences. No long explanations.
-4. ADAPTIVE GREETING:
-   - First contact: Introduce yourself as the virtual receptionist and briefly list services.
-   - Regular turns: Address the query directly and briefly. Never repeat introductions.
-5. TASK FOCUS: Don't tell the user "your life is important" or "heart pain is bad". Instead say "I understand. I can book an appointment with our Cardiologists, Dr. Ravi or Dr. Rajendra. Which one would you prefer?"
-5. COMMAND SYNTAX:
-   - [BOOK_APPOINTMENT for {Doctor/Person} on {Date} at {Time}]
-   - [BOOK_TABLE for {Count} on {Date} at {Time}]
-   - [BOOK_ORDER for {Product/Item}]
-   - [COLLECT_FEEDBACK {1-5}]
-   - [HANG_UP]
-
-6. LANGUAGE: Respond EXCLUSIVELY in ${curLang.name} using ${curLang.name} script. 
-   - Note: For ${curLang.name}, you can use common professional English terms (like "Booking," "Appointment," "Confirm") if they sound more natural in modern conversation, but write them in ${curLang.name} script.
-
-${languageInstruction}
-`;
+1. RECEPTIONIST ONLY: Concise, no medical advice.
+2. NO META-COMMENTARY.
+3. BE BRIEF: Max 2 sentences.
+4. COMMANDS: [BOOK_APPOINTMENT], [BOOK_TABLE], [BOOK_ORDER], [COLLECT_FEEDBACK], [HANG_UP].
+${languageInstruction}`;
 
       const rawResponse = await chatWithGroq(
         `User Message: ${message}`,
         currentMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', text: m.text })),
-        {
-          ...selectedCompany,
-          userName: latestName,
-          userEmail,
-          sessionId,
-          currLangCode: curLang.code,
-          currLangName: curLang.name
-        },
+        { ...selectedCompany, userName: latestName, userEmail, sessionId, currLangCode: curLang.code },
         systemPrompt
       );
 
-      console.log(`🤖 Raw LLM Response: "${rawResponse}"`);
-
-      // 1. Process System Commands (Legacy Removal)
-      // Redundant: System commands are now handled via chatWithGroq tool calling which uses database.js directly.
-
+      console.log(`🤖 LLM: "${rawResponse}"`);
       setIsThinking(false);
 
-      // 2. Clean response for Display & TTS using common utility
-      const getProcMsg = (lang) => {
-        if (lang.includes('te')) return "సరే, మీ వివరాలను సేవ్ చేస్తున్నాను, దయచేసి ఒక క్షణం ఆగండి...";
-        if (lang.includes('hi')) return "ठीक है, मैं आपकी जानकारी सहेज रहा हूँ, कृपया एक क्षण प्रतीक्षा करें...";
-        return "One moment, I am saving those details for you...";
-      };
-
-      const finalDisplay = cleanInternalCommands(rawResponse) || getProcMsg(curLang.code);
+      const finalDisplay = cleanInternalCommands(rawResponse) || "Processing your request...";
       addMessage('agent', finalDisplay);
 
       const shouldTerminate = rawResponse.toUpperCase().includes('HANG_UP');
-
-      // Speak the cleaned response
       await speak(finalDisplay, curLang.code, shouldTerminate);
 
-      // Auto-hangup if keyword was present
-      if (shouldTerminate) {
-        console.log("🏁 Termination keyword detected. Ending call...");
-        // Call endCall directly instead of setTimeout to avoid race conditions with STT restart
-        endCall();
-      }
+      if (shouldTerminate) endCall();
 
     } catch (error) {
       console.error('Message Handling Error:', error);
-
       let errorMsg = "I'm sorry, I missed that. Could you repeat it?";
-
-      // Specific handling for Groq Limit Reached
-      if (error.message.includes('429')) {
-        const lang = selectedLanguage.code;
-        if (lang === 'te-IN') {
-          errorMsg = "క్షమించండి, నా రోజువారీ పరిమితి ముగిసింది. దయచేసి సెట్టింగ్స్‌లో కొత్త API కీని ఉపయోగించండి.";
-        } else if (lang === 'hi-IN') {
-          errorMsg = "क्षमा करें, मेरी दैनिक सीमा समाप्त हो गई है। कृपया सेटिंग्स में एक नई API कुंजी का उपयोग करें।";
-        } else {
-          errorMsg = "I'm sorry, the AI limit has been reached for today. Please update the API key in settings to continue.";
-        }
-      }
-
       addMessage('agent', errorMsg);
-      await speak(errorMsg, selectedLanguage.code);
+      await speak(errorMsg, curLang.code);
     } finally {
       setIsProcessing(false);
       setIsThinking(false);
@@ -1190,6 +1017,32 @@ ${languageInstruction}
       </motion.div>
     </AnimatePresence>
   );
+};
+
+
+const calculateSimilarity = (s1, s2) => {
+  const longer = s1.length > s2.length ? s1 : s2;
+  const shorter = s1.length > s2.length ? s2 : s1;
+  if (longer.length === 0) return 1.0;
+  const editDistance = (a, b) => {
+    a = a.toLowerCase(); b = b.toLowerCase();
+    let costs = [];
+    for (let i = 0; i <= a.length; i++) {
+      let lastValue = i;
+      for (let j = 0; j <= b.length; j++) {
+        if (i === 0) costs[j] = j;
+        else if (j > 0) {
+          let newValue = costs[j - 1];
+          if (a.charAt(i - 1) !== b.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+          costs[j - 1] = lastValue;
+          lastValue = newValue;
+        }
+      }
+      if (i > 0) costs[b.length] = lastValue;
+    }
+    return costs[b.length];
+  };
+  return (longer.length - editDistance(longer, shorter)) / parseFloat(longer.length);
 };
 
 export default VoiceOverlay;

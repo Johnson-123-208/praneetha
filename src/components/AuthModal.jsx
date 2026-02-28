@@ -107,6 +107,30 @@ const AuthModal = ({ isOpen, onClose, onSuccess, initialMode = 'signin', initial
                             </motion.div>
                         )}
 
+                        {authMode === 'signup' && userRole === 'user' && (
+                            <motion.button
+                                type="button"
+                                onClick={async () => {
+                                    setLoading(true);
+                                    try {
+                                        const quickUser = await database.quickSignUp();
+                                        const user = await database.signIn(quickUser.email, quickUser.password);
+                                        localStorage.setItem('user', JSON.stringify(user));
+                                        onSuccess(user);
+                                        onClose();
+                                    } catch (err) {
+                                        setError('Quick Access failed. Please use standard signup.');
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }}
+                                className="w-full mb-4 py-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 text-indigo-400 font-black text-[9px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 hover:bg-indigo-500/10 transition-all"
+                            >
+                                <Zap size={12} className="fill-indigo-400" />
+                                Express Guest Entry (No Email Confirm)
+                            </motion.button>
+                        )}
+
                         <form onSubmit={handleSubmit} className="space-y-3 text-left">
                             {authMode === 'signup' && (
                                 <>
