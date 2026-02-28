@@ -12,6 +12,12 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
+      },
+      '/supabase': {
+        target: 'https://ywvqvldqlowloxrpldss.supabase.co',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/supabase/, ''),
+        secure: false,
       }
     }
   }
