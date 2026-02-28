@@ -9,7 +9,6 @@ import { HospitalPrompt, RestaurantPrompt, ECommercePrompt, BusinessPrompt, Defa
 
 const VoiceOverlay = ({ isOpen, onClose, selectedCompany, user, addToast }) => {
   const [callState, setCallState] = useState('idle'); // idle, ringing, connected, ended
-  console.log("📟 VoiceOverlay V3 - Fallback Fix Active");
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [transcript, setTranscript] = useState('');

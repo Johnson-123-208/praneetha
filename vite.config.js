@@ -13,15 +13,21 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/supabase': {
+      '/rest': {
         target: 'https://ywvqvldqlowloxrpldss.supabase.co',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/supabase/, ''),
         secure: false,
-        headers: {
-          'Origin': 'https://ywvqvldqlowloxrpldss.supabase.co',
-          'Referer': 'https://ywvqvldqlowloxrpldss.supabase.co'
-        }
+      },
+      '/auth': {
+        target: 'https://ywvqvldqlowloxrpldss.supabase.co',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/groq': {
+        target: 'https://api.groq.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/groq/, '')
       }
     }
   }

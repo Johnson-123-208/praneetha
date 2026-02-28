@@ -8,4 +8,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('⚠️ Supabase URL or Anon Key is missing. Database operations will fail.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+let supabaseInstance = null;
+
+export const supabase = (() => {
+    if (!supabaseInstance) {
+        if (!supabaseUrl || !supabaseAnonKey) {
+            console.warn('⚠️ Supabase URL or Anon Key is missing. Database operations will fail.');
+        }
+        supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+    }
+    return supabaseInstance;
+})();
