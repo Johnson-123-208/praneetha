@@ -531,12 +531,13 @@ BUSINESS CONTEXT:
 ${selectedCompany?.nlp_context || 'A premium provider.'}
 USER CONTEXT:
 Customer Name: ${latestName}
-CONVERSATIONAL PROTOCOL:
-1. RECEPTIONIST ONLY: Concise, no medical advice.
-2. NO META-COMMENTARY.
-3. BE BRIEF: Max 2 sentences.
-4. COMMANDS: [BOOK_APPOINTMENT], [BOOK_TABLE], [BOOK_ORDER], [COLLECT_FEEDBACK], [HANG_UP].
-${languageInstruction}`;
+        CONVERSATIONAL PROTOCOL:
+        1. RECEPTIONIST GRADE: Professional and formal. Use "Sir/Ma'am" or "Garu" as needed. 
+        2. NO INFORMAL QUESTIONS: Avoid small talk or filler questions. 
+        3. ZERO META-COMMENTARY: NEVER mention internal actions like "searching slots" or "checking docs". 
+        4. ULTRA-BRIEF: Max 1-2 short sentences. Zero fluff.
+        5. COMMANDS: [BOOK_APPOINTMENT], [BOOK_TABLE], [BOOK_ORDER], [COLLECT_FEEDBACK], [GET_AVAILABLE_SLOTS], [QUERY_ENTITY_DATABASE], [HANG_UP].
+        ${languageInstruction}`;
 
       const rawResponse = await chatWithGroq(
         `User Message: ${message}`,

@@ -114,8 +114,9 @@ const AdminDashboard = ({ user, onLogout, addToast }) => {
 
     const handleCreateSchema = (e) => {
         e.preventDefault();
+        const coToken = company?.name?.trim().toLowerCase().replace(/\s+/g, '_') || user?.profile?.company_id?.split('-')[0];
         const cleanName = tableSchema.name.trim().toLowerCase().replace(/\s+/g, '_');
-        const uniqueName = `c_${user?.profile?.company_id?.split('-')[0]}_${cleanName}`;
+        const uniqueName = `${coToken}_${cleanName}`;
 
         // Handle duplicate table names: Check if this name already exists for this company
         if (definedSchemas[uniqueName]) {

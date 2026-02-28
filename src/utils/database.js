@@ -228,24 +228,58 @@ export const database = {
 
   getLiveCatalogue: async (companyId, companyName) => {
     try {
-      let vaultTable = '';
       const name = companyName.toLowerCase();
+      const snakeName = name.trim().replace(/\s+/g, '_');
 
+      // 1. DISCOVERY: Find every table name this company has ever used in the Knowledge Studio
+      const { data: registry } = await supabase
+        .from('approval_queue')
+        .select('table_name')
+        .eq('company_id', companyId);
+
+      const registeredTables = (registry || []).map(r => r.table_name).filter(Boolean);
+
+      // 2. PATTERNS: Common fallback naming conventions
+      const dynamicPatterns = [
+        `${snakeName}_vault`,
+        `${snakeName}_catalogue`,
+        `${snakeName}_products`,
+        `${snakeName}_services`
+      ];
+
+      // 3. LEGACY: Hardcoded mappings (for safety)
+      let vaultTable = '';
       if (name.includes('aarogya')) vaultTable = 'aarogya_hospital_vault';
       else if (name.includes('city')) vaultTable = 'city_general_vault';
       else if (name.includes('technova')) vaultTable = 'technova_solutions_vault';
       else if (name.includes('spice')) vaultTable = 'spice_garden_vault';
       else if (name.includes('quickkart')) vaultTable = 'quickkart_electronics_vault';
 
-      if (!vaultTable) return "Operational.";
+      // 4. MERGE: Create a unique prioritized list of tables to scan
+      const tablesToTry = [...new Set([
+        ...registeredTables,
+        ...dynamicPatterns,
+        vaultTable
+      ])].filter(Boolean);
 
-      const { data } = await supabase.from(vaultTable).select('*');
-      if (!data || data.length === 0) return "Catalogue under sync...";
+      let finalData = null;
+      let finalTable = '';
 
-      return data.map(item => {
+      for (const table of tablesToTry) {
+        const { data, error } = await supabase.from(table).select('*').limit(50);
+        if (!error && data && data.length > 0) {
+          finalData = data;
+          finalTable = table;
+          break;
+        }
+      }
+
+      if (!finalData) return `Operational. (No catalogue found in ${tablesToTry[0]} etc.)`;
+
+      return finalData.map(item => {
         const timings = item.timings_json ? ` | Timings: ${JSON.stringify(item.timings_json)}` : '';
         const price = item.price_or_fee || item.price ? ` | Price: ${item.price_or_fee || item.price} INR` : '';
-        return `[${item.category.toUpperCase()}] ${item.label}: ${item.details}${price}${timings}`;
+        return `[${(item.category || 'INFO').toUpperCase()}] ${item.label || item.name || 'Detail'}: ${item.details || item.description || ''}${price}${timings}`;
       }).join('\n');
     } catch (e) {
       console.warn('Vault Access Error:', e);

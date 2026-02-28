@@ -12,9 +12,11 @@ export const cleanInternalCommands = (text) => {
     .replace(/\[(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_RATING|COLLECT_FEEDBACK|GET_AVAILABLE_SLOTS|QUERY_ENTITY_DATABASE|HANG_UP|TRACE_ORDER).*?\]/gim, '')
     // Remove standalone command keywords if they leak outside brackets
     .replace(/\b(BOOK_APPOINTMENT|BOOK_TABLE|BOOK_ORDER|COLLECT_FEEDBACK|GET_AVAILABLE_SLOTS|QUERY_ENTITY_DATABASE|HANG_UP)\b/gi, '')
-    // Remove "Thinking" or "Action" crumbs
-    .replace(/(Searching|Booking|Checking|Wait|One moment|Hold on|I'm checking|Let me see|Querying).*?(slots|database|available|appointment|info|table|order)\b/gi, '')
+    // Remove "Thinking" or "Action" crumbs - much more aggressive here
+    .replace(/(Searching|Booking|Checking|Wait|One moment|Hold on|I'm checking|Let me see|Querying|Action result|Executing|Processing|Fetching).*?(slots|database|available|appointment|info|table|order|result|data)\.{0,3}/gi, '')
+    // Fix common punctuation leftovers
     .replace(/[\[\]]/g, '')
+    .replace(/\.\.+/g, '.')
     .replace(/\s+/g, ' ')
     .trim();
 };
@@ -254,6 +256,12 @@ const detectIntent = (message, context) => {
     const match = message.match(/GET_AVAILABLE_SLOTS (?:for )?(.*)/i);
     const date = match ? match[1].replace(/[\[\]]/g, '').trim() : 'today';
     return { name: 'get_available_slots', args: { entityId, date, industry } };
+  }
+
+  if (msg.includes('QUERY_ENTITY_DATABASE')) {
+    const match = message.match(/QUERY_ENTITY_DATABASE (?:for )?(.*)/i);
+    const query = match ? match[1].replace(/[\[\]]/g, '').trim() : message;
+    return { name: 'query_entity_database', args: { entityId, query } };
   }
 
   if (msg.includes('HANG_UP')) return { name: 'hang_up', args: {} };
