@@ -158,7 +158,12 @@ function App() {
           }));
         setCompanies(formattedCompanies);
       } else {
-        setCompanies([]);
+        // Fallback for demo when database is unreachable
+        setCompanies([
+          { id: 'h1', name: 'Aarogya Multi-Specialty Hospital', industry: 'Healthcare', logo: '🏥', contextSummary: 'AI-Driven 24/7 Patient Concierge and Appointment Management.', nlpContext: 'Manage appointments, check availability.', apiLinked: true },
+          { id: 'r1', name: 'Spice Garden Premium Fine-Dining', industry: 'Food & Beverage', logo: '🍽', contextSummary: 'Automated Reservations, Menu Inquiries, and Home Delivery.', nlpContext: 'Book tables and take food orders.', apiLinked: true },
+          { id: 't1', name: 'TechNova Global IT Solutions', industry: 'Technology', logo: '🏢', contextSummary: 'Level-1 Technical Support and SaaS Deployment Assistance.', nlpContext: 'IT support and lead generation.', apiLinked: true }
+        ]);
       }
     } catch (error) {
       console.error('Error loading companies:', error);

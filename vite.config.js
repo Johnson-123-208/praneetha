@@ -18,6 +18,10 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/supabase/, ''),
         secure: false,
+        headers: {
+          'Origin': 'https://ywvqvldqlowloxrpldss.supabase.co',
+          'Referer': 'https://ywvqvldqlowloxrpldss.supabase.co'
+        }
       }
     }
   }
