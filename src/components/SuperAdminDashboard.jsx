@@ -40,30 +40,30 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
         try {
             setLoading(true);
             const [companiesData, usersData, approvalsData, usageData, bookingsData, pendingAdminsData] = await Promise.all([
-                supabase.from('companies').select('*'),
-                supabase.from('profiles').select('*'),
-                supabase.from('approval_queue').select('*, companies(*), profiles(*)').eq('status', 'pending'),
-                supabase.from('usage_stats').select('tokens_used'),
-                supabase.from('bookings').select('*, companies(*)').order('created_at', { ascending: false }),
-                supabase.from('profiles').select('*, companies(*)').eq('role', 'admin').eq('status', 'pending')
+                supabase.from('companies').select('*').then(res => res.data || []),
+                supabase.from('profiles').select('*').then(res => res.data || []),
+                supabase.from('approval_queue').select('*, companies(*), profiles(*)').eq('status', 'pending').then(res => res.data || []),
+                supabase.from('usage_stats').select('tokens_used').then(res => res.data || []),
+                supabase.from('bookings').select('*, companies(*)').order('created_at', { ascending: false }).then(res => res.data || []),
+                supabase.from('profiles').select('*, companies(*)').eq('role', 'admin').eq('status', 'pending').then(res => res.data || [])
             ]);
 
-            const formattedCompanies = (companiesData.data || []).map(c => ({
+            const formattedCompanies = companiesData.map(c => ({
                 ...c,
-                status: c.status || 'active' // Standardize legacy data to active
+                status: c.status || 'active'
             }));
 
             setCompanies(formattedCompanies);
-            setAllUsers(usersData.data || []);
-            setApprovalRequests(approvalsData.data || []);
-            setAllBookings(bookingsData.data || []);
-            setPendingAdmins(pendingAdminsData.data || []);
+            setAllUsers(usersData);
+            setApprovalRequests(approvalsData);
+            setAllBookings(bookingsData);
+            setPendingAdmins(pendingAdminsData);
 
             setStats({
                 totalCompanies: formattedCompanies.length,
-                totalUsers: usersData.data?.length || 0,
-                totalTokens: usageData.data?.reduce((acc, s) => acc + s.tokens_used, 0) || 0,
-                totalBookings: bookingsData.data?.length || 0
+                totalUsers: usersData.length,
+                totalTokens: usageData.reduce((acc, s) => acc + (s.tokens_used || 0), 0),
+                totalBookings: bookingsData.length
             });
         } catch (err) {
             console.error('Error loading superadmin data:', err);
@@ -106,9 +106,19 @@ const SuperAdminDashboard = ({ user, onLogout, addToast, onHome }) => {
 
     const handleApproveAdmin = async (adminId) => {
         try {
-            const { error } = await supabase.from('profiles').update({ status: 'approved' }).eq('id', adminId);
-            if (error) throw error;
-            addToast('Administrator approved successfully!', 'success');
+            // 1. Find the target admin to get their company_id
+            const targetAdmin = pendingAdmins.find(a => a.id === adminId);
+
+            // 2. Update the profile status
+            const { error: profileError } = await supabase.from('profiles').update({ status: 'approved' }).eq('id', adminId);
+            if (profileError) throw profileError;
+
+            // 3. If they have an associated company, activate it too
+            if (targetAdmin?.company_id) {
+                await supabase.from('companies').update({ status: 'active' }).eq('id', targetAdmin.company_id);
+            }
+
+            addToast('Administrator and Organization approved successfully!', 'success');
             loadSuperAdminData();
         } catch (err) {
             addToast('Approval failed: ' + err.message, 'error');
